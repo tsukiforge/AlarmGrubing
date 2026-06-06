@@ -14,8 +14,17 @@ android {
     applicationId = "com.aistudio.alarmgrup.zpkftq"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    
+    // Inject dynamic Version Code and Version Name from properties or CI/CD env
+    val paramVersionCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
+      ?: System.getenv("VERSION_CODE")?.toIntOrNull()
+      ?: 1
+    val paramVersionName = project.findProperty("versionName")?.toString()
+      ?: System.getenv("VERSION_NAME")
+      ?: "1.0"
+
+    versionCode = paramVersionCode
+    versionName = paramVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

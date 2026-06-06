@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
+permissions:
+  contents: write
+
 jobs:
   # 1. Security Scan & Secret Leak Detection
   security_scan:
@@ -127,9 +130,12 @@ jobs:
           fi
           echo "BUILD_ENV=ci" >> .env
 
-      # Assemble APK
+      # Assemble APK with dynamic versioning injection
       - name: Assemble Debug APK
         run: gradle :app:assembleDebug
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.0.${{ github.run_number }}
 
       # Upload the final APK as Github Release/Artifact
       - name: Upload Built APK Artifact
@@ -137,3 +143,21 @@ jobs:
         with:
           name: alarmgrup-android-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      # Create Tag and Release in GitHub with direct APK Attachment (Only on pushes/merges to main branches)
+      - name: Create GitHub Release and Upload APK
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/main-'))
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="v1.0.${{ github.run_number }}"
+          RELEASE_TITLE="Update Version v1.0.${{ github.run_number }}"
+          
+          echo "Creating Release $RELEASE_TITLE with tag $TAG_NAME..."
+          
+          # Uses the official pre-installed GitHub CLI to generate tag, build release and attach the APK file
+          gh release create "$TAG_NAME" \
+            app/build/outputs/apk/debug/app-debug.apk \
+            --title "$RELEASE_TITLE" \
+            --notes "Automated release of Alarm Grup version 1.0.${{ github.run_number }} (code: ${{ github.run_number }}). Safety and security verification passed successfully on commit ${{ github.sha }}." \
+            --target ${{ github.sha }}
