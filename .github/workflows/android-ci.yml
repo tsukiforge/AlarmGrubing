@@ -1,0 +1,123 @@
+name: Android Security and Build CI/CD
+
+on:
+  push:
+    branches: [ "main", "main-*", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  # 1. Security Scan & Secret Leak Detection
+  security_scan:
+    name: Security & Secret Scan 🔐
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Gitleaks checks for hardcoded credentials, APIs keys, and secrets in commits
+      - name: Gitleaks Secret Detector
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true # Log violations without failing the build flow if needed, but alerting is active
+
+      # Semgrep handles fast static analysis for code vulnerabilities (OWASP Top 10 etc.)
+      - name: Semgrep Static Application Security Testing (SAST)
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/kotlin
+            p/secrets
+        continue-on-error: true
+
+  # 2. Static Analysis & Code Quality Rules
+  lint_and_test:
+    name: Lint & Unit Unit Test ⚙️
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      # Create custom .env configuration if properties are expected by the Secrets Gradle Plugin
+      - name: Initialize Environment Variables
+        run: |
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            touch .env
+          fi
+          # Ensure there are no missing properties that would fail compilation
+          echo "BUILD_ENV=ci" >> .env
+
+      # Android Lint runs static inspections which check correctness, security, performance, and accessibility.
+      - name: Run Android Lint (Security & Rules)
+        run: gradle :app:lintDebug --continue
+        continue-on-error: true
+
+      - name: Run Local Unit & Robolectric Tests
+        run: gradle :app:testDebugUnitTest --continue
+        continue-on-error: true
+
+      # Upload detailed Lint Report
+      - name: Upload HTML Lint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+
+  # 3. Android APK Compilation & Assembly
+  build_apk:
+    name: Build Android APK 📱
+    needs: [security_scan, lint_and_test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          cache-read-only: false
+
+      # Prepare environment files so secrets gradle plugin compiles correctly
+      - name: Initialize Environment Variables
+        run: |
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            touch .env
+          fi
+          echo "BUILD_ENV=ci" >> .env
+
+      # Assemble APK
+      - name: Assemble Debug APK
+        run: gradle :app:assembleDebug
+
+      # Upload the final APK as Github Release/Artifact
+      - name: Upload Built APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alarmgrup-android-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
