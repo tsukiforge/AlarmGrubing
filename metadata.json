@@ -1,0 +1,6 @@
+{
+  "name": "Alarm Grup",
+  "description": "Aplikasi alarm grup real-time dan alarm pribadi dengan sinkronisasi cloud.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

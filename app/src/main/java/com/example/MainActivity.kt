@@ -1,0 +1,1239 @@
+package com.example
+
+import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.alarm.AlarmRingingService
+import com.example.data.model.Alarm
+import com.example.ui.AlarmViewModel
+import com.example.ui.SyncStatus
+import com.example.ui.theme.BackgroundDark
+import com.example.ui.theme.CyanAccent
+import com.example.ui.theme.IndigoLight
+import com.example.ui.theme.IndigoPrimary
+import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.PinkAccent
+import com.example.ui.theme.SurfaceDark
+import com.example.ui.theme.SurfaceDarkElevated
+import com.example.ui.theme.TextMuted
+import java.util.*
+
+class MainActivity : ComponentActivity() {
+
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    private var isRingingState = mutableStateOf(false)
+    private var ringingAlarmIdState = mutableStateOf<String?>(null)
+    private var ringingAlarmTitleState = mutableStateOf<String?>(null)
+    private var ringingAlarmIsGroupState = mutableStateOf(false)
+    private var ringingAlarmGroupCodeState = mutableStateOf<String?>(null)
+
+    private val ringingReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent != null) {
+                val ringing = intent.getBooleanExtra("IS_RINGING", false)
+                isRingingState.value = ringing
+                if (ringing) {
+                    ringingAlarmIdState.value = intent.getStringExtra("ALARM_ID")
+                    ringingAlarmTitleState.value = intent.getStringExtra("ALARM_TITLE")
+                    ringingAlarmIsGroupState.value = intent.getBooleanExtra("ALARM_IS_GROUP", false)
+                    ringingAlarmGroupCodeState.value = intent.getStringExtra("ALARM_GROUP_CODE")
+                } else {
+                    ringingAlarmIdState.value = null
+                    ringingAlarmTitleState.value = null
+                    ringingAlarmIsGroupState.value = false
+                    ringingAlarmGroupCodeState.value = null
+                }
+            }
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+
+        isRingingState.value = AlarmRingingService.isRinging
+        ringingAlarmIdState.value = AlarmRingingService.activeAlarmId
+        ringingAlarmTitleState.value = AlarmRingingService.activeAlarmTitle
+        ringingAlarmIsGroupState.value = AlarmRingingService.activeAlarmIsGroup
+        ringingAlarmGroupCodeState.value = AlarmRingingService.activeAlarmGroupCode
+
+        val filter = IntentFilter("ALARM_RINGING_UPDATE")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            registerReceiver(ringingReceiver, filter, RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(ringingReceiver, filter)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        setContent {
+            MyApplicationTheme {
+                val viewModel: AlarmViewModel = viewModel()
+                val isRinging by isRingingState
+                val rAlarmTitle by ringingAlarmTitleState
+                val rAlarmIsGroup by ringingAlarmIsGroupState
+                val rAlarmGroupCode by ringingAlarmGroupCodeState
+
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    containerColor = BackgroundDark
+                ) { innerPadding ->
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                    ) {
+                        MainScreenContent(viewModel = viewModel)
+
+                        AnimatedVisibility(
+                            visible = isRinging,
+                            enter = fadeIn(animationSpec = tween(500)) + expandVertically(),
+                            exit = fadeOut(animationSpec = tween(500)) + shrinkVertically()
+                        ) {
+                            RingingOverlay(
+                                title = rAlarmTitle ?: "Alarm",
+                                isGroup = rAlarmIsGroup,
+                                groupCode = rAlarmGroupCode,
+                                onDismiss = {
+                                    val stopIntent = Intent(this@MainActivity, AlarmRingingService::class.java).apply {
+                                        action = "STOP"
+                                    }
+                                    this@MainActivity.startService(stopIntent)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        try {
+            unregisterReceiver(ringingReceiver)
+        } catch (e: Exception) {}
+        super.onDestroy()
+    }
+}
+
+@Composable
+fun MainScreenContent(viewModel: AlarmViewModel) {
+    var activeTab by remember { mutableStateOf(0) } // 0: Pribadi, 1: Grup
+    val personalAlarms by viewModel.personalAlarms.collectAsState()
+    val groupAlarms by viewModel.groupAlarms.collectAsState()
+    val joinedGroupCode by viewModel.joinedGroupCode.collectAsState()
+    val joinedGroupName by viewModel.joinedGroupName.collectAsState()
+    val syncState by viewModel.syncState.collectAsState()
+    val userName by viewModel.userName.collectAsState()
+    val isCreator by viewModel.isCreator.collectAsState()
+
+    var showAddDialog by remember { mutableStateOf(false) }
+    var showUserNameDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Alarm Sync ⏰",
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "Grup real-time cloud-sync",
+                    color = TextMuted,
+                    fontSize = 13.sp
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(SurfaceDarkElevated)
+                    .clickable { showUserNameDialog = true }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(IndigoPrimary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = userName.take(1).uppercase(),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = userName,
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    maxLines = 1
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceDark)
+                .padding(4.dp)
+        ) {
+            TabButton(
+                title = "⏰ Personal",
+                isActive = activeTab == 0,
+                onClick = { activeTab = 0 },
+                modifier = Modifier.weight(1f)
+            )
+            TabButton(
+                title = "👥 Grup Alarm",
+                isActive = activeTab == 1,
+                onClick = { activeTab = 1 },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            if (activeTab == 0) {
+                if (personalAlarms.isEmpty()) {
+                    EmptyStatePlaceholder(
+                        title = "Belum ada alarm pribadi",
+                        subtitle = "Buat alarm untuk pengingat aktifitas diri kamu.",
+                        icon = Icons.Default.Notifications
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(bottom = 80.dp)
+                    ) {
+                        items(personalAlarms, key = { it.id }) { alarm ->
+                            AlarmCard(
+                                alarm = alarm,
+                                onToggle = { viewModel.toggleAlarm(alarm) },
+                                onDelete = { viewModel.deleteAlarm(alarm) }
+                            )
+                        }
+                    }
+                }
+            } else {
+                if (joinedGroupCode == null) {
+                    GroupOnboardingScreen(
+                        viewModel = viewModel,
+                        syncState = syncState
+                    )
+                } else {
+                    GroupDashboardScreen(
+                        viewModel = viewModel,
+                        code = joinedGroupCode!!,
+                        groupName = joinedGroupName,
+                        alarms = groupAlarms,
+                        syncState = syncState,
+                        isCreator = isCreator,
+                        onAddAlarmClick = { showAddDialog = true }
+                    )
+                }
+            }
+
+            if (activeTab == 0 || joinedGroupCode != null) {
+                FloatingActionButton(
+                    onClick = { showAddDialog = true },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(bottom = 16.dp, end = 8.dp),
+                    containerColor = PinkAccent,
+                    contentColor = Color.White
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Tambahkan Alarm",
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        }
+    }
+
+    if (showUserNameDialog) {
+        UserNameInputDialog(
+            currentName = userName,
+            onDismiss = { showUserNameDialog = false },
+            onSave = {
+                viewModel.updateUserName(it)
+                showUserNameDialog = false
+            }
+        )
+    }
+
+    if (showAddDialog) {
+        AddAlarmDialog(
+            isGroup = activeTab == 1,
+            onDismiss = { showAddDialog = false },
+            onSave = { title, hour, minute, days, tone ->
+                if (activeTab == 0) {
+                    viewModel.addPersonalAlarm(title, hour, minute, days, tone)
+                } else {
+                    viewModel.addGroupAlarm(title, hour, minute, days, tone)
+                }
+                showAddDialog = false
+            }
+        )
+    }
+}
+
+@Composable
+fun TabButton(
+    title: String,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isActive) IndigoPrimary else Color.Transparent,
+        animationSpec = tween(300)
+    )
+    val contentColor by animateColorAsState(
+        targetValue = if (isActive) Color.White else TextMuted,
+        animationSpec = tween(300)
+    )
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(backgroundColor)
+            .clickable { onClick() }
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = title,
+            color = contentColor,
+            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+            fontSize = 14.sp
+        )
+    }
+}
+
+@Composable
+fun AlarmCard(
+    alarm: Alarm,
+    onToggle: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = alarm.title.ifEmpty { "Tanpa Judul" },
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    maxLines = 1
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val formattedHour = String.format(Locale.getDefault(), "%02d", alarm.hour)
+                val formattedMinute = String.format(Locale.getDefault(), "%02d", alarm.minute)
+                Text(
+                    text = "$formattedHour:$formattedMinute",
+                    color = if (alarm.isEnabled) CyanAccent else TextMuted,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                val daysLabel = getDaysLabel(alarm.daysOfWeek)
+                val soundLabel = when (alarm.ringtoneUri) {
+                    "custom_1" -> "🎐 Melody Chime"
+                    "custom_2" -> "📟 Retro Beep"
+                    "custom_3" -> "🌌 Echo Syzer"
+                    else -> "🎵 Default System"
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$daysLabel • $soundLabel",
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                }
+
+                if (alarm.isGroup && alarm.creatorName != null) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Dibuat oleh: ${alarm.creatorName}",
+                        color = IndigoLight,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Switch(
+                    checked = alarm.isEnabled,
+                    onCheckedChange = { onToggle() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = IndigoPrimary,
+                        uncheckedThumbColor = TextMuted,
+                        uncheckedTrackColor = SurfaceDarkElevated
+                    )
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(onClick = { showDeleteConfirm = true }) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Hapus",
+                        tint = PinkAccent.copy(alpha = 0.8f)
+                    )
+                }
+            }
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Hapus Alarm?", color = Color.White) },
+            text = { Text("Apakah kamu yakin ingin menghapus alarm ini?", color = TextMuted) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete()
+                    showDeleteConfirm = false
+                }) {
+                    Text("Ya, Hapus", color = PinkAccent)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Batal", color = Color.White)
+                }
+            },
+            containerColor = SurfaceDark
+        )
+    }
+}
+
+@Composable
+fun GroupOnboardingScreen(
+    viewModel: AlarmViewModel,
+    syncState: SyncStatus
+) {
+    var groupCodeInput by remember { mutableStateOf("") }
+    var groupNameInput by remember { mutableStateOf("") }
+    var isJoining by remember { mutableStateOf(true) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(72.dp)
+                .clip(CircleShape)
+                .background(IndigoPrimary.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = "Group logo",
+                tint = IndigoPrimary,
+                modifier = Modifier.size(36.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = if (isJoining) "Gabung Grup Alarm" else "Buat Grup Alarm Baru",
+            color = Color.White,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = if (isJoining) "Masukkan 4 digit kode dari temanmu untuk menyinkronkan alarm kelompok." else "Buat kode kamar grup kamu sendiri agar teman-teman bisa bergabung.",
+            color = TextMuted,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (isJoining) {
+                    OutlinedTextField(
+                        value = groupCodeInput,
+                        onValueChange = {
+                            if (it.length <= 4) groupCodeInput = it.filter { c -> c.isDigit() }
+                        },
+                        label = { Text("Kode Grup (4 digit)") },
+                        placeholder = { Text("Contoh: 9736") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CyanAccent,
+                            unfocusedBorderColor = SurfaceDarkElevated,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = groupNameInput,
+                        onValueChange = { groupNameInput = it },
+                        label = { Text("Nama Kegiatan") },
+                        placeholder = { Text("Contoh: Acara Temen / UKM Band") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = IndigoPrimary,
+                            unfocusedBorderColor = SurfaceDarkElevated,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                errorMessage?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = it, color = PinkAccent, fontSize = 12.sp)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = {
+                        errorMessage = null
+                        if (isJoining) {
+                            if (groupCodeInput.length != 4) {
+                                errorMessage = "Kode harus 4 digit angka!"
+                                return@Button
+                            }
+                            viewModel.joinGroup(groupCodeInput) { success, error ->
+                                if (!success) {
+                                    errorMessage = error ?: "Gagal bergabung. Periksa kode grup."
+                                }
+                            }
+                        } else {
+                            if (groupNameInput.isBlank()) {
+                                errorMessage = "Nama kelompok tidak boleh kosong!"
+                                return@Button
+                            }
+                            viewModel.createGroup(groupNameInput) { success, error ->
+                                if (!success) {
+                                    errorMessage = error ?: "Gagal membuat grup baru."
+                                }
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isJoining) CyanAccent else IndigoPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        text = if (isJoining) "Gabung Sekarang 👥" else "Buat Kode Baru 🔐",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        TextButton(onClick = {
+            isJoining = !isJoining
+            errorMessage = null
+        }) {
+            Text(
+                text = if (isJoining) "Klik di sini untuk membuat kode grup baru" else "Batal buat baru, gabung kode grup teman",
+                color = IndigoLight,
+                fontSize = 13.sp
+            )
+        }
+
+        if (syncState is SyncStatus.Syncing) {
+            Spacer(modifier = Modifier.height(12.dp))
+            CircularProgressIndicator(color = IndigoPrimary)
+        }
+    }
+}
+
+@Composable
+fun GroupDashboardScreen(
+    viewModel: AlarmViewModel,
+    code: String,
+    groupName: String,
+    alarms: List<Alarm>,
+    syncState: SyncStatus,
+    isCreator: Boolean,
+    onAddAlarmClick: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = groupName,
+                            color = Color.White,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 18.sp
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (syncState is SyncStatus.Synced || syncState is SyncStatus.Success) Color.Green
+                                        else if (syncState is SyncStatus.Syncing) Color.Yellow
+                                        else Color.Red
+                                    )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = when (syncState) {
+                                    is SyncStatus.Syncing -> "Sinkronisasi..."
+                                    is SyncStatus.Synced -> "Tersinkron real-time"
+                                    is SyncStatus.Success -> "Tersinkron real-time"
+                                    else -> "Koneksi terputus"
+                                },
+                                color = TextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = { viewModel.leaveGroup() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Keluar Grup",
+                            tint = PinkAccent
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = SurfaceDark)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(text = "KODE SINKRONISASI", color = TextMuted, fontSize = 10.sp)
+                        Text(
+                            text = code,
+                            color = CyanAccent,
+                            fontSize = 42.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 4.sp
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(IndigoPrimary.copy(alpha = 0.2f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (isCreator) "Pemilik" else "Anggota",
+                            color = IndigoLight,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Beritahu kode di atas ke teman kamu agar bisa menyamakan jadual weker ini.",
+                    color = TextMuted,
+                    fontSize = 11.sp
+                )
+            }
+        }
+
+        Text(
+            text = "📬 Alarm Kelompok (${alarms.size})",
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        if (alarms.isEmpty()) {
+            EmptyStatePlaceholder(
+                title = "Grup masih kosong",
+                subtitle = "Klik tombol + di pojok bawah untuk menjadualkan alarm kelompok.",
+                icon = Icons.Default.Person
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
+                items(alarms, key = { it.id }) { alarm ->
+                    AlarmCard(
+                        alarm = alarm,
+                        onToggle = { viewModel.toggleAlarm(alarm) },
+                        onDelete = { viewModel.deleteAlarm(alarm) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EmptyStatePlaceholder(
+    title: String,
+    subtitle: String,
+    icon: ImageVector
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(SurfaceDark),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = IndigoLight,
+                modifier = Modifier.size(32.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = title,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 15.sp
+        )
+        Text(
+            text = subtitle,
+            color = TextMuted,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 24.dp)
+        )
+    }
+}
+
+@Composable
+fun UserNameInputDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var textInput by remember { mutableStateOf(currentName) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Ubah Nama Kamu 👤",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Agar teman yang lain mengenali siapa pembuat alarm.",
+                    color = TextMuted,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = textInput,
+                    onValueChange = { textInput = it },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = CyanAccent,
+                        unfocusedBorderColor = SurfaceDarkElevated,
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Batal", color = Color.White)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onSave(textInput) },
+                        colors = ButtonDefaults.buttonColors(containerColor = CyanAccent)
+                    ) {
+                        Text("Simpan", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AddAlarmDialog(
+    isGroup: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (title: String, hour: Int, minute: Int, daysOfWeek: String, ringtone: String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var hour by remember { mutableIntStateOf(7) }
+    var minute by remember { mutableIntStateOf(0) }
+    var selectedTone by remember { mutableStateOf("default") }
+
+    val selectedDays = remember { mutableStateListOf<Int>() }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            LazyColumn(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                item {
+                    Text(
+                        text = if (isGroup) "Buat Alarm Kelompok 👥" else "Buat Alarm Pribadi ⏰",
+                        color = Color.White,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Judul Pengingat") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = CyanAccent,
+                            unfocusedBorderColor = SurfaceDarkElevated,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(text = "Pilih Jam", color = TextMuted, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(onClick = { hour = (hour + 1) % 24 }) {
+                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = CyanAccent)
+                            }
+                            Text(
+                                text = String.format(Locale.getDefault(), "%02d", hour),
+                                color = Color.White,
+                                fontSize = 38.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = { hour = if (hour - 1 < 0) 23 else hour - 1 }) {
+                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = CyanAccent)
+                            }
+                        }
+
+                        Text(
+                            text = ":",
+                            color = Color.White,
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            IconButton(onClick = { minute = (minute + 5) % 60 }) {
+                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = CyanAccent)
+                            }
+                            Text(
+                                text = String.format(Locale.getDefault(), "%02d", minute),
+                                color = Color.White,
+                                fontSize = 38.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            IconButton(onClick = { minute = if (minute - 5 < 0) 55 else minute - 5 }) {
+                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = CyanAccent)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(text = "Hari Pengulangan", color = TextMuted, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        val days = listOf("M", "S", "S", "R", "K", "J", "S")
+                        val dayIds = listOf(7, 1, 2, 3, 4, 5, 6)
+
+                        for (i in days.indices) {
+                            val dayId = dayIds[i]
+                            val isSelected = selectedDays.contains(dayId)
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) IndigoPrimary else SurfaceDarkElevated)
+                                    .clickable {
+                                        if (isSelected) selectedDays.remove(dayId) else selectedDays.add(
+                                            dayId
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = days[i],
+                                    color = if (isSelected) Color.White else TextMuted,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(text = "Suara Bell & Weker", color = TextMuted, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+
+                val tones = listOf(
+                    "default" to "🎵 default bawaan hp",
+                    "custom_1" to "🎐 Melody Chime (Aplikasi)",
+                    "custom_2" to "📟 Retro Beep (Aplikasi)",
+                    "custom_3" to "🌌 Echo Syzer (Aplikasi)"
+                )
+                items(tones) { p ->
+                    val isChecked = selectedTone == p.first
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isChecked) SurfaceDarkElevated else Color.Transparent)
+                            .clickable { selectedTone = p.first }
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = isChecked,
+                            onClick = { selectedTone = p.first },
+                            colors = RadioButtonDefaults.colors(selectedColor = CyanAccent)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = p.second, color = Color.White, fontSize = 13.sp)
+                    }
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = onDismiss) {
+                            Text("Batal", color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                val DaysCsv = selectedDays.sorted().joinToString(",")
+                                onSave(title, hour, minute, DaysCsv, selectedTone)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = PinkAccent)
+                        ) {
+                            Text(
+                                "Simpan Alarm",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RingingOverlay(
+    title: String,
+    isGroup: Boolean,
+    groupCode: String?,
+    onDismiss: () -> Unit
+) {
+    val infiniteTransition = rememberInfiniteTransition()
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.9f,
+        targetValue = 1.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0F0B1E),
+                        Color(0xFF2C0A1E),
+                        Color(0xFF07050A)
+                    )
+                )
+            )
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isGroup) IndigoPrimary else Color.Gray)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = if (isGroup) "⏰ ALARM GRUP ($groupCode)" else "⏰ ALARM PRIBADI",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 11.sp,
+                    letterSpacing = 2.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = title.ifEmpty { "Waktu Pengingat!" },
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Box(
+            modifier = Modifier
+                .size(200.dp)
+                .align(Alignment.CenterHorizontally),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .scale(pulseScale)
+                    .clip(CircleShape)
+                    .background(PinkAccent.copy(alpha = 0.15f))
+            )
+            Box(
+                modifier = Modifier
+                    .size(140.dp)
+                    .clip(CircleShape)
+                    .background(PinkAccent.copy(alpha = 0.3f))
+            )
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .clip(CircleShape)
+                    .background(PinkAccent),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(54.dp))
+
+        Button(
+            onClick = onDismiss,
+            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier
+                .width(200.dp)
+                .height(48.dp)
+        ) {
+            Text(
+                text = "MATIKAN",
+                color = Color.Black,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+                fontSize = 14.sp
+            )
+        }
+    }
+}
+
+fun getDaysLabel(days: String): String {
+    if (days.isBlank()) return "Sekali saja"
+    val list = days.split(",").mapNotNull { it.toIntOrNull() }
+    if (list.size == 7) return "Setiap hari"
+    if (list.isEmpty()) return "Sekali saja"
+    val shortDays = listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
+    return list.map { shortDays[it - 1] }.joinToString(", ")
+}
