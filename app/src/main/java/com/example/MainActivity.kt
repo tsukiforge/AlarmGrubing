@@ -26,8 +26,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalContext
+import com.example.data.api.GithubUpdateChecker
+import com.example.ui.theme.AppThemeState
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
@@ -117,6 +123,12 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
+            val context = LocalContext.current
+            val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", MODE_PRIVATE) }
+            LaunchedEffect(Unit) {
+                AppThemeState.themeMode = prefs.getString("theme_mode", "system") ?: "system"
+            }
+
             MyApplicationTheme {
                 val viewModel: AlarmViewModel = viewModel()
                 val isRinging by isRingingState
@@ -133,7 +145,14 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        MainScreenContent(viewModel = viewModel)
+                        MainScreenContent(
+                            viewModel = viewModel,
+                            onRequestNotificationPermission = {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }
+                        )
 
                         AnimatedVisibility(
                             visible = isRinging,
@@ -167,7 +186,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainScreenContent(viewModel: AlarmViewModel) {
+fun MainScreenContent(
+    viewModel: AlarmViewModel,
+    onRequestNotificationPermission: () -> Unit
+) {
     var activeTab by remember { mutableStateOf(0) } // 0: Pribadi, 1: Grup
     val personalAlarms by viewModel.personalAlarms.collectAsState()
     val groupAlarms by viewModel.groupAlarms.collectAsState()
@@ -328,13 +350,14 @@ fun MainScreenContent(viewModel: AlarmViewModel) {
     }
 
     if (showUserNameDialog) {
-        UserNameInputDialog(
+        UserProfileAndSettingsDialog(
             currentName = userName,
             onDismiss = { showUserNameDialog = false },
-            onSave = {
+            onSaveName = {
                 viewModel.updateUserName(it)
                 showUserNameDialog = false
-            }
+            },
+            onRequestNotificationPermission = onRequestNotificationPermission
         )
     }
 
@@ -889,44 +912,76 @@ fun EmptyStatePlaceholder(
 }
 
 @Composable
-fun UserNameInputDialog(
+fun UserProfileAndSettingsDialog(
     currentName: String,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+    onSaveName: (String) -> Unit,
+    onRequestNotificationPermission: () -> Unit
 ) {
     var textInput by remember { mutableStateOf(currentName) }
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
+    
+    // Theme options
+    var selectedThemeMode by remember { mutableStateOf(AppThemeState.themeMode) }
+    
+    // Notification permission state
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    // Update check states
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var updateInfoState by remember { mutableStateOf<GithubUpdateChecker.UpdateInfo?>(null) }
+    var checkUpdateError by remember { mutableStateOf<String?>(null) }
+
+    val scope = rememberCoroutineScope()
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
             colors = CardDefaults.cardColors(containerColor = SurfaceDark),
             border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceDarkElevated),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier
+                    .padding(18.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.Start
             ) {
                 Text(
-                    text = "Ubah Nama Kamu 👤",
+                    text = "⚙️ Pengaturan & Profil",
                     color = TextLight,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Agar teman yang lain mengenali siapa pembuat alarm.",
-                    color = TextMuted,
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Profile Section
+                Text(
+                    text = "Profil Pengguna",
+                    color = IndigoPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
                 OutlinedTextField(
                     value = textInput,
                     onValueChange = { textInput = it },
                     singleLine = true,
+                    label = { Text("Nama Anda") },
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = IndigoPrimary,
                         unfocusedBorderColor = SurfaceDarkElevated,
@@ -940,6 +995,172 @@ fun UserNameInputDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Theme Mode Section
+                Text(
+                    text = "Mode Tampilan (Theme)",
+                    color = IndigoPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙")
+                    modes.forEach { (mode, label) ->
+                        val isSelected = selectedThemeMode == mode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) IndigoPrimary else SurfaceDarkElevated)
+                                .clickable {
+                                    selectedThemeMode = mode
+                                    AppThemeState.themeMode = mode
+                                    prefs.edit().putString("theme_mode", mode).apply()
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) Color.White else TextLight,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Permission warning
+                if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onRequestNotificationPermission()
+                            }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⚠️ Izin Notifikasi Belum Aktif\nKlik untuk mengaktifkan sekarang.",
+                                color = Color(0xFFC62828),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowRight,
+                                contentDescription = "Active",
+                                tint = Color(0xFFC62828)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Update APK Section
+                Text(
+                    text = "Pembaruan Aplikasi",
+                    color = IndigoPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                Button(
+                    onClick = {
+                        isCheckingUpdate = true
+                        checkUpdateError = null
+                        updateInfoState = null
+                        scope.launch {
+                            val info = GithubUpdateChecker.checkForUpdates()
+                            isCheckingUpdate = false
+                            if (info != null) {
+                                updateInfoState = info
+                            } else {
+                                checkUpdateError = "Gagal memeriksa pembaruan. Silakan periksa koneksi."
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceDarkElevated),
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(vertical = 6.dp)
+                ) {
+                    if (isCheckingUpdate) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), color = IndigoPrimary, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Memeriksa...", color = TextLight, fontSize = 12.sp)
+                    } else {
+                        Text("Periksa Update dari GitHub Release 🔄", color = TextLight, fontSize = 12.sp)
+                    }
+                }
+
+                checkUpdateError?.let {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(text = it, color = Color(0xFFC62828), fontSize = 11.sp)
+                }
+
+                updateInfoState?.let { info ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (info.hasUpdate) Color(0xFFFFE082) else Color(0xFFE8F5E9)
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            if (info.hasUpdate) {
+                                Text(
+                                    text = "Update Tersedia: ${info.latestVersion} 🔥",
+                                    color = Color(0xFFE65100),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                if (info.releaseNotes.isNotEmpty()) {
+                                    Text(
+                                        text = info.releaseNotes.take(120) + if (info.releaseNotes.length > 120) "..." else "",
+                                        color = Color(0xFFE65100),
+                                        fontSize = 11.sp,
+                                        lineHeight = 14.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                }
+                                Button(
+                                    onClick = { GithubUpdateChecker.openUpdateUrl(context, info.downloadUrl) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE65100)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(4.dp),
+                                    contentPadding = PaddingValues(vertical = 2.dp)
+                                ) {
+                                    Text("Unduh APK Baru 📥", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else {
+                                Text(
+                                    text = "Aplikasi Sudah Terupdate! (Versi: ${com.example.BuildConfig.VERSION_NAME}) ✅",
+                                    color = Color(0xFF2E7D32),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Actions Section
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -949,8 +1170,11 @@ fun UserNameInputDialog(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
-                        onClick = { onSave(textInput) },
-                        colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
+                        onClick = {
+                            onSaveName(textInput)
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
                         Text("Simpan", color = Color.White, fontWeight = FontWeight.Bold)
                     }

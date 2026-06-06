@@ -38,6 +38,9 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     private val _isCreator = MutableStateFlow(false)
     val isCreator: StateFlow<Boolean> = _isCreator.asStateFlow()
 
+    private val _isOfflineGroup = MutableStateFlow(false)
+    val isOfflineGroup: StateFlow<Boolean> = _isOfflineGroup.asStateFlow()
+
     // Sync State
     private val _syncState = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val syncState: StateFlow<SyncStatus> = _syncState.asStateFlow()
@@ -75,6 +78,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         _joinedGroupCode.value = grpCode
         _joinedGroupName.value = sharedPrefs.getString("joined_group_name", "") ?: ""
         _isCreator.value = sharedPrefs.getBoolean("is_creator", false)
+        _isOfflineGroup.value = sharedPrefs.getBoolean("is_offline_group", false)
 
         if (grpCode != null) {
             startPolling(grpCode)
@@ -118,8 +122,8 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 AlarmScheduler.cancel(context, updated)
             }
 
-            // Sync with Cloud if it's a group alarm
-            if (alarm.isGroup && alarm.groupCode != null) {
+            // Sync with Cloud if it's an online group alarm
+            if (alarm.isGroup && alarm.groupCode != null && !_isOfflineGroup.value) {
                 _syncState.value = SyncStatus.Syncing
                 val success = pushGroupAlarmsCloud(alarm.groupCode)
                 if (success) {
@@ -136,8 +140,8 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
             AlarmScheduler.cancel(context, alarm)
             repository.deleteAlarm(alarm)
 
-            // Sync with Cloud if group alarm
-            if (alarm.isGroup && alarm.groupCode != null) {
+            // Sync with Cloud if group alarm and online
+            if (alarm.isGroup && alarm.groupCode != null && !_isOfflineGroup.value) {
                 _syncState.value = SyncStatus.Syncing
                 val success = pushGroupAlarmsCloud(alarm.groupCode)
                 if (success) {
@@ -180,18 +184,34 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                     .putString("joined_group_code", code)
                     .putString("joined_group_name", groupName)
                     .putBoolean("is_creator", true)
+                    .putBoolean("is_offline_group", false)
                     .apply()
 
                 _joinedGroupCode.value = code
                 _joinedGroupName.value = groupName
                 _isCreator.value = true
+                _isOfflineGroup.value = false
                 _syncState.value = SyncStatus.Success("Grup dibuat: $code")
 
                 startPolling(code)
                 onResult(true, code)
             } else {
-                _syncState.value = SyncStatus.Error("Gagal membuat grup di cloud")
-                onResult(false, "Kesalahan jaringan")
+                // Connection failed - create off-line group!
+                val offlineName = "$groupName (Offline)"
+                sharedPrefs.edit()
+                    .putString("joined_group_code", code)
+                    .putString("joined_group_name", offlineName)
+                    .putBoolean("is_creator", true)
+                    .putBoolean("is_offline_group", true)
+                    .apply()
+
+                _joinedGroupCode.value = code
+                _joinedGroupName.value = offlineName
+                _isCreator.value = true
+                _isOfflineGroup.value = true
+                _syncState.value = SyncStatus.Success("Dibuat offline karena kendala jaringan (Kode: $code)")
+
+                onResult(true, code)
             }
         }
     }
@@ -210,11 +230,13 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                     .putString("joined_group_code", code)
                     .putString("joined_group_name", cloudGroup.name)
                     .putBoolean("is_creator", false)
+                    .putBoolean("is_offline_group", false)
                     .apply()
 
                 _joinedGroupCode.value = code
                 _joinedGroupName.value = cloudGroup.name
                 _isCreator.value = false
+                _isOfflineGroup.value = false
 
                 // Overwrite local copy with cloud alarms & schedule
                 repository.syncGroupAlarmsLocal(code, context)
@@ -223,8 +245,22 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 startPolling(code)
                 onResult(true, null)
             } else {
-                _syncState.value = SyncStatus.Error("Grup tidak ditemukan")
-                onResult(false, "Grup tidak ditemukan")
+                // Fallback to offline join mode so they are not blocked!
+                val offlineName = "Grup Offline $code"
+                sharedPrefs.edit()
+                    .putString("joined_group_code", code)
+                    .putString("joined_group_name", offlineName)
+                    .putBoolean("is_creator", false)
+                    .putBoolean("is_offline_group", true)
+                    .apply()
+
+                _joinedGroupCode.value = code
+                _joinedGroupName.value = offlineName
+                _isCreator.value = false
+                _isOfflineGroup.value = true
+
+                _syncState.value = SyncStatus.Success("Bergabung offline (Grup: $code)")
+                onResult(true, null)
             }
         }
     }
@@ -247,11 +283,13 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 .remove("joined_group_code")
                 .remove("joined_group_name")
                 .remove("is_creator")
+                .remove("is_offline_group")
                 .apply()
 
             _joinedGroupCode.value = null
             _joinedGroupName.value = ""
             _isCreator.value = false
+            _isOfflineGroup.value = false
             _syncState.value = SyncStatus.Idle
         }
     }
@@ -275,13 +313,17 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
             repository.insertAlarm(alarm)
             AlarmScheduler.schedule(context, alarm)
 
-            // Push to Cloud
-            _syncState.value = SyncStatus.Syncing
-            val success = pushGroupAlarmsCloud(code)
-            if (success) {
-                _syncState.value = SyncStatus.Success("Alarm grup berhasil dibagikan")
+            // Push to Cloud only if online
+            if (!_isOfflineGroup.value) {
+                _syncState.value = SyncStatus.Syncing
+                val success = pushGroupAlarmsCloud(code)
+                if (success) {
+                    _syncState.value = SyncStatus.Success("Alarm grup berhasil dibagikan")
+                } else {
+                    _syncState.value = SyncStatus.Error("Gagal mengunggah alarm ke cloud")
+                }
             } else {
-                _syncState.value = SyncStatus.Error("Gagal mengunggah alarm ke cloud")
+                _syncState.value = SyncStatus.Success("Alarm grup offline ditambahkan")
             }
         }
     }
@@ -294,6 +336,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     // --- Polling Realtime Background ---
 
     private fun startPolling(code: String) {
+        if (_isOfflineGroup.value) return
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
             while (true) {
