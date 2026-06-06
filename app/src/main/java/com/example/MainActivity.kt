@@ -53,6 +53,7 @@ import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.PinkAccent
 import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceDarkElevated
+import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
 import java.util.*
 
@@ -194,7 +195,7 @@ fun MainScreenContent(viewModel: AlarmViewModel) {
             Column {
                 Text(
                     text = "Alarm Sync ⏰",
-                    color = Color.White,
+                    color = TextLight,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -208,7 +209,7 @@ fun MainScreenContent(viewModel: AlarmViewModel) {
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(SurfaceDarkElevated)
+                    .background(Color(0xFFEADDFF))
                     .clickable { showUserNameDialog = true }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -230,7 +231,8 @@ fun MainScreenContent(viewModel: AlarmViewModel) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = userName,
-                    color = Color.White,
+                    color = Color(0xFF21005D),
+                    fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
                     maxLines = 1
                 )
@@ -312,7 +314,8 @@ fun MainScreenContent(viewModel: AlarmViewModel) {
                         .align(Alignment.BottomEnd)
                         .padding(bottom = 16.dp, end = 8.dp),
                     containerColor = PinkAccent,
-                    contentColor = Color.White
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,
@@ -359,11 +362,11 @@ fun TabButton(
     modifier: Modifier = Modifier
 ) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (isActive) IndigoPrimary else Color.Transparent,
+        targetValue = if (isActive) Color.White else Color.Transparent,
         animationSpec = tween(300)
     )
     val contentColor by animateColorAsState(
-        targetValue = if (isActive) Color.White else TextMuted,
+        targetValue = if (isActive) TextLight else TextMuted,
         animationSpec = tween(300)
     )
 
@@ -392,22 +395,32 @@ fun AlarmCard(
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
+    val isGroup = alarm.isGroup
+    val cardBgColor = if (isGroup) Color(0xFFEADDFF) else Color.White
+    val borderCol = if (isGroup) Color(0xFF21005D).copy(alpha = 0.08f) else Color(0xFFCAC4D0).copy(alpha = 0.5f)
+    val contentColor = if (isGroup) Color(0xFF21005D) else TextLight
+    val timeColor = if (isGroup) Color(0xFF21005D) else (if (alarm.isEnabled) IndigoPrimary else TextMuted)
+    val subtitleColor = if (isGroup) Color(0xFF21005D).copy(alpha = 0.7f) else TextMuted
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-        shape = RoundedCornerShape(16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp)),
+        colors = CardDefaults.cardColors(containerColor = cardBgColor),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderCol),
+        elevation = CardDefaults.cardElevation(defaultElevation = if (isGroup) 0.dp else 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = alarm.title.ifEmpty { "Tanpa Judul" },
-                    color = Color.White,
+                    color = contentColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp,
                     maxLines = 1
@@ -417,11 +430,11 @@ fun AlarmCard(
                 val formattedMinute = String.format(Locale.getDefault(), "%02d", alarm.minute)
                 Text(
                     text = "$formattedHour:$formattedMinute",
-                    color = if (alarm.isEnabled) CyanAccent else TextMuted,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    color = timeColor,
+                    fontSize = 36.sp,
+                    fontWeight = if (isGroup) FontWeight.Light else FontWeight.ExtraBold
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 val daysLabel = getDaysLabel(alarm.daysOfWeek)
                 val soundLabel = when (alarm.ringtoneUri) {
                     "custom_1" -> "🎐 Melody Chime"
@@ -430,19 +443,43 @@ fun AlarmCard(
                     else -> "🎵 Default System"
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "$daysLabel • $soundLabel",
-                        color = TextMuted,
-                        fontSize = 11.sp
-                    )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (isGroup) Color(0xFF21005D).copy(alpha = 0.08f) else Color(0xFFF4EFF4))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = daysLabel,
+                            color = subtitleColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(if (isGroup) Color(0xFF21005D).copy(alpha = 0.08f) else Color(0xFFF4EFF4))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = soundLabel,
+                            color = subtitleColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
 
-                if (alarm.isGroup && alarm.creatorName != null) {
-                    Spacer(modifier = Modifier.height(2.dp))
+                if (isGroup && alarm.creatorName != null) {
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Dibuat oleh: ${alarm.creatorName}",
-                        color = IndigoLight,
+                        color = Color(0xFF21005D).copy(alpha = 0.8f),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -456,8 +493,9 @@ fun AlarmCard(
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
                         checkedTrackColor = IndigoPrimary,
-                        uncheckedThumbColor = TextMuted,
-                        uncheckedTrackColor = SurfaceDarkElevated
+                        uncheckedThumbColor = Color(0xFF938F99),
+                        uncheckedTrackColor = Color(0xFFE7E0EC),
+                        uncheckedBorderColor = Color.Transparent
                     )
                 )
 
@@ -467,7 +505,7 @@ fun AlarmCard(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Hapus",
-                        tint = PinkAccent.copy(alpha = 0.8f)
+                        tint = if (isGroup) Color(0xFF21005D).copy(alpha = 0.6f) else PinkAccent.copy(alpha = 0.8f)
                     )
                 }
             }
@@ -477,19 +515,19 @@ fun AlarmCard(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Hapus Alarm?", color = Color.White) },
+            title = { Text("Hapus Alarm?", color = TextLight) },
             text = { Text("Apakah kamu yakin ingin menghapus alarm ini?", color = TextMuted) },
             confirmButton = {
                 TextButton(onClick = {
                     onDelete()
                     showDeleteConfirm = false
                 }) {
-                    Text("Ya, Hapus", color = PinkAccent)
+                    Text("Ya, Hapus", color = PinkAccent, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Batal", color = Color.White)
+                    Text("Batal", color = TextMuted)
                 }
             },
             containerColor = SurfaceDark
@@ -533,7 +571,7 @@ fun GroupOnboardingScreen(
 
         Text(
             text = if (isJoining) "Gabung Grup Alarm" else "Buat Grup Alarm Baru",
-            color = Color.White,
+            color = TextLight,
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold
         )
@@ -550,6 +588,7 @@ fun GroupOnboardingScreen(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceDarkElevated),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(
@@ -566,10 +605,12 @@ fun GroupOnboardingScreen(
                         placeholder = { Text("Contoh: 9736") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyanAccent,
+                            focusedBorderColor = IndigoPrimary,
                             unfocusedBorderColor = SurfaceDarkElevated,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight,
+                            focusedLabelColor = IndigoPrimary,
+                            unfocusedLabelColor = TextMuted
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -583,8 +624,10 @@ fun GroupOnboardingScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = IndigoPrimary,
                             unfocusedBorderColor = SurfaceDarkElevated,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight,
+                            focusedLabelColor = IndigoPrimary,
+                            unfocusedLabelColor = TextMuted
                         ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
@@ -593,7 +636,7 @@ fun GroupOnboardingScreen(
 
                 errorMessage?.let {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = it, color = PinkAccent, fontSize = 12.sp)
+                    Text(text = it, color = Color(0xFFBA1A1A), fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -624,14 +667,14 @@ fun GroupOnboardingScreen(
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isJoining) CyanAccent else IndigoPrimary
+                        containerColor = IndigoPrimary
                     ),
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
                         text = if (isJoining) "Gabung Sekarang 👥" else "Buat Kode Baru 🔐",
-                        color = Color.Black,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -673,7 +716,7 @@ fun GroupDashboardScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF3EDF7)),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -685,7 +728,7 @@ fun GroupDashboardScreen(
                     Column {
                         Text(
                             text = groupName,
-                            color = Color.White,
+                            color = TextLight,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 18.sp
                         )
@@ -720,13 +763,13 @@ fun GroupDashboardScreen(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Keluar Grup",
-                            tint = PinkAccent
+                            tint = Color(0xFFBA1A1A)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = SurfaceDark)
+                HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
@@ -748,7 +791,7 @@ fun GroupDashboardScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(IndigoPrimary.copy(alpha = 0.2f))
+                            .background(IndigoPrimary.copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
                         Text(
@@ -771,7 +814,7 @@ fun GroupDashboardScreen(
 
         Text(
             text = "📬 Alarm Kelompok (${alarms.size})",
-            color = Color.White,
+            color = TextLight,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 8.dp)
@@ -818,7 +861,7 @@ fun EmptyStatePlaceholder(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(SurfaceDark),
+                .background(SurfaceDarkElevated),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -831,7 +874,7 @@ fun EmptyStatePlaceholder(
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = title,
-            color = Color.White,
+            color = TextLight,
             fontWeight = FontWeight.Bold,
             fontSize = 15.sp
         )
@@ -857,6 +900,7 @@ fun UserNameInputDialog(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceDarkElevated),
             shape = RoundedCornerShape(16.dp)
         ) {
             Column(
@@ -865,7 +909,7 @@ fun UserNameInputDialog(
             ) {
                 Text(
                     text = "Ubah Nama Kamu 👤",
-                    color = Color.White,
+                    color = TextLight,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -884,10 +928,12 @@ fun UserNameInputDialog(
                     onValueChange = { textInput = it },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = CyanAccent,
+                        focusedBorderColor = IndigoPrimary,
                         unfocusedBorderColor = SurfaceDarkElevated,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White
+                        focusedTextColor = TextLight,
+                        unfocusedTextColor = TextLight,
+                        focusedLabelColor = IndigoPrimary,
+                        unfocusedLabelColor = TextMuted
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -899,14 +945,14 @@ fun UserNameInputDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Batal", color = Color.White)
+                        Text("Batal", color = TextMuted)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = { onSave(textInput) },
-                        colors = ButtonDefaults.buttonColors(containerColor = CyanAccent)
+                        colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
                     ) {
-                        Text("Simpan", color = Color.Black, fontWeight = FontWeight.Bold)
+                        Text("Simpan", color = Color.White, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -931,6 +977,7 @@ fun AddAlarmDialog(
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceDarkElevated),
             shape = RoundedCornerShape(16.dp)
         ) {
             LazyColumn(
@@ -940,7 +987,7 @@ fun AddAlarmDialog(
                 item {
                     Text(
                         text = if (isGroup) "Buat Alarm Kelompok 👥" else "Buat Alarm Pribadi ⏰",
-                        color = Color.White,
+                        color = TextLight,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -952,10 +999,12 @@ fun AddAlarmDialog(
                         label = { Text("Judul Pengingat") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = CyanAccent,
+                            focusedBorderColor = IndigoPrimary,
                             unfocusedBorderColor = SurfaceDarkElevated,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight,
+                            focusedLabelColor = IndigoPrimary,
+                            unfocusedLabelColor = TextMuted
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -974,22 +1023,22 @@ fun AddAlarmDialog(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             IconButton(onClick = { hour = (hour + 1) % 24 }) {
-                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = CyanAccent)
+                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = IndigoPrimary)
                             }
                             Text(
                                 text = String.format(Locale.getDefault(), "%02d", hour),
-                                color = Color.White,
+                                color = TextLight,
                                 fontSize = 38.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             IconButton(onClick = { hour = if (hour - 1 < 0) 23 else hour - 1 }) {
-                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = CyanAccent)
+                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = IndigoPrimary)
                             }
                         }
 
                         Text(
                             text = ":",
-                            color = Color.White,
+                            color = TextLight,
                             fontSize = 38.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 16.dp)
@@ -997,16 +1046,16 @@ fun AddAlarmDialog(
 
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             IconButton(onClick = { minute = (minute + 5) % 60 }) {
-                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = CyanAccent)
+                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = IndigoPrimary)
                             }
                             Text(
                                 text = String.format(Locale.getDefault(), "%02d", minute),
-                                color = Color.White,
+                                color = TextLight,
                                 fontSize = 38.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             IconButton(onClick = { minute = if (minute - 5 < 0) 55 else minute - 5 }) {
-                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = CyanAccent)
+                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = IndigoPrimary)
                             }
                         }
                     }
@@ -1074,10 +1123,10 @@ fun AddAlarmDialog(
                         RadioButton(
                             selected = isChecked,
                             onClick = { selectedTone = p.first },
-                            colors = RadioButtonDefaults.colors(selectedColor = CyanAccent)
+                            colors = RadioButtonDefaults.colors(selectedColor = IndigoPrimary)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = p.second, color = Color.White, fontSize = 13.sp)
+                        Text(text = p.second, color = TextLight, fontSize = 13.sp)
                     }
                 }
 
@@ -1089,7 +1138,7 @@ fun AddAlarmDialog(
                         horizontalArrangement = Arrangement.End
                     ) {
                         TextButton(onClick = onDismiss) {
-                            Text("Batal", color = Color.White)
+                            Text("Batal", color = TextMuted)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
@@ -1097,7 +1146,7 @@ fun AddAlarmDialog(
                                 val DaysCsv = selectedDays.sorted().joinToString(",")
                                 onSave(title, hour, minute, DaysCsv, selectedTone)
                             },
-                            colors = ButtonDefaults.buttonColors(containerColor = PinkAccent)
+                            colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
                         ) {
                             Text(
                                 "Simpan Alarm",
