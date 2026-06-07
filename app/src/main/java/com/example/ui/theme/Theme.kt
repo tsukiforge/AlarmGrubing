@@ -15,41 +15,41 @@ object AppThemeState {
 }
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6750A4),
+    primary = Color(0xFFFF729F), // Gorgeous vibrant Sakura Pink
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFEADDFF),
-    onPrimaryContainer = Color(0xFF21005D),
-    secondary = Color(0xFF625B71),
+    primaryContainer = Color(0xFFFFD1DC), // Soft cute pastel pink
+    onPrimaryContainer = Color(0xFF5C001C),
+    secondary = Color(0xFF8E24AA), // Elegant Lavender violet
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE8DEF8),
-    onSecondaryContainer = Color(0xFF1D192B),
-    background = Color(0xFFFEF7FF),
-    onBackground = Color(0xFF1D1B20),
+    secondaryContainer = Color(0xFFF3E5F5), // Light warm lilac
+    onSecondaryContainer = Color(0xFF4A0072),
+    background = Color(0xFFFFF7F9), // Fluffy cream-pink canvas
+    onBackground = Color(0xFF3C121E),
     surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1D1B20),
-    surfaceVariant = Color(0xFFE7E0EC),
-    onSurfaceVariant = Color(0xFF49454F),
-    outline = Color(0xFF79747E),
-    outlineVariant = Color(0xFFCAC4D0)
+    onSurface = Color(0xFF3C121E),
+    surfaceVariant = Color(0xFFFFF0F3), // Velvet light pink details
+    onSurfaceVariant = Color(0xFF8C4C5E),
+    outline = Color(0xFFFFB3C6),
+    outlineVariant = Color(0xFFFFD1DC)
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFD0BCFF),
-    onPrimary = Color(0xFF381E72),
-    primaryContainer = Color(0xFF4F378B),
-    onPrimaryContainer = Color(0xFFEADDFF),
-    secondary = Color(0xFFCCC2DC),
-    onSecondary = Color(0xFF332D41),
-    secondaryContainer = Color(0xFF4A4458),
-    onSecondaryContainer = Color(0xFFE8DEF8),
-    background = Color(0xFF141218),
-    onBackground = Color(0xFFE6E1E5),
-    surface = Color(0xFF1D1B20),
-    onSurface = Color(0xFFE6E1E5),
-    surfaceVariant = Color(0xFF49454F),
-    onSurfaceVariant = Color(0xFFCAC4D0),
-    outline = Color(0xFF938F99),
-    outlineVariant = Color(0xFF49454F)
+    primary = Color(0xFFFF729F), // Glowing magic pink
+    onPrimary = Color(0xFF5C001C),
+    primaryContainer = Color(0xFF8F123C), // Sunset berry deep wine
+    onPrimaryContainer = Color(0xFFFFD1DC),
+    secondary = Color(0xFFB39DDB), // Lunar light violet
+    onSecondary = Color(0xFF311B92),
+    secondaryContainer = Color(0xFF5E35B1), // Cyber purple
+    onSecondaryContainer = Color(0xFFEDE7F6),
+    background = Color(0xFF14101A), // Celestial deep violet background
+    onBackground = Color(0xFFFFF0F5),
+    surface = Color(0xFF221A2A), // Cozy lavender/violet card
+    onSurface = Color(0xFFFFF0F5),
+    surfaceVariant = Color(0xFF2E243A), // Midnight lavender highlights
+    onSurfaceVariant = Color(0xFFFFC0D9),
+    outline = Color(0xFF7C4DFF),
+    outlineVariant = Color(0xFF21005D)
 )
 
 @Composable

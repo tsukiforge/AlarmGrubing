@@ -29,6 +29,10 @@ import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalContext
@@ -161,21 +165,33 @@ class MainActivity : ComponentActivity() {
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    containerColor = BackgroundDark
+                    containerColor = Color.Transparent
                 ) { innerPadding ->
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(innerPadding)
+                            .background(BackgroundDark)
                     ) {
-                        MainScreenContent(
-                            viewModel = viewModel,
-                            onRequestNotificationPermission = {
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                }
-                            }
+                        Image(
+                            painter = painterResource(id = R.drawable.img_anime_background_1780840432597),
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop,
+                            alpha = if (isSystemInDarkTheme()) 0.22f else 0.42f
                         )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                        ) {
+                            MainScreenContent(
+                                viewModel = viewModel,
+                                onRequestNotificationPermission = {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                }
+                            )
 
                         AnimatedVisibility(
                             visible = isRinging,
@@ -199,6 +215,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 
     override fun onDestroy() {
         try {
@@ -244,13 +261,13 @@ fun MainScreenContent(
         ) {
             Column {
                 Text(
-                    text = "Alarm Sync ⏰",
+                    text = "Alarm Sync 🌸",
                     color = TextLight,
                     fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Grup real-time cloud-sync",
+                    text = "Sekai Chibi Sync Scheduler 💫",
                     color = TextMuted,
                     fontSize = 13.sp
                 )
@@ -259,7 +276,7 @@ fun MainScreenContent(
             Row(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFFEADDFF))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
                     .clickable { showUserNameDialog = true }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -281,11 +298,111 @@ fun MainScreenContent(
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = userName,
-                    color = Color(0xFF21005D),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
                     maxLines = 1
                 )
+            }
+        }
+
+        // --- 🌸 KAWAII ANIME COMPANION WIDGET 🌸 ---
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+            ),
+            shape = RoundedCornerShape(20.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    val timeString = remember {
+                        val sdf = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
+                        sdf.format(java.util.Date())
+                    }
+                    var currentTime by remember { mutableStateOf(timeString) }
+                    LaunchedEffect(Unit) {
+                        while (true) {
+                            val sdf = java.text.SimpleDateFormat("HH:mm", Locale.getDefault())
+                            currentTime = sdf.format(java.util.Date())
+                            kotlinx.coroutines.delay(10000L)
+                        }
+                    }
+                    Text(
+                        text = currentTime,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 32.sp
+                    )
+                    Text(
+                        text = "Waktu Perangkat Kamu ✨",
+                        fontSize = 10.sp,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Anime Chibi Emoticon reactive companion with custom generated mascot image
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.img_anime_mascot_1780840450056),
+                        contentDescription = "Sekai Chibi Mascot",
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                            .padding(2.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        val kaomoji = when {
+                            !isConnected -> "(｡•́︿•̀｡)睡" // crying/disconnected sleeping
+                            activeTab == 0 -> "(｡- ω -)💤" // cozy sleeping
+                            else -> "( ๑>ᴗ<๑ )✨" // excited synchronized!
+                        }
+                        val characterStatus = when {
+                            !isConnected -> "Offline... θ"
+                            activeTab == 0 -> "Hehe.. Nyaa~"
+                            else -> "Aktif Sinkron!"
+                        }
+                        Text(
+                            text = kaomoji,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = characterStatus,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -322,8 +439,8 @@ fun MainScreenContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 12.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceDark)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
                 .padding(4.dp)
         ) {
             TabButton(
@@ -443,11 +560,11 @@ fun TabButton(
     modifier: Modifier = Modifier
 ) {
     val backgroundColor by animateColorAsState(
-        targetValue = if (isActive) Color.White else Color.Transparent,
+        targetValue = if (isActive) MaterialTheme.colorScheme.primary else Color.Transparent,
         animationSpec = tween(300)
     )
     val contentColor by animateColorAsState(
-        targetValue = if (isActive) TextLight else TextMuted,
+        targetValue = if (isActive) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
         animationSpec = tween(300)
     )
 
@@ -477,11 +594,11 @@ fun AlarmCard(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val isGroup = alarm.isGroup
-    val cardBgColor = if (isGroup) Color(0xFFEADDFF) else Color.White
-    val borderCol = if (isGroup) Color(0xFF21005D).copy(alpha = 0.08f) else Color(0xFFCAC4D0).copy(alpha = 0.5f)
-    val contentColor = if (isGroup) Color(0xFF21005D) else TextLight
-    val timeColor = if (isGroup) Color(0xFF21005D) else (if (alarm.isEnabled) IndigoPrimary else TextMuted)
-    val subtitleColor = if (isGroup) Color(0xFF21005D).copy(alpha = 0.7f) else TextMuted
+    val cardBgColor = if (isGroup) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)
+    val borderCol = if (isGroup) MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    val contentColor = if (isGroup) MaterialTheme.colorScheme.onSecondaryContainer else TextLight
+    val timeColor = if (isGroup) MaterialTheme.colorScheme.onSecondaryContainer else (if (alarm.isEnabled) IndigoPrimary else TextMuted)
+    val subtitleColor = if (isGroup) MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f) else TextMuted
 
     Card(
         modifier = Modifier
@@ -489,7 +606,7 @@ fun AlarmCard(
             .clip(RoundedCornerShape(24.dp)),
         colors = CardDefaults.cardColors(containerColor = cardBgColor),
         border = androidx.compose.foundation.BorderStroke(1.dp, borderCol),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (isGroup) 0.dp else 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
@@ -998,27 +1115,31 @@ fun EmptyStatePlaceholder(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
+        Image(
+            painter = painterResource(id = R.drawable.img_anime_mascot_1780840450056),
+            contentDescription = "Mascot",
             modifier = Modifier
-                .size(64.dp)
-                .clip(CircleShape)
-                .background(SurfaceDarkElevated),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = IndigoLight,
-                modifier = Modifier.size(32.dp)
-            )
-        }
+                .size(110.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
+                .padding(2.dp),
+            contentScale = ContentScale.Crop
+        )
         Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "(｡· v ·｡)💤",
+            fontSize = 32.sp,
+            color = IndigoPrimary.copy(alpha = 0.85f),
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
         Text(
             text = title,
             color = TextLight,
             fontWeight = FontWeight.Bold,
-            fontSize = 15.sp
+            fontSize = 15.sp,
+            textAlign = TextAlign.Center
         )
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = subtitle,
             color = TextMuted,
@@ -1203,9 +1324,16 @@ fun UserProfileAndSettingsDialog(
                             val info = GithubUpdateChecker.checkForUpdates()
                             isCheckingUpdate = false
                             if (info != null) {
-                                updateInfoState = info
+                                if (info.errorMessage != null) {
+                                    checkUpdateError = info.errorMessage
+                                } else {
+                                    updateInfoState = info
+                                    if (!info.hasUpdate) {
+                                        checkUpdateError = "Aplikasi Anda sudah versi terbaru (${com.example.BuildConfig.VERSION_NAME}). Tidak ada rilis pembaruan baru dari developer."
+                                    }
+                                }
                             } else {
-                                checkUpdateError = "Gagal memeriksa pembaruan. Silakan periksa koneksi."
+                                checkUpdateError = "Gagal memproses hasil verifikasi pembaruan."
                             }
                         }
                     },
@@ -1526,9 +1654,9 @@ fun RingingOverlay(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0F0B1E),
-                        Color(0xFF2C0A1E),
-                        Color(0xFF07050A)
+                        Color(0xFF2E1533),
+                        Color(0xFF1E0A24),
+                        Color(0xFF0C0412)
                     )
                 )
             )
@@ -1540,11 +1668,11 @@ fun RingingOverlay(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isGroup) IndigoPrimary else Color.Gray)
+                    .background(if (isGroup) IndigoPrimary else Color(0xFFFF529D))
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = if (isGroup) "⏰ ALARM GRUP ($groupCode)" else "⏰ ALARM PRIBADI",
+                    text = if (isGroup) "🌸 ALARM GRUP SINKRON ($groupCode)" else "🌸 PENGINGAT MANDIRI",
                     color = Color.White,
                     fontWeight = FontWeight.Black,
                     fontSize = 11.sp,
@@ -1552,6 +1680,14 @@ fun RingingOverlay(
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = "ヾ(≧▽≦*)o BANGUNNYAA~! ✨",
+                color = IndigoLight,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
             Text(
                 text = title.ifEmpty { "Waktu Pengingat!" },
                 color = Color.White,
@@ -1575,13 +1711,13 @@ fun RingingOverlay(
                     .fillMaxSize()
                     .scale(pulseScale)
                     .clip(CircleShape)
-                    .background(PinkAccent.copy(alpha = 0.15f))
+                    .background(PinkAccent.copy(alpha = 0.2f))
             )
             Box(
                 modifier = Modifier
                     .size(140.dp)
                     .clip(CircleShape)
-                    .background(PinkAccent.copy(alpha = 0.3f))
+                    .background(PinkAccent.copy(alpha = 0.4f))
             )
             Box(
                 modifier = Modifier
@@ -1590,11 +1726,11 @@ fun RingingOverlay(
                     .background(PinkAccent),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.Notifications,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
+                Text(
+                    text = "٩(ˊᗜˋ*)و",
+                    fontSize = 28.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -1606,15 +1742,15 @@ fun RingingOverlay(
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
             shape = RoundedCornerShape(24.dp),
             modifier = Modifier
-                .width(200.dp)
+                .width(220.dp)
                 .height(48.dp)
         ) {
             Text(
-                text = "MATIKAN",
-                color = Color.Black,
+                text = "MATIKAN SEKARANG 🌸",
+                color = Color(0xFF311B92),
                 fontWeight = FontWeight.Black,
-                letterSpacing = 2.sp,
-                fontSize = 14.sp
+                letterSpacing = 1.sp,
+                fontSize = 12.sp
             )
         }
     }

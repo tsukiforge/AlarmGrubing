@@ -15,10 +15,11 @@ object GithubUpdateChecker {
     private val client = OkHttpClient()
 
     data class UpdateInfo(
-        val hasUpdate: Boolean,
-        val latestVersion: String,
-        val releaseNotes: String,
-        val downloadUrl: String
+        val hasUpdate: Boolean = false,
+        val latestVersion: String = "",
+        val releaseNotes: String = "",
+        val downloadUrl: String = "",
+        val errorMessage: String? = null
     )
 
     suspend fun checkForUpdates(): UpdateInfo? {
@@ -30,9 +31,15 @@ object GithubUpdateChecker {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@withContext null
+                    if (!response.isSuccessful) {
+                        return@withContext if (response.code == 404) {
+                            UpdateInfo(errorMessage = "Belum ada rilis versi di GitHub untuk repositori ini (HTTP 404) / no releases yet.")
+                        } else {
+                            UpdateInfo(errorMessage = "Gagal memuat update dari GitHub (HTTP ${response.code}).")
+                        }
+                    }
 
-                    val body = response.body?.string() ?: return@withContext null
+                    val body = response.body?.string() ?: return@withContext UpdateInfo(errorMessage = "Respon GitHub kosong.")
                     val json = JSONObject(body)
                     val tagName = json.optString("tag_name", "")
                     val htmlUrl = json.optString("html_url", "https://github.com/faizinu61/AlarmGrubing/releases")
@@ -53,7 +60,7 @@ object GithubUpdateChecker {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                null
+                UpdateInfo(errorMessage = "Koneksi ke API GitHub gagal atau dibatasi. Silakan periksa jaringan internet Anda.")
             }
         }
     }

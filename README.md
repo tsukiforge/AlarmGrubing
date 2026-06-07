@@ -39,7 +39,7 @@ Proyek ini terwujud berkat dedikasi kolaboratif pengembang berbakat berikut:
 
 | Foto / Ilustrasi | Kontributor | Peran & Kontribusi Utama | Kontak |
 | :---: | :--- | :--- | :--- |
-| 🧑‍💻 | **M. Faizin (Faiz)** | **Lead Architect & Lead Core Developer**<br>• Pencetus ide utama sistem alarm sinkronisasi kelompok.<br>• Merancang tata letak visual antarmuka Material 3, skema database Room lokal, dan integrasi penanganan runtime alarm.<br>• Mengembangkan logika hibrida failover offline untuk kamar grup. | [faizinu61@gmail.com](mailto:faizinu61@gmail.com) |
+| 🧑‍💻 | **M. Maichi** | **Lead Architect & Lead Core Developer**<br>• Pencetus ide utama sistem alarm sinkronisasi kelompok.<br>• Merancang tata letak visual antarmuka Material 3, skema database Room lokal, dan integrasi penanganan runtime alarm.<br>• Mengembangkan logika hibrida failover offline untuk kamar grup. | [faizinu61@gmail.com](mailto:faizinu61@gmail.com) |
 | 🤖 | **Google AI Studio Coding Agent (Antigravity)** | **AI Co-Developer & Integrator**<br>• Membantu otomatisasi perancangan struktur API sinkronisasi REST.<br>• Mengoptimalkan penanganan izin penuh layar (`Full-Screen Intent`) Android.<br>• Memastikan kepatuhan kode dan kelancaran proses kompilasi Gradle secara berkala. | [Google AI Studio Build](https://ai.studio/build) |
 
 ---

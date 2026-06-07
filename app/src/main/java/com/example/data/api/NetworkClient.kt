@@ -6,8 +6,8 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    private const val BASE_URL = "https://api.restful-api.dev/collections/"
-    const val BUCKET_ID = "alarmgrup_v3"
+    private const val BASE_URL = "https://kvdb.io/"
+    const val BUCKET_ID = "alarmgrup_v4_maichi_76da"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

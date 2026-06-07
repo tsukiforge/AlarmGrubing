@@ -8,6 +8,7 @@ import com.example.alarm.AlarmScheduler
 import com.example.data.db.AppDatabase
 import com.example.data.model.Alarm
 import com.example.data.repository.AlarmRepository
+import com.example.data.helper.NetworkConnectionHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -333,33 +334,45 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         val currentName = _joinedGroupName.value.replace(" (Offline)", "").replace(" Offline", "")
         viewModelScope.launch {
             _syncState.value = SyncStatus.Syncing
-            val existing = repository.fetchGroupFromCloud(code)
-            val success = if (existing == null) {
-                repository.createGroupOnCloud(code, currentName)
-            } else {
-                true
-            }
-
-            if (success) {
-                val pushSucc = pushGroupAlarmsCloud(code)
-                if (pushSucc) {
-                    sharedPrefs.edit()
-                        .putBoolean("is_offline_group", false)
-                        .putString("joined_group_name", currentName)
-                        .apply()
-
-                    _isOfflineGroup.value = false
-                    _joinedGroupName.value = currentName
-                    _syncState.value = SyncStatus.Success("Berhasil menghubungkan grup ke Cloud!")
-                    startPolling(code)
-                    onResult(true, null)
-                } else {
-                    _syncState.value = SyncStatus.Error("Gagal mengunggah data alarm kelompok")
-                    onResult(false, "Gagal mengunggah data alarm")
+            try {
+                if (!NetworkConnectionHelper.isConnected(context)) {
+                    _syncState.value = SyncStatus.Error("Hubungan internet terputus")
+                    onResult(false, "Tidak ada koneksi internet. Silakan aktifkan WiFi atau Data Seluler Anda.")
+                    return@launch
                 }
-            } else {
-                _syncState.value = SyncStatus.Error("Saluran cloud tidak merespon")
-                onResult(false, "Tidak dapat menghubungkan kamar grup ke Cloud")
+
+                val existing = repository.fetchGroupFromCloud(code)
+                val success = if (existing == null) {
+                    repository.createGroupOnCloud(code, currentName)
+                } else {
+                    true
+                }
+
+                if (success) {
+                    val pushSucc = pushGroupAlarmsCloud(code)
+                    if (pushSucc) {
+                        sharedPrefs.edit()
+                            .putBoolean("is_offline_group", false)
+                            .putString("joined_group_name", currentName)
+                            .apply()
+
+                        _isOfflineGroup.value = false
+                        _joinedGroupName.value = currentName
+                        _syncState.value = SyncStatus.Success("Berhasil menghubungkan grup ke Cloud!")
+                        startPolling(code)
+                        onResult(true, null)
+                    } else {
+                        _syncState.value = SyncStatus.Error("Gagal mengunggah data alarm kelompok")
+                        onResult(false, "Gagal mengunggah data alarm ke cloud. Silakan coba lagi.")
+                    }
+                } else {
+                    _syncState.value = SyncStatus.Error("Server cloud tidak merespons")
+                    onResult(false, "Tidak dapat menghubungkan kamar grup ke Cloud. Kemungkinan koneksi diblokir oleh ISP Anda (kvdb.io sering difilter). Silakan coba hubungkan ulang menggunakan VPN.")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _syncState.value = SyncStatus.Error("Kesalahan jaringan: ${e.localizedMessage}")
+                onResult(false, "Kesalahan koneksi: ${e.localizedMessage}. Silakan periksa jaringan internet Anda atau aktifkan VPN.")
             }
         }
     }
