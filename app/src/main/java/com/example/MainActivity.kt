@@ -48,6 +48,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.alarm.AlarmRingingService
+import android.app.KeyguardManager
+import android.view.WindowManager
+import com.example.data.helper.NetworkConnectionHelper
 import com.example.data.model.Alarm
 import com.example.ui.AlarmViewModel
 import com.example.ui.SyncStatus
@@ -98,6 +101,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Configure system flags to show on lock screen / wake up layout
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+            try {
+                val keyguardManager = getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+                keyguardManager.requestDismissKeyguard(this, null)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(
+                WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                        or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                        or WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+                        or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+            )
+        }
 
         isRingingState.value = AlarmRingingService.isRinging
         ringingAlarmIdState.value = AlarmRingingService.activeAlarmId
@@ -198,6 +221,11 @@ fun MainScreenContent(
     val syncState by viewModel.syncState.collectAsState()
     val userName by viewModel.userName.collectAsState()
     val isCreator by viewModel.isCreator.collectAsState()
+    val isOfflineGroup by viewModel.isOfflineGroup.collectAsState()
+
+    val context = LocalContext.current
+    val isConnected by NetworkConnectionHelper.observeConnection(context).collectAsState(initial = NetworkConnectionHelper.isConnected(context))
+    val networkType = remember(isConnected) { NetworkConnectionHelper.getNetworkType(context) }
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showUserNameDialog by remember { mutableStateOf(false) }
@@ -257,6 +285,35 @@ fun MainScreenContent(
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
                     maxLines = 1
+                )
+            }
+        }
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isConnected) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+            ),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(if (isConnected) Color(0xFF2E7D32) else Color(0xFFC62828))
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = if (isConnected) "Hubungan Internet: Aktif ($networkType)" else "Status: Offline (Tidak ada jaringan data atau wifi) ⚠️",
+                    color = if (isConnected) Color(0xFF2E7D32) else Color(0xFFC62828),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
@@ -323,6 +380,7 @@ fun MainScreenContent(
                         groupName = joinedGroupName,
                         alarms = groupAlarms,
                         syncState = syncState,
+                        isOfflineGroup = isOfflineGroup,
                         isCreator = isCreator,
                         onAddAlarmClick = { showAddDialog = true }
                     )
@@ -731,6 +789,7 @@ fun GroupDashboardScreen(
     groupName: String,
     alarms: List<Alarm>,
     syncState: SyncStatus,
+    isOfflineGroup: Boolean,
     isCreator: Boolean,
     onAddAlarmClick: () -> Unit
 ) {
@@ -761,17 +820,19 @@ fun GroupDashboardScreen(
                                     .size(6.dp)
                                     .clip(CircleShape)
                                     .background(
-                                        if (syncState is SyncStatus.Synced || syncState is SyncStatus.Success) Color.Green
+                                        if (isOfflineGroup) Color.Gray
+                                        else if (syncState is SyncStatus.Synced || syncState is SyncStatus.Success) Color.Green
                                         else if (syncState is SyncStatus.Syncing) Color.Yellow
                                         else Color.Red
                                     )
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = when (syncState) {
-                                    is SyncStatus.Syncing -> "Sinkronisasi..."
-                                    is SyncStatus.Synced -> "Tersinkron real-time"
-                                    is SyncStatus.Success -> "Tersinkron real-time"
+                                text = when {
+                                    isOfflineGroup -> "Mode Offline (Disimpan lokal)"
+                                    syncState is SyncStatus.Syncing -> "Sinkronisasi..."
+                                    syncState is SyncStatus.Synced -> "Tersinkron real-time"
+                                    syncState is SyncStatus.Success -> "Tersinkron real-time"
                                     else -> "Koneksi terputus"
                                 },
                                 color = TextMuted,
@@ -788,6 +849,63 @@ fun GroupDashboardScreen(
                             contentDescription = "Keluar Grup",
                             tint = Color(0xFFBA1A1A)
                         )
+                    }
+                }
+
+                // Go Online / Reconnect cloud interface for offline fallback groups
+                if (isOfflineGroup) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "Kamar grup Anda saat ini offline. Tekan hubungkan jika perangkat Anda sudah memiliki akses data/Wi-Fi agar tersinkronisasi ke teman-teman.",
+                                color = Color(0xFF5D4037),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            var reconnecting by remember { mutableStateOf(false) }
+                            var reconnectMsg by remember { mutableStateOf<String?>(null) }
+                            Button(
+                                onClick = {
+                                    reconnecting = true
+                                    reconnectMsg = null
+                                    viewModel.syncOfflineGroupToCloud { success, err ->
+                                        reconnecting = false
+                                        if (success) {
+                                            reconnectMsg = "Grup telah berhasil di-online-kan! 🎉"
+                                        } else {
+                                            reconnectMsg = err ?: "Koneksi gagal. Periksa sinyal internet Anda."
+                                        }
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(vertical = 4.dp)
+                            ) {
+                                if (reconnecting) {
+                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Sedang menghubungkan...", color = Color.White, fontSize = 11.sp)
+                                } else {
+                                    Text("Online-kan Grup & Sinkron Server 🔄", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            reconnectMsg?.let { msg ->
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = msg,
+                                    color = if (msg.contains("berhasil")) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
 

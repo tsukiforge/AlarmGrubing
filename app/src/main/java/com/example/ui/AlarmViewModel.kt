@@ -328,6 +328,42 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun syncOfflineGroupToCloud(onResult: (Boolean, String?) -> Unit) {
+        val code = _joinedGroupCode.value ?: return
+        val currentName = _joinedGroupName.value.replace(" (Offline)", "").replace(" Offline", "")
+        viewModelScope.launch {
+            _syncState.value = SyncStatus.Syncing
+            val existing = repository.fetchGroupFromCloud(code)
+            val success = if (existing == null) {
+                repository.createGroupOnCloud(code, currentName)
+            } else {
+                true
+            }
+
+            if (success) {
+                val pushSucc = pushGroupAlarmsCloud(code)
+                if (pushSucc) {
+                    sharedPrefs.edit()
+                        .putBoolean("is_offline_group", false)
+                        .putString("joined_group_name", currentName)
+                        .apply()
+
+                    _isOfflineGroup.value = false
+                    _joinedGroupName.value = currentName
+                    _syncState.value = SyncStatus.Success("Berhasil menghubungkan grup ke Cloud!")
+                    startPolling(code)
+                    onResult(true, null)
+                } else {
+                    _syncState.value = SyncStatus.Error("Gagal mengunggah data alarm kelompok")
+                    onResult(false, "Gagal mengunggah data alarm")
+                }
+            } else {
+                _syncState.value = SyncStatus.Error("Saluran cloud tidak merespon")
+                onResult(false, "Tidak dapat menghubungkan kamar grup ke Cloud")
+            }
+        }
+    }
+
     private suspend fun pushGroupAlarmsCloud(code: String): Boolean {
         val localList = repository.getGroupAlarms(code).first()
         return repository.pushGroupAlarmsToCloud(code, _joinedGroupName.value, localList)
@@ -345,6 +381,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                     _syncState.value = SyncStatus.Synced
                 } catch (e: Exception) {
                     e.printStackTrace()
+                    _syncState.value = SyncStatus.Error("Koneksi ke backend terputus")
                 }
                 delay(5000) // Poll every 5 seconds
             }

@@ -89,11 +89,19 @@ class AlarmRingingService : Service() {
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(contentPendingIntent)
+            .setFullScreenIntent(contentPendingIntent, true)
             .setOngoing(true)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Matikan", stopPendingIntent)
             .build()
 
         startForeground(NOTIFICATION_ID, notification)
+
+        // Force launch MainActivity to display ringing UI immediately
+        try {
+            startActivity(contentIntent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         // Play Tone
         if (tone.startsWith("custom_")) {
