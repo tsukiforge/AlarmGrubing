@@ -41,6 +41,8 @@ object AudioSynthesizer {
             val frequencies = when (toneType) {
                 "custom_1" -> doubleArrayOf(523.25, 659.25, 783.99, 1046.50) // C5, E5, G5, C6 (Arpeggio Chime)
                 "custom_2" -> doubleArrayOf(880.0, 880.0, 0.0, 880.0) // Beeps
+                "custom_sakura" -> doubleArrayOf(523.25, 587.33, 659.25, 783.99, 880.0, 1046.50) // Sakura Pentatonic Sweet Chime
+                "custom_anime" -> doubleArrayOf(587.33, 783.99, 880.0, 1174.66, 1318.51) // Shinobi energetic riff
                 else -> doubleArrayOf(440.0, 554.37, 659.25, 880.0) // Gentle chord
             }
 

@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,10 +43,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.drawscope.scale as drawScopeScale
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -154,6 +162,9 @@ class MainActivity : ComponentActivity() {
             val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", MODE_PRIVATE) }
             LaunchedEffect(Unit) {
                 AppThemeState.themeMode = prefs.getString("theme_mode", "system") ?: "system"
+                AppThemeState.sakuraEnabled = prefs.getBoolean("sakura_enabled", true)
+                val serverUrl = prefs.getString("sync_server_url", "https://kvdb.io/") ?: "https://kvdb.io/"
+                com.example.data.api.NetworkClient.updateBaseUrl(serverUrl)
             }
 
             MyApplicationTheme {
@@ -230,9 +241,10 @@ fun MainScreenContent(
     viewModel: AlarmViewModel,
     onRequestNotificationPermission: () -> Unit
 ) {
-    var activeTab by remember { mutableStateOf(0) } // 0: Pribadi, 1: Grup
+    var activeTab by remember { mutableStateOf(0) } // 0: Pribadi, 1: Grup, 2: Catatan
     val personalAlarms by viewModel.personalAlarms.collectAsState()
     val groupAlarms by viewModel.groupAlarms.collectAsState()
+    val notes by viewModel.notes.collectAsState()
     val joinedGroupCode by viewModel.joinedGroupCode.collectAsState()
     val joinedGroupName by viewModel.joinedGroupName.collectAsState()
     val syncState by viewModel.syncState.collectAsState()
@@ -245,6 +257,7 @@ fun MainScreenContent(
     val networkType = remember(isConnected) { NetworkConnectionHelper.getNetworkType(context) }
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var alarmToEdit by remember { mutableStateOf<Alarm?>(null) }
     var showUserNameDialog by remember { mutableStateOf(false) }
 
     Column(
@@ -435,29 +448,7 @@ fun MainScreenContent(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
-                .padding(4.dp)
-        ) {
-            TabButton(
-                title = "⏰ Personal",
-                isActive = activeTab == 0,
-                onClick = { activeTab = 0 },
-                modifier = Modifier.weight(1f)
-            )
-            TabButton(
-                title = "👥 Grup Alarm",
-                isActive = activeTab == 1,
-                onClick = { activeTab = 1 },
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Box(
+        SakuraOverlay(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
@@ -479,12 +470,13 @@ fun MainScreenContent(
                             AlarmCard(
                                 alarm = alarm,
                                 onToggle = { viewModel.toggleAlarm(alarm) },
-                                onDelete = { viewModel.deleteAlarm(alarm) }
+                                onDelete = { viewModel.deleteAlarm(alarm) },
+                                onEdit = { alarmToEdit = alarm }
                             )
                         }
                     }
                 }
-            } else {
+            } else if (activeTab == 1) {
                 if (joinedGroupCode == null) {
                     GroupOnboardingScreen(
                         viewModel = viewModel,
@@ -499,12 +491,20 @@ fun MainScreenContent(
                         syncState = syncState,
                         isOfflineGroup = isOfflineGroup,
                         isCreator = isCreator,
-                        onAddAlarmClick = { showAddDialog = true }
+                        onAddAlarmClick = { showAddDialog = true },
+                        onEditAlarmClick = { alarmToEdit = it }
                     )
                 }
+            } else {
+                NotesScreen(
+                    notes = notes,
+                    onAddNote = { t, c, col -> viewModel.addNote(t, c, col) },
+                    onUpdateNote = { note, t, c, col -> viewModel.updateNote(note, t, c, col) },
+                    onDeleteNote = { id -> viewModel.deleteNote(id) }
+                )
             }
 
-            if (activeTab == 0 || joinedGroupCode != null) {
+            if (activeTab == 0 || (activeTab == 1 && joinedGroupCode != null)) {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
                     modifier = Modifier
@@ -521,6 +521,34 @@ fun MainScreenContent(
                     )
                 }
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp, top = 8.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
+                .padding(4.dp)
+        ) {
+            TabButton(
+                title = "⏰ Pribadi",
+                isActive = activeTab == 0,
+                onClick = { activeTab = 0 },
+                modifier = Modifier.weight(1f)
+            )
+            TabButton(
+                title = "👥 Grup",
+                isActive = activeTab == 1,
+                onClick = { activeTab = 1 },
+                modifier = Modifier.weight(1f)
+            )
+            TabButton(
+                title = "📝 Catatan",
+                isActive = activeTab == 2,
+                onClick = { activeTab = 2 },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 
@@ -539,6 +567,7 @@ fun MainScreenContent(
     if (showAddDialog) {
         AddAlarmDialog(
             isGroup = activeTab == 1,
+            alarmToEdit = null,
             onDismiss = { showAddDialog = false },
             onSave = { title, hour, minute, days, tone ->
                 if (activeTab == 0) {
@@ -547,6 +576,18 @@ fun MainScreenContent(
                     viewModel.addGroupAlarm(title, hour, minute, days, tone)
                 }
                 showAddDialog = false
+            }
+        )
+    }
+
+    if (alarmToEdit != null) {
+        AddAlarmDialog(
+            isGroup = alarmToEdit!!.isGroup,
+            alarmToEdit = alarmToEdit,
+            onDismiss = { alarmToEdit = null },
+            onSave = { title, hour, minute, days, tone ->
+                viewModel.updateAlarm(alarmToEdit!!, title, hour, minute, days, tone)
+                alarmToEdit = null
             }
         )
     }
@@ -589,7 +630,8 @@ fun TabButton(
 fun AlarmCard(
     alarm: Alarm,
     onToggle: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
 ) {
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
@@ -603,7 +645,8 @@ fun AlarmCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp)),
+            .clip(RoundedCornerShape(24.dp))
+            .clickable { onEdit() },
         colors = CardDefaults.cardColors(containerColor = cardBgColor),
         border = androidx.compose.foundation.BorderStroke(1.dp, borderCol),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -638,6 +681,8 @@ fun AlarmCard(
                     "custom_1" -> "🎐 Melody Chime"
                     "custom_2" -> "📟 Retro Beep"
                     "custom_3" -> "🌌 Echo Syzer"
+                    "custom_sakura" -> "🌸 Sakura Dream"
+                    "custom_anime" -> "⚡ Shinobi Hot"
                     else -> "🎵 Default System"
                 }
 
@@ -746,6 +791,7 @@ fun GroupOnboardingScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -835,6 +881,39 @@ fun GroupOnboardingScreen(
                 errorMessage?.let {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(text = it, color = Color(0xFFBA1A1A), fontSize = 12.sp)
+
+                    if (isNetworkError(it)) {
+                        var showOnboardingDnsHelp by remember { mutableStateOf(false) }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFFFB300).copy(alpha = 0.12f))
+                                .clickable { showOnboardingDnsHelp = true }
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Bantuan DNS",
+                                tint = Color(0xFFFFB300),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Terkendala ISP diblokir? Ketuk di sini untuk petunjuk aktifkan DNS Pribadi lewat HP ⚡",
+                                color = Color(0xFFFFB300),
+                                fontSize = 11.sp,
+                                lineHeight = 14.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        if (showOnboardingDnsHelp) {
+                            PrivateDnsHelpDialog(onDismiss = { showOnboardingDnsHelp = false })
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -908,194 +987,580 @@ fun GroupDashboardScreen(
     syncState: SyncStatus,
     isOfflineGroup: Boolean,
     isCreator: Boolean,
-    onAddAlarmClick: () -> Unit
+    onAddAlarmClick: () -> Unit,
+    onEditAlarmClick: (Alarm) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF3EDF7)),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = groupName,
-                            color = TextLight,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 18.sp
-                        )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isOfflineGroup) Color.Gray
-                                        else if (syncState is SyncStatus.Synced || syncState is SyncStatus.Success) Color.Green
-                                        else if (syncState is SyncStatus.Syncing) Color.Yellow
-                                        else Color.Red
-                                    )
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = when {
-                                    isOfflineGroup -> "Mode Offline (Disimpan lokal)"
-                                    syncState is SyncStatus.Syncing -> "Sinkronisasi..."
-                                    syncState is SyncStatus.Synced -> "Tersinkron real-time"
-                                    syncState is SyncStatus.Success -> "Tersinkron real-time"
-                                    else -> "Koneksi terputus"
-                                },
-                                color = TextMuted,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        contentPadding = PaddingValues(bottom = 80.dp)
+    ) {
+        item {
+            Text(
+                text = "📬 Alarm Kelompok (${alarms.size})",
+                color = TextLight,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+            )
+        }
 
-                    IconButton(
-                        onClick = { viewModel.leaveGroup() }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Keluar Grup",
-                            tint = Color(0xFFBA1A1A)
-                        )
-                    }
-                }
-
-                // Go Online / Reconnect cloud interface for offline fallback groups
-                if (isOfflineGroup) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "Kamar grup Anda saat ini offline. Tekan hubungkan jika perangkat Anda sudah memiliki akses data/Wi-Fi agar tersinkronisasi ke teman-teman.",
-                                color = Color(0xFF5D4037),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            var reconnecting by remember { mutableStateOf(false) }
-                            var reconnectMsg by remember { mutableStateOf<String?>(null) }
-                            Button(
-                                onClick = {
-                                    reconnecting = true
-                                    reconnectMsg = null
-                                    viewModel.syncOfflineGroupToCloud { success, err ->
-                                        reconnecting = false
-                                        if (success) {
-                                            reconnectMsg = "Grup telah berhasil di-online-kan! 🎉"
-                                        } else {
-                                            reconnectMsg = err ?: "Koneksi gagal. Periksa sinyal internet Anda."
-                                        }
-                                    }
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
-                                shape = RoundedCornerShape(8.dp),
-                                modifier = Modifier.fillMaxWidth(),
-                                contentPadding = PaddingValues(vertical = 4.dp)
-                            ) {
-                                if (reconnecting) {
-                                    CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Sedang menghubungkan...", color = Color.White, fontSize = 11.sp)
-                                } else {
-                                    Text("Online-kan Grup & Sinkron Server 🔄", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            reconnectMsg?.let { msg ->
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = msg,
-                                    color = if (msg.contains("berhasil")) Color(0xFF2E7D32) else Color(0xFFC62828),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(text = "KODE SINKRONISASI", color = TextMuted, fontSize = 10.sp)
-                        Text(
-                            text = code,
-                            color = CyanAccent,
-                            fontSize = 42.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 4.sp
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(IndigoPrimary.copy(alpha = 0.15f))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = if (isCreator) "Pemilik" else "Anggota",
-                            color = IndigoLight,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Beritahu kode di atas ke teman kamu agar bisa menyamakan jadual weker ini.",
-                    color = TextMuted,
-                    fontSize = 11.sp
+        if (alarms.isEmpty()) {
+            item {
+                EmptyStatePlaceholder(
+                    title = "Grup masih kosong",
+                    subtitle = "Klik tombol + di pojok bawah untuk menjadualkan alarm kelompok.",
+                    icon = Icons.Default.Person
+                )
+            }
+        } else {
+            items(alarms, key = { it.id }) { alarm ->
+                AlarmCard(
+                    alarm = alarm,
+                    onToggle = { viewModel.toggleAlarm(alarm) },
+                    onDelete = { viewModel.deleteAlarm(alarm) },
+                    onEdit = { onEditAlarmClick(alarm) }
                 )
             }
         }
 
-        Text(
-            text = "📬 Alarm Kelompok (${alarms.size})",
-            color = TextLight,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        item {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3EDF7)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = groupName,
+                                color = TextLight,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 18.sp
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isOfflineGroup) Color.Gray
+                                            else if (syncState is SyncStatus.Synced || syncState is SyncStatus.Success) Color.Green
+                                            else if (syncState is SyncStatus.Syncing) Color.Yellow
+                                            else Color.Red
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = when {
+                                        isOfflineGroup -> "Mode Offline (Disimpan lokal)"
+                                        syncState is SyncStatus.Syncing -> "Sinkronisasi..."
+                                        syncState is SyncStatus.Synced -> "Tersinkron real-time"
+                                        syncState is SyncStatus.Success -> "Tersinkron real-time"
+                                        else -> "Koneksi terputus"
+                                    },
+                                    color = TextMuted,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
 
-        if (alarms.isEmpty()) {
+                        IconButton(
+                            onClick = { viewModel.leaveGroup() }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Keluar Grup",
+                                tint = Color(0xFFBA1A1A)
+                            )
+                        }
+                    }
+
+                    // If background synchronization encounters an ISP block or error, show actionable help banner
+                    if (syncState is SyncStatus.Error && isNetworkError((syncState as SyncStatus.Error).error)) {
+                        var showDashboardDnsHelp by remember { mutableStateOf(false) }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFB300).copy(alpha = 0.12f)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showDashboardDnsHelp = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = "Peringatan Sinkronisasi",
+                                    tint = Color(0xFFFFB300),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Koneksi Bermasalah: ${(syncState as SyncStatus.Error).error}. Tap untuk cara aktifkan DNS Pribadi Bebas Blokir ⚡",
+                                    color = Color(0xFFFFB300),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+
+                        if (showDashboardDnsHelp) {
+                            PrivateDnsHelpDialog(onDismiss = { showDashboardDnsHelp = false })
+                        }
+                    }
+
+                    // Go Online / Reconnect cloud interface for offline fallback groups
+                    if (isOfflineGroup) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF9C4)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "Kamar grup Anda saat ini offline. Tekan hubungkan jika perangkat Anda sudah memiliki akses data/Wi-Fi agar tersinkronisasi ke teman-teman.",
+                                    color = Color(0xFF5D4037),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                var reconnecting by remember { mutableStateOf(false) }
+                                var reconnectMsg by remember { mutableStateOf<String?>(null) }
+                                Button(
+                                    onClick = {
+                                        reconnecting = true
+                                        reconnectMsg = null
+                                        viewModel.syncOfflineGroupToCloud { success, err ->
+                                            reconnecting = false
+                                            if (success) {
+                                                reconnectMsg = "Grup telah berhasil di-online-kan! 🎉"
+                                            } else {
+                                                reconnectMsg = err ?: "Koneksi gagal. Periksa sinyal internet Anda."
+                                            }
+                                        }
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentPadding = PaddingValues(vertical = 4.dp)
+                                ) {
+                                    if (reconnecting) {
+                                        CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Sedang menghubungkan...", color = Color.White, fontSize = 11.sp)
+                                    } else {
+                                        Text("Online-kan Grup & Sinkron Server 🔄", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                reconnectMsg?.let { msg ->
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = msg,
+                                        color = if (msg.contains("berhasil")) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+
+                                    val isError = !msg.contains("berhasil")
+                                    if (isError && isNetworkError(msg)) {
+                                        var showReconnectDnsHelp by remember { mutableStateOf(false) }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFFFB300).copy(alpha = 0.12f))
+                                                .clickable { showReconnectDnsHelp = true }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Info,
+                                                contentDescription = "Bantuan DNS",
+                                                tint = Color(0xFFFFB300),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Gagal terhubung? Domain cloud kemungkinan diblokir oleh ISP Anda. Klik untuk panduan solusi DNS Pribadi ⚡",
+                                                color = Color(0xFFFFB300),
+                                                fontSize = 10.sp,
+                                                lineHeight = 13.sp,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+
+                                        if (showReconnectDnsHelp) {
+                                            PrivateDnsHelpDialog(onDismiss = { showReconnectDnsHelp = false })
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = "KODE SINKRONISASI", color = TextMuted, fontSize = 10.sp)
+                            Text(
+                                text = code,
+                                color = CyanAccent,
+                                fontSize = 42.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 4.sp
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(IndigoPrimary.copy(alpha = 0.15f))
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = if (isCreator) "Pemilik" else "Anggota",
+                                color = IndigoLight,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Beritahu kode di atas ke teman kamu agar bisa menyamakan jadual weker ini.",
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotesScreen(
+    notes: List<com.example.data.model.Note>,
+    onAddNote: (title: String, content: String, colorHex: String) -> Unit,
+    onUpdateNote: (note: com.example.data.model.Note, title: String, content: String, colorHex: String) -> Unit,
+    onDeleteNote: (id: String) -> Unit
+) {
+    var showAddNoteDialog by remember { mutableStateOf(false) }
+    var noteToEdit by remember { mutableStateOf<com.example.data.model.Note?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (notes.isEmpty()) {
             EmptyStatePlaceholder(
-                title = "Grup masih kosong",
-                subtitle = "Klik tombol + di pojok bawah untuk menjadualkan alarm kelompok.",
-                icon = Icons.Default.Person
+                title = "Belum ada catatan 🌸",
+                subtitle = "Catat tugas, ide, atau memo penting di sini. Bisa dipasang sebagai widget di layar HP kamu!",
+                icon = Icons.Default.Edit
             )
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(bottom = 80.dp)
+                contentPadding = PaddingValues(top = 8.dp, start = 8.dp, end = 8.dp, bottom = 80.dp)
             ) {
-                items(alarms, key = { it.id }) { alarm ->
-                    AlarmCard(
-                        alarm = alarm,
-                        onToggle = { viewModel.toggleAlarm(alarm) },
-                        onDelete = { viewModel.deleteAlarm(alarm) }
+                items(notes, key = { it.id }) { note ->
+                    NoteCard(
+                        note = note,
+                        onClick = { noteToEdit = note },
+                        onDelete = { onDeleteNote(note.id) }
                     )
+                }
+            }
+        }
+
+        FloatingActionButton(
+            onClick = { showAddNoteDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 16.dp, end = 8.dp),
+            containerColor = PinkAccent,
+            contentColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "Tambah Catatan",
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+
+    if (showAddNoteDialog) {
+        AddEditNoteDialog(
+            note = null,
+            onDismiss = { showAddNoteDialog = false },
+            onSave = { title, content, color ->
+                onAddNote(title, content, color)
+                showAddNoteDialog = false
+            }
+        )
+    }
+
+    if (noteToEdit != null) {
+        AddEditNoteDialog(
+            note = noteToEdit,
+            onDismiss = { noteToEdit = null },
+            onSave = { title, content, color ->
+                onUpdateNote(noteToEdit!!, title, content, color)
+                noteToEdit = null
+            }
+        )
+    }
+}
+
+@Composable
+fun NoteCard(
+    note: com.example.data.model.Note,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val cardColor = try {
+        Color(android.graphics.Color.parseColor(note.colorHex))
+    } catch (e: Exception) {
+        Color(0xFFFFF0F2)
+    }
+
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = note.title.ifBlank { "Tanpa Judul" },
+                    color = Color(0xFF3E2723),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+
+                IconButton(
+                    onClick = { showDeleteConfirm = true },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Hapus Catatan",
+                        tint = Color(0xFFD84315),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = note.content,
+                color = Color(0xFF4E342E),
+                fontSize = 12.sp,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val formattedDate = remember(note.lastUpdated) {
+                val sdf = java.text.SimpleDateFormat("dd MMM yyyy, HH:mm", java.util.Locale.getDefault())
+                sdf.format(java.util.Date(note.lastUpdated))
+            }
+
+            Text(
+                text = "Diperbarui: $formattedDate",
+                color = Color(0xFF8D6E63),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Hapus Catatan?", color = TextLight) },
+            text = { Text("Apakah kamu yakin ingin menghapus catatan ini?", color = TextMuted) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteConfirm = false
+                    }
+                ) {
+                    Text("Hapus", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Batal", color = TextMuted)
+                }
+            },
+            containerColor = SurfaceDark
+        )
+    }
+}
+
+@Composable
+fun AddEditNoteDialog(
+    note: com.example.data.model.Note?,
+    onDismiss: () -> Unit,
+    onSave: (title: String, content: String, colorHex: String) -> Unit
+) {
+    var title by remember { mutableStateOf(note?.title ?: "") }
+    var content by remember { mutableStateOf(note?.content ?: "") }
+    var selectedColor by remember { mutableStateOf(note?.colorHex ?: "#FFF0F2") }
+
+    val colors = listOf(
+        "#FFF0F2" to "Sakura",
+        "#FFF3E0" to "Peach",
+        "#E8F5E9" to "Matcha",
+        "#E3F2FD" to "Sky",
+        "#F3E5F5" to "Lavender"
+    )
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
+            border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceDarkElevated),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        text = if (note == null) "Tulis Catatan Baru 🌸" else "Edit Catatan 📝",
+                        color = TextLight,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = { title = it },
+                        label = { Text("Judul Catatan", color = TextMuted) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = IndigoPrimary,
+                            unfocusedBorderColor = SurfaceDarkElevated,
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true
+                    )
+                }
+
+                item {
+                    OutlinedTextField(
+                        value = content,
+                        onValueChange = { content = it },
+                        label = { Text("Detail Catatan", color = TextMuted) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(140.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = IndigoPrimary,
+                            unfocusedBorderColor = SurfaceDarkElevated,
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+
+                item {
+                    Text("Pilih Warna Kertas Memo", color = TextMuted, fontSize = 11.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        colors.forEach { pair ->
+                            val c = Color(android.graphics.Color.parseColor(pair.first))
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(c)
+                                    .clickable { selectedColor = pair.first }
+                                    .border(
+                                        width = if (selectedColor == pair.first) 2.dp else 0.dp,
+                                        color = if (selectedColor == pair.first) IndigoPrimary else Color.Transparent,
+                                        shape = CircleShape
+                                    )
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = onDismiss) {
+                            Text("Batal", color = TextMuted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (content.isNotBlank()) {
+                                    onSave(title, content, selectedColor)
+                                }
+                            },
+                            enabled = content.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Simpan", color = Color.White)
+                        }
+                    }
                 }
             }
         }
@@ -1160,6 +1625,7 @@ fun UserProfileAndSettingsDialog(
     var textInput by remember { mutableStateOf(currentName) }
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
+    var serverUrlInput by remember { mutableStateOf(prefs.getString("sync_server_url", "https://kvdb.io/") ?: "https://kvdb.io/") }
     
     // Theme options
     var selectedThemeMode by remember { mutableStateOf(AppThemeState.themeMode) }
@@ -1192,12 +1658,13 @@ fun UserProfileAndSettingsDialog(
             border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceDarkElevated),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .padding(18.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.Start
-            ) {
+            SakuraOverlay {
+                Column(
+                    modifier = Modifier
+                        .padding(18.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.Start
+                ) {
                 Text(
                     text = "⚙️ Pengaturan & Profil",
                     color = TextLight,
@@ -1268,6 +1735,211 @@ fun UserProfileAndSettingsDialog(
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Sakura Animation toggle section
+                Text(
+                    text = "Suara & Efek Visual Anime",
+                    color = IndigoPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SurfaceDarkElevated)
+                        .clickable {
+                            val nextVal = !AppThemeState.sakuraEnabled
+                            AppThemeState.sakuraEnabled = nextVal
+                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
+                        }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Animasi Kelopak Sakura", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Aktifkan efek kelopak bunga berguguran", color = TextMuted, fontSize = 10.sp)
+                    }
+                    Switch(
+                        checked = AppThemeState.sakuraEnabled,
+                        onCheckedChange = { nextVal ->
+                            AppThemeState.sakuraEnabled = nextVal
+                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = IndigoPrimary,
+                            uncheckedThumbColor = Color(0xFF938F99),
+                            uncheckedTrackColor = Color(0xFFE7E0EC)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Sync Server Section
+                Text(
+                    text = "Server Sinkronisasi Grup",
+                    color = IndigoPrimary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Fast protocol switcher
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(
+                        "https://kvdb.io/" to "Secure 🔒 (HTTPS)",
+                        "http://kvdb.io/" to "Regular 🌐 (HTTP)"
+                    ).forEach { (url, label) ->
+                        val isSelected = serverUrlInput.trim().lowercase() == url.lowercase()
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) IndigoPrimary else SurfaceDarkElevated)
+                                .clickable {
+                                    serverUrlInput = url
+                                    android.widget.Toast.makeText(context, "URL diubah ke: $url", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) Color.White else TextLight,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(10.dp))
+
+                OutlinedTextField(
+                    value = serverUrlInput,
+                    onValueChange = { serverUrlInput = it },
+                    singleLine = true,
+                    label = { Text("URL Server Sinkronisasi (Kustom)") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = IndigoPrimary,
+                        unfocusedBorderColor = SurfaceDarkElevated,
+                        focusedTextColor = TextLight,
+                        unfocusedTextColor = TextLight,
+                        focusedLabelColor = IndigoPrimary,
+                        unfocusedLabelColor = TextMuted
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Educational card to easily configure Private DNS (Bypass Internet Positif)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "⚡ Solusi Bebas Hambatan (ISP Terblokir)",
+                                color = Color(0xFFFFB300),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Layanan Cloud grup menggunakan platform kvdb.io. Beberapa operator seluler/WiFi lokal di Indonesia terkadang memblokir server ini.\n\n" +
+                                   "Cara termudah melewatinya secara permanen (tanpa aplikasi tambahan, tanpa VPN, hemat baterai, dan berlaku untuk semua aplikasi) adalah mengaktifkan DNS Pribadi (Private DNS) Google atau Cloudflare di pengaturan HP Anda.",
+                            color = TextLight,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        
+                        Text(
+                            text = "Salin Hostname DNS Berikut:",
+                            color = TextLight,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        
+                        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+                        
+                        listOf(
+                            "dns.google" to "Google DNS (Rekomendasi Wifi/Seluler)",
+                            "1dot1dot1dot1.cloudflare-dns.com" to "Cloudflare DNS (Paling Cepat)"
+                        ).forEach { (dnsHost, name) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SurfaceDark)
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = name, color = TextMuted, fontSize = 9.sp)
+                                    Text(text = dnsHost, color = TextLight, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(IndigoPrimary.copy(alpha = 0.2f))
+                                        .clickable {
+                                            clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(dnsHost))
+                                            android.widget.Toast.makeText(context, "Telah disalin: $dnsHost", android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text(text = "Salin 📋", color = IndigoPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                try {
+                                    val intent = Intent("android.settings.PRIVATE_DNS_SETTINGS")
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    try {
+                                        val intent = Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                                        context.startActivity(intent)
+                                    } catch (ex: Exception) {
+                                        try {
+                                            val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
+                                            context.startActivity(intent)
+                                        } catch (e2: Exception) {
+                                            android.widget.Toast.makeText(context, "Silakan buka Pengaturan HP > Koneksi > DNS Pribadi", android.widget.Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Text("Buka Pengaturan DNS HP ⚙️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1417,6 +2089,8 @@ fun UserProfileAndSettingsDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
+                            prefs.edit().putString("sync_server_url", serverUrlInput).apply()
+                            com.example.data.api.NetworkClient.updateBaseUrl(serverUrlInput)
                             onSaveName(textInput)
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
@@ -1426,6 +2100,7 @@ fun UserProfileAndSettingsDialog(
                     }
                 }
             }
+            }
         }
     }
 }
@@ -1433,15 +2108,23 @@ fun UserProfileAndSettingsDialog(
 @Composable
 fun AddAlarmDialog(
     isGroup: Boolean,
+    alarmToEdit: Alarm? = null,
     onDismiss: () -> Unit,
     onSave: (title: String, hour: Int, minute: Int, daysOfWeek: String, ringtone: String) -> Unit
 ) {
-    var title by remember { mutableStateOf("") }
-    var hour by remember { mutableIntStateOf(7) }
-    var minute by remember { mutableIntStateOf(0) }
-    var selectedTone by remember { mutableStateOf("default") }
+    var title by remember { mutableStateOf(alarmToEdit?.title ?: "") }
+    var hour by remember { mutableIntStateOf(alarmToEdit?.hour ?: 7) }
+    var minute by remember { mutableIntStateOf(alarmToEdit?.minute ?: 0) }
+    var selectedTone by remember { mutableStateOf(alarmToEdit?.ringtoneUri ?: "default") }
 
-    val selectedDays = remember { mutableStateListOf<Int>() }
+    val selectedDays = remember {
+        mutableStateListOf<Int>().apply {
+            if (alarmToEdit != null && alarmToEdit.daysOfWeek.isNotEmpty()) {
+                val parsed = alarmToEdit.daysOfWeek.split(",").mapNotNull { it.trim().toIntOrNull() }
+                addAll(parsed)
+            }
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -1450,13 +2133,14 @@ fun AddAlarmDialog(
             border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceDarkElevated),
             shape = RoundedCornerShape(16.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            SakuraOverlay {
+                LazyColumn(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                 item {
                     Text(
-                        text = if (isGroup) "Buat Alarm Kelompok 👥" else "Buat Alarm Pribadi ⏰",
+                        text = if (alarmToEdit != null) "Edit Alarm ✏️" else (if (isGroup) "Buat Alarm Kelompok 👥" else "Buat Alarm Pribadi ⏰"),
                         color = TextLight,
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
@@ -1481,56 +2165,119 @@ fun AddAlarmDialog(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Text(text = "Pilih Jam", color = TextMuted, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = "Pilih Jam (Tap untuk memilih)", color = TextMuted, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = { hour = (hour + 1) % 24 }) {
-                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = IndigoPrimary)
+                        var hourMenuExpanded by remember { mutableStateOf(false) }
+                        var minuteMenuExpanded by remember { mutableStateOf(false) }
+
+                        // Hour dropdown card
+                        Box {
+                            Card(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .clickable { hourMenuExpanded = true },
+                                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = String.format(Locale.getDefault(), "%02d", hour),
+                                        color = TextLight,
+                                        fontSize = 26.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
-                            Text(
-                                text = String.format(Locale.getDefault(), "%02d", hour),
-                                color = TextLight,
-                                fontSize = 38.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            IconButton(onClick = { hour = if (hour - 1 < 0) 23 else hour - 1 }) {
-                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = IndigoPrimary)
+
+                            DropdownMenu(
+                                expanded = hourMenuExpanded,
+                                onDismissRequest = { hourMenuExpanded = false },
+                                modifier = Modifier.heightIn(max = 240.dp).background(SurfaceDarkElevated)
+                            ) {
+                                (0..23).forEach { h ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = String.format(Locale.getDefault(), "%02d", h),
+                                                color = TextLight,
+                                                fontSize = 14.sp
+                                            )
+                                        },
+                                        onClick = {
+                                            hour = h
+                                            hourMenuExpanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
 
                         Text(
                             text = ":",
                             color = TextLight,
-                            fontSize = 38.sp,
+                            fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp)
+                            modifier = Modifier.padding(horizontal = 14.dp)
                         )
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            IconButton(onClick = { minute = (minute + 5) % 60 }) {
-                                Icon(Icons.Default.KeyboardArrowUp, "Up", tint = IndigoPrimary)
+                        // Minute dropdown card
+                        Box {
+                            Card(
+                                modifier = Modifier
+                                    .width(80.dp)
+                                    .clickable { minuteMenuExpanded = true },
+                                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = String.format(Locale.getDefault(), "%02d", minute),
+                                        color = TextLight,
+                                        fontSize = 26.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
-                            Text(
-                                text = String.format(Locale.getDefault(), "%02d", minute),
-                                color = TextLight,
-                                fontSize = 38.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            IconButton(onClick = { minute = if (minute - 5 < 0) 55 else minute - 5 }) {
-                                Icon(Icons.Default.KeyboardArrowDown, "Down", tint = IndigoPrimary)
+
+                            DropdownMenu(
+                                expanded = minuteMenuExpanded,
+                                onDismissRequest = { minuteMenuExpanded = false },
+                                modifier = Modifier.heightIn(max = 240.dp).background(SurfaceDarkElevated)
+                            ) {
+                                (0..59).forEach { m ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = String.format(Locale.getDefault(), "%02d", m),
+                                                color = TextLight,
+                                                fontSize = 14.sp
+                                            )
+                                        },
+                                        onClick = {
+                                            minute = m
+                                            minuteMenuExpanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(text = "Hari Pengulangan", color = TextMuted, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(6.dp))
@@ -1577,7 +2324,9 @@ fun AddAlarmDialog(
                     "default" to "🎵 default bawaan hp",
                     "custom_1" to "🎐 Melody Chime (Aplikasi)",
                     "custom_2" to "📟 Retro Beep (Aplikasi)",
-                    "custom_3" to "🌌 Echo Syzer (Aplikasi)"
+                    "custom_3" to "🌌 Echo Syzer (Aplikasi)",
+                    "custom_sakura" to "🌸 Sakura Dream (Anime)",
+                    "custom_anime" to "⚡ Shinobi Energetic (Hot)"
                 )
                 items(tones) { p ->
                     val isChecked = selectedTone == p.first
@@ -1619,13 +2368,14 @@ fun AddAlarmDialog(
                             colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
                         ) {
                             Text(
-                                "Simpan Alarm",
+                                if (alarmToEdit != null) "Simpan Perubahan" else "Simpan Alarm",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
+            }
             }
         }
     }
@@ -1764,3 +2514,234 @@ fun getDaysLabel(days: String): String {
     val shortDays = listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
     return list.map { shortDays[it - 1] }.joinToString(", ")
 }
+
+fun isNetworkError(message: String?): Boolean {
+    if (message == null) return false
+    val m = message.lowercase()
+    return m.contains("gagal") || m.contains("jaringan") || m.contains("koneksi") || m.contains("tidak ada koneksi") || m.contains("server") || m.contains("cloud") || m.contains("respon") || m.contains("respons") || m.contains("blokir") || m.contains("timeout") || m.contains("host") || m.contains("connect") || m.contains("failure") || m.contains("terputus")
+}
+
+@Composable
+fun PrivateDnsHelpDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("⚡ Solusi Bebas Blokir ISP", color = Color(0xFFFFB300), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Layanan sinkronisasi cloud menggunakan platform kvdb.io yang terkadang disaring atau diblokir oleh beberapa operator internet di Indonesia.\n\n" +
+                           "Cara paling praktis dan permanen untuk mengatasinya adalah mengaktifkan DNS Pribadi (Google atau Cloudflare) di HP Anda:",
+                    color = TextLight,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = "Salin Hostname DNS:",
+                    color = TextMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                listOf(
+                    "dns.google" to "Google DNS (Disarankan)",
+                    "1dot1dot1dot1.cloudflare-dns.com" to "Cloudflare DNS"
+                ).forEach { (dnsHost, name) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceDarkElevated)
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = name, color = TextMuted, fontSize = 9.sp)
+                            Text(text = dnsHost, color = TextLight, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(IndigoPrimary.copy(alpha = 0.2f))
+                                .clickable {
+                                    clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(dnsHost))
+                                    android.widget.Toast.makeText(context, "Telah disalin: $dnsHost", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(text = "Salin", color = IndigoLight, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = "Langkah Pengaturan:\n" +
+                           "1. Klik tombol 'Buka Pengaturan DNS HP' di bawah.\n" +
+                           "2. Pilih opsi 'DNS Pribadi' (Private DNS).\n" +
+                           "3. Pilih 'Nama Host Penyedia DNS Pribadi'.\n" +
+                           "4. Tempel hostname yang disalin di atas lalu simpan.",
+                    color = TextMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    try {
+                        val intent = Intent("android.settings.PRIVATE_DNS_SETTINGS")
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        try {
+                            val intent = Intent(android.provider.Settings.ACTION_WIRELESS_SETTINGS)
+                            context.startActivity(intent)
+                        } catch (ex: Exception) {
+                            try {
+                                val intent = Intent(android.provider.Settings.ACTION_SETTINGS)
+                                context.startActivity(intent)
+                            } catch (e2: Exception) {
+                                android.widget.Toast.makeText(context, "Silakan buka Pengaturan HP > Koneksi > DNS Pribadi", android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Buka Pengaturan DNS HP ⚙️", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Tutup", color = TextMuted)
+            }
+        },
+        containerColor = SurfaceDark
+    )
+}
+
+data class SakuraPetal(
+    val initialXRatio: Float,
+    val initialYRatio: Float,
+    val sizeDp: Float,
+    val speedY: Float,
+    val windX: Float,
+    val swayAmplitude: Float,
+    val swayFrequency: Float,
+    val initialRotation: Float,
+    val rotationSpeed: Float,
+    val alpha: Float
+)
+
+@Composable
+fun SakuraFallingCanvas(modifier: Modifier = Modifier) {
+    val petalCount = 18 // Subtle density to remain elegant and beautiful
+
+    // Pre-allocate the petals to avoid allocations on frames
+    val petals = remember {
+        val random = java.util.Random(1337)
+        List(petalCount) {
+            SakuraPetal(
+                initialXRatio = random.nextFloat(),
+                initialYRatio = random.nextFloat(),
+                sizeDp = 6f + random.nextFloat() * 10f, // 6dp to 16dp
+                speedY = 0.12f + random.nextFloat() * 0.12f,
+                windX = 0.04f + random.nextFloat() * 0.06f,
+                swayAmplitude = 12f + random.nextFloat() * 20f,
+                swayFrequency = 1f + random.nextFloat() * 1.2f,
+                initialRotation = random.nextFloat() * 360f,
+                rotationSpeed = 30f + random.nextFloat() * 60f,
+                alpha = 0.35f + random.nextFloat() * 0.45f
+            )
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "sakura_infinite")
+    val progress by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 15000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "sakura_progress"
+    )
+
+    // A normalized notched petal path (width ~1f, height ~1f)
+    val basePetalPath = remember {
+        Path().apply {
+            moveTo(0f, 0.4f)
+            cubicTo(-0.4f, 0.2f, -0.5f, -0.2f, -0.2f, -0.4f)
+            lineTo(0f, -0.2f)
+            lineTo(0.2f, -0.4f)
+            cubicTo(0.5f, -0.2f, 0.4f, 0.2f, 0f, 0.4f)
+            close()
+        }
+    }
+
+    val petalColor = Color(0xFFFFB7C5) // Soft, authentic Sakura pink
+
+    Canvas(modifier = modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+
+        if (width > 0 && height > 0) {
+            petals.forEach { petal ->
+                // Calculate dynamic coordinates with screen wrapping
+                val rawY = (petal.initialYRatio + (progress * petal.speedY)) % 1.0f
+                val paddingY = 40f
+                val currentY = rawY * (height + paddingY * 2) - paddingY
+
+                // Swaying horizontal motion
+                val sway = kotlin.math.sin(progress * petal.swayFrequency * 2 * kotlin.math.PI.toFloat()) * petal.swayAmplitude
+                val rawX = (petal.initialXRatio + (progress * petal.windX)) % 1.0f
+                val currentX = (rawX * width + sway) % width
+
+                val currentRotation = petal.initialRotation + (progress * petal.rotationSpeed)
+                val petalSizePx = petal.sizeDp.dp.toPx()
+
+                // Rotate, translate, scale & draw path efficiently
+                rotate(currentRotation, pivot = Offset(currentX, currentY)) {
+                    translate(left = currentX, top = currentY) {
+                        drawScopeScale(scaleX = petalSizePx, scaleY = petalSizePx, pivot = Offset.Zero) {
+                            drawPath(
+                                path = basePetalPath,
+                                color = petalColor.copy(alpha = petal.alpha)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SakuraOverlay(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    Box(modifier = modifier) {
+        content()
+        if (AppThemeState.sakuraEnabled) {
+            SakuraFallingCanvas()
+        }
+    }
+}
+

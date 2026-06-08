@@ -23,6 +23,10 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
 
     private val sharedPrefs = context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE)
 
+    private val notesRepo = com.example.data.repository.NotesRepository(context)
+    private val _notes = MutableStateFlow<List<com.example.data.model.Note>>(emptyList())
+    val notes: StateFlow<List<com.example.data.model.Note>> = _notes.asStateFlow()
+
     // User details states
     private val _userId = MutableStateFlow("")
     val userId: StateFlow<String> = _userId.asStateFlow()
@@ -84,12 +88,56 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         if (grpCode != null) {
             startPolling(grpCode)
         }
+        loadNotes()
     }
 
     fun updateUserName(name: String) {
         if (name.isBlank()) return
         _userName.value = name
         sharedPrefs.edit().putString("user_name", name).apply()
+    }
+
+    fun loadNotes() {
+        viewModelScope.launch {
+            _notes.value = notesRepo.getNotes()
+        }
+    }
+
+    fun addNote(title: String, content: String, colorHex: String) {
+        viewModelScope.launch {
+            val newNote = com.example.data.model.Note(
+                id = UUID.randomUUID().toString(),
+                title = title,
+                content = content,
+                lastUpdated = System.currentTimeMillis(),
+                colorHex = colorHex
+            )
+            notesRepo.addNote(newNote)
+            loadNotes()
+            com.example.widget.NoteWidgetProvider.triggerUpdate(context)
+        }
+    }
+
+    fun updateNote(note: com.example.data.model.Note, title: String, content: String, colorHex: String) {
+        viewModelScope.launch {
+            val updated = note.copy(
+                title = title,
+                content = content,
+                lastUpdated = System.currentTimeMillis(),
+                colorHex = colorHex
+            )
+            notesRepo.updateNote(updated)
+            loadNotes()
+            com.example.widget.NoteWidgetProvider.triggerUpdate(context)
+        }
+    }
+
+    fun deleteNote(id: String) {
+        viewModelScope.launch {
+            notesRepo.deleteNote(id)
+            loadNotes()
+            com.example.widget.NoteWidgetProvider.triggerUpdate(context)
+        }
     }
 
     // --- Core Personal Alarm Operations ---
@@ -150,6 +198,38 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     _syncState.value = SyncStatus.Error("Gagal memperbarui cloud")
                 }
+            }
+        }
+    }
+
+    fun updateAlarm(alarm: Alarm, newTitle: String, newHour: Int, newMinute: Int, newDaysOfWeek: String, newRingtone: String) {
+        viewModelScope.launch {
+            // Cancel current scheduling
+            AlarmScheduler.cancel(context, alarm)
+
+            val updated = alarm.copy(
+                title = newTitle,
+                hour = newHour,
+                minute = newMinute,
+                daysOfWeek = newDaysOfWeek,
+                ringtoneUri = newRingtone,
+                isEnabled = true // re-enable it when user edits to ensure it sings
+            )
+
+            repository.updateAlarm(updated)
+            AlarmScheduler.schedule(context, updated)
+
+            // Push to Cloud if online and group alarm
+            if (updated.isGroup && updated.groupCode != null && !_isOfflineGroup.value) {
+                _syncState.value = SyncStatus.Syncing
+                val success = pushGroupAlarmsCloud(updated.groupCode)
+                if (success) {
+                    _syncState.value = SyncStatus.Success("Alarm grup berhasil diperbarui")
+                } else {
+                    _syncState.value = SyncStatus.Error("Gagal memperbarui ke cloud")
+                }
+            } else if (updated.isGroup) {
+                _syncState.value = SyncStatus.Success("Alarm grup offline diperbarui")
             }
         }
     }

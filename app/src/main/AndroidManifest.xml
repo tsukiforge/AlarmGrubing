@@ -44,6 +44,18 @@
             </intent-filter>
         </receiver>
 
+        <receiver android:name=".widget.NoteWidgetProvider"
+            android:exported="true"
+            android:label="Catatan Sakura 🌸">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_REFRESH_NOTES" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/note_widget_info" />
+        </receiver>
+
         <service android:name=".alarm.AlarmRingingService"
             android:foregroundServiceType="mediaPlayback"
             android:enabled="true"

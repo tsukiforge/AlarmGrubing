@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 
 object AppThemeState {
     var themeMode by mutableStateOf("system") // "system", "light", "dark"
+    var sakuraEnabled by mutableStateOf(true)
 }
 
 private val LightColorScheme = lightColorScheme(

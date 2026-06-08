@@ -6,7 +6,7 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    private const val BASE_URL = "https://kvdb.io/"
+    private var currentBaseUrl = "https://kvdb.io/"
     const val BUCKET_ID = "alarmgrup_v4_maichi_76da"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -20,9 +20,22 @@ object NetworkClient {
         .writeTimeout(15, TimeUnit.SECONDS)
         .build()
 
-    val api: KvdbApi = Retrofit.Builder()
-        .baseUrl(BASE_URL)
-        .client(okHttpClient)
-        .build()
-        .create(KvdbApi::class.java)
+    var api: KvdbApi = buildApi(currentBaseUrl)
+        private set
+
+    fun updateBaseUrl(newUrl: String) {
+        val sanitized = if (newUrl.endsWith("/")) newUrl else "$newUrl/"
+        if (currentBaseUrl != sanitized) {
+            currentBaseUrl = sanitized
+            api = buildApi(sanitized)
+        }
+    }
+
+    private fun buildApi(url: String): KvdbApi {
+        return Retrofit.Builder()
+            .baseUrl(url)
+            .client(okHttpClient)
+            .build()
+            .create(KvdbApi::class.java)
+    }
 }
