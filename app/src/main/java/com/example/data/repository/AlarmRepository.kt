@@ -41,7 +41,8 @@ class AlarmRepository(private val alarmDao: AlarmDao) {
             )
             val json = JsonHelper.groupToJson(group)
             val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
-            val response = NetworkClient.api.putValue(NetworkClient.BUCKET_ID, "group_$code", requestBody)
+            val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "group_$code")
+            val response = NetworkClient.api.putValue(url, requestBody)
             response.isSuccessful
         } catch (e: Exception) {
             e.printStackTrace()
@@ -51,10 +52,11 @@ class AlarmRepository(private val alarmDao: AlarmDao) {
 
     suspend fun fetchGroupFromCloud(code: String): Group? {
         return try {
-            val response = NetworkClient.api.getValue(NetworkClient.BUCKET_ID, "group_$code")
+            val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "group_$code")
+            val response = NetworkClient.api.getValue(url)
             if (response.isSuccessful) {
                 val jsonString = response.body()?.string()
-                if (jsonString != null) {
+                if (jsonString != null && jsonString.trim() != "null") {
                     JsonHelper.jsonToGroup(jsonString)
                 } else null
             } else {
@@ -131,7 +133,8 @@ class AlarmRepository(private val alarmDao: AlarmDao) {
             )
             val json = JsonHelper.groupToJson(group)
             val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
-            val response = NetworkClient.api.putValue(NetworkClient.BUCKET_ID, "group_$code", requestBody)
+            val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "group_$code")
+            val response = NetworkClient.api.putValue(url, requestBody)
             response.isSuccessful
         } catch (e: Exception) {
             e.printStackTrace()

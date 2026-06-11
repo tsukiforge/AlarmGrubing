@@ -106,6 +106,9 @@ class AlarmRingingService : Service() {
         // Play Tone
         if (tone.startsWith("custom_")) {
             AudioSynthesizer.play(tone)
+        } else if (tone.startsWith("local_file:")) {
+            val fileName = tone.substringAfter("local_file:")
+            RingtonePlayer.playFromFile(this, fileName)
         } else {
             RingtonePlayer.playDefault(this)
         }

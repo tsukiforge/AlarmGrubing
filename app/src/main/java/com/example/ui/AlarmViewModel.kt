@@ -447,12 +447,12 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 } else {
                     _syncState.value = SyncStatus.Error("Server cloud tidak merespons")
-                    onResult(false, "Tidak dapat menghubungkan kamar grup ke Cloud. Kemungkinan koneksi diblokir oleh ISP Anda (kvdb.io sering difilter). Silakan coba hubungkan ulang menggunakan VPN.")
+                    onResult(false, "Tidak dapat menghubungkan kamar grup ke Cloud. Silakan periksa jaringan internet Anda atau pastikan URL Server Sinkronisasi di Settings sudah benar.")
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
                 _syncState.value = SyncStatus.Error("Kesalahan jaringan: ${e.localizedMessage}")
-                onResult(false, "Kesalahan koneksi: ${e.localizedMessage}. Silakan periksa jaringan internet Anda atau aktifkan VPN.")
+                onResult(false, "Kesalahan koneksi: ${e.localizedMessage}. Silakan periksa koneksi jaringan internet Anda.")
             }
         }
     }

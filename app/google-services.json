@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "881410606838",
+    "project_id": "server-ba906",
+    "storage_bucket": "server-ba906.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:881410606838:android:cd7a18c15a445efb920ed7",
+        "android_client_info": {
+          "package_name": "com.Xu.AlarmGrubbing"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMm3CStBGMtwsDJIiUmQ3JEk1znGH5MBg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

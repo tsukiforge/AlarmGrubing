@@ -6,16 +6,14 @@ import retrofit2.Response
 import retrofit2.http.*
 
 interface KvdbApi {
-    @GET("{bucketId}/{key}")
+    @GET
     suspend fun getValue(
-        @Path("bucketId") bucketId: String,
-        @Path("key") key: String
+        @Url url: String
     ): Response<ResponseBody>
 
-    @PUT("{bucketId}/{key}")
+    @PUT
     suspend fun putValue(
-        @Path("bucketId") bucketId: String,
-        @Path("key") key: String,
+        @Url url: String,
         @Body value: RequestBody
     ): Response<ResponseBody>
 }

@@ -9,10 +9,15 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.ui.graphics.asImageBitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import java.io.File
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -160,10 +165,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val context = LocalContext.current
             val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", MODE_PRIVATE) }
+            var currentScreen by remember { mutableStateOf("home") }
+            var profilePicTrigger by remember { mutableStateOf(false) }
+
             LaunchedEffect(Unit) {
                 AppThemeState.themeMode = prefs.getString("theme_mode", "system") ?: "system"
                 AppThemeState.sakuraEnabled = prefs.getBoolean("sakura_enabled", true)
-                val serverUrl = prefs.getString("sync_server_url", "https://kvdb.io/") ?: "https://kvdb.io/"
+                var serverUrl = prefs.getString("sync_server_url", "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/") ?: "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/"
+                if (serverUrl.contains("alarmsync-faizinu-default-rtdb")) {
+                    serverUrl = "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/"
+                    prefs.edit().putString("sync_server_url", serverUrl).apply()
+                }
                 com.example.data.api.NetworkClient.updateBaseUrl(serverUrl)
             }
 
@@ -174,59 +186,86 @@ class MainActivity : ComponentActivity() {
                 val rAlarmIsGroup by ringingAlarmIsGroupState
                 val rAlarmGroupCode by ringingAlarmGroupCodeState
 
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    containerColor = Color.Transparent
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(BackgroundDark)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.img_anime_background_1780840432597),
-                            contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                            alpha = if (isSystemInDarkTheme()) 0.22f else 0.42f
-                        )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        modifier = Modifier.fillMaxSize(),
+                        containerColor = Color.Transparent
+                    ) { innerPadding ->
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(innerPadding)
+                                .background(BackgroundDark)
                         ) {
-                            MainScreenContent(
-                                viewModel = viewModel,
-                                onRequestNotificationPermission = {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                        requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            Image(
+                                painter = painterResource(id = R.drawable.img_anime_background_1780840432597),
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                alpha = if (isSystemInDarkTheme()) 0.22f else 0.42f
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(innerPadding)
+                            ) {
+                                AnimatedContent(
+                                    targetState = currentScreen,
+                                    transitionSpec = {
+                                        fadeIn(animationSpec = tween(400)) togetherWith fadeOut(animationSpec = tween(400))
+                                    },
+                                    label = "ScreenTransition"
+                                ) { screen ->
+                                    if (screen == "home") {
+                                        MainScreenContent(
+                                            viewModel = viewModel,
+                                            profilePicTrigger = profilePicTrigger,
+                                            onNavigateToSettings = { currentScreen = "settings" },
+                                            onRequestNotificationPermission = {
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                }
+                                            }
+                                        )
+                                    } else {
+                                        SettingsScreen(
+                                            viewModel = viewModel,
+                                            profilePicTrigger = profilePicTrigger,
+                                            onProfilePicChanged = { profilePicTrigger = !profilePicTrigger },
+                                            onBack = { currentScreen = "home" },
+                                            onRequestNotificationPermission = {
+                                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                                    requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                                }
+                                            }
+                                        )
                                     }
                                 }
-                            )
-
-                        AnimatedVisibility(
-                            visible = isRinging,
-                            enter = fadeIn(animationSpec = tween(500)) + expandVertically(),
-                            exit = fadeOut(animationSpec = tween(500)) + shrinkVertically()
-                        ) {
-                            RingingOverlay(
-                                title = rAlarmTitle ?: "Alarm",
-                                isGroup = rAlarmIsGroup,
-                                groupCode = rAlarmGroupCode,
-                                onDismiss = {
-                                    val stopIntent = Intent(this@MainActivity, AlarmRingingService::class.java).apply {
-                                        action = "STOP"
-                                    }
-                                    this@MainActivity.startService(stopIntent)
-                                }
-                            )
+                            }
                         }
+                    }
+
+                    AnimatedVisibility(
+                        visible = isRinging,
+                        enter = fadeIn(animationSpec = tween(500)) + expandVertically(),
+                        exit = fadeOut(animationSpec = tween(500)) + shrinkVertically(),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        RingingOverlay(
+                            title = rAlarmTitle ?: "Alarm",
+                            isGroup = rAlarmIsGroup,
+                            groupCode = rAlarmGroupCode,
+                            onDismiss = {
+                                val stopIntent = Intent(this@MainActivity, AlarmRingingService::class.java).apply {
+                                    action = "STOP"
+                                }
+                                this@MainActivity.startService(stopIntent)
+                            }
+                        )
                     }
                 }
             }
         }
     }
-}
 
     override fun onDestroy() {
         try {
@@ -239,6 +278,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreenContent(
     viewModel: AlarmViewModel,
+    profilePicTrigger: Boolean,
+    onNavigateToSettings: () -> Unit,
     onRequestNotificationPermission: () -> Unit
 ) {
     var activeTab by remember { mutableStateOf(0) } // 0: Pribadi, 1: Grup, 2: Catatan
@@ -253,6 +294,7 @@ fun MainScreenContent(
     val isOfflineGroup by viewModel.isOfflineGroup.collectAsState()
 
     val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
     val isConnected by NetworkConnectionHelper.observeConnection(context).collectAsState(initial = NetworkConnectionHelper.isConnected(context))
     val networkType = remember(isConnected) { NetworkConnectionHelper.getNetworkType(context) }
 
@@ -290,23 +332,46 @@ fun MainScreenContent(
                 modifier = Modifier
                     .clip(RoundedCornerShape(20.dp))
                     .background(MaterialTheme.colorScheme.primaryContainer)
-                    .clickable { showUserNameDialog = true }
+                    .clickable { onNavigateToSettings() }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(IndigoPrimary),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = userName.take(1).uppercase(),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
+                val profileFile = File(context.filesDir, "profile_pic.png")
+                val hasCustomPic = prefs.getBoolean("has_custom_profile_pic", false) && profileFile.exists()
+                val profileBitmap = remember(profilePicTrigger, hasCustomPic) {
+                    if (hasCustomPic) {
+                        try {
+                            BitmapFactory.decodeFile(profileFile.absolutePath)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } else null
+                }
+
+                if (profileBitmap != null) {
+                    Image(
+                        bitmap = profileBitmap.asImageBitmap(),
+                        contentDescription = "Foto Profil",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
                     )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(IndigoPrimary),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = userName.take(1).uppercase(),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
@@ -1625,7 +1690,7 @@ fun UserProfileAndSettingsDialog(
     var textInput by remember { mutableStateOf(currentName) }
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
-    var serverUrlInput by remember { mutableStateOf(prefs.getString("sync_server_url", "https://kvdb.io/") ?: "https://kvdb.io/") }
+    var serverUrlInput by remember { mutableStateOf(prefs.getString("sync_server_url", "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/") ?: "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/") }
     
     // Theme options
     var selectedThemeMode by remember { mutableStateOf(AppThemeState.themeMode) }
@@ -1799,8 +1864,8 @@ fun UserProfileAndSettingsDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     listOf(
-                        "https://kvdb.io/" to "Secure 🔒 (HTTPS)",
-                        "http://kvdb.io/" to "Regular 🌐 (HTTP)"
+                        "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/" to "Firebase Client 🌸",
+                        "https://kvdb.io/" to "KVDB (Biasa) 🌐"
                     ).forEach { (url, label) ->
                         val isSelected = serverUrlInput.trim().lowercase() == url.lowercase()
                         Box(
@@ -1854,7 +1919,7 @@ fun UserProfileAndSettingsDialog(
                     Column(modifier = Modifier.padding(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "⚡ Solusi Bebas Hambatan (ISP Terblokir)",
+                                text = "⚡ Info Cloud & Bypass ISP",
                                 color = Color(0xFFFFB300),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
@@ -1862,8 +1927,8 @@ fun UserProfileAndSettingsDialog(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Layanan Cloud grup menggunakan platform kvdb.io. Beberapa operator seluler/WiFi lokal di Indonesia terkadang memblokir server ini.\n\n" +
-                                   "Cara termudah melewatinya secara permanen (tanpa aplikasi tambahan, tanpa VPN, hemat baterai, dan berlaku untuk semua aplikasi) adalah mengaktifkan DNS Pribadi (Private DNS) Google atau Cloudflare di pengaturan HP Anda.",
+                            text = "Kini layanan sinkronisasi grup menggunakan Firebase Realtime Database secara default yang dijamin 100% cepat dan anti-blokir oleh seluruh ISP di Indonesia!\n\n" +
+                                   "Jika Anda memilih server kustom eksternal seperti kvdb.io yang terblokir, Anda dapat mengaktifkan DNS Pribadi (Private DNS) Google atau Cloudflare di pengaturan HP Anda untuk solusi bypass permanen tanpa VPN dan hemat baterai.",
                             color = TextLight,
                             fontSize = 11.sp,
                             lineHeight = 15.sp
@@ -2112,6 +2177,7 @@ fun AddAlarmDialog(
     onDismiss: () -> Unit,
     onSave: (title: String, hour: Int, minute: Int, daysOfWeek: String, ringtone: String) -> Unit
 ) {
+    val context = LocalContext.current
     var title by remember { mutableStateOf(alarmToEdit?.title ?: "") }
     var hour by remember { mutableIntStateOf(alarmToEdit?.hour ?: 7) }
     var minute by remember { mutableIntStateOf(alarmToEdit?.minute ?: 0) }
@@ -2317,35 +2383,113 @@ fun AddAlarmDialog(
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(text = "Suara Bell & Weker", color = TextMuted, fontSize = 12.sp)
-                    Spacer(modifier = Modifier.height(6.dp))
-                }
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                val tones = listOf(
-                    "default" to "🎵 default bawaan hp",
-                    "custom_1" to "🎐 Melody Chime (Aplikasi)",
-                    "custom_2" to "📟 Retro Beep (Aplikasi)",
-                    "custom_3" to "🌌 Echo Syzer (Aplikasi)",
-                    "custom_sakura" to "🌸 Sakura Dream (Anime)",
-                    "custom_anime" to "⚡ Shinobi Energetic (Hot)"
-                )
-                items(tones) { p ->
-                    val isChecked = selectedTone == p.first
-                    Row(
+                    var toneMenuExpanded by remember { mutableStateOf(false) }
+
+                    val musicPickerLauncher = rememberLauncherForActivityResult(
+                        contract = ActivityResultContracts.GetContent()
+                    ) { uri: Uri? ->
+                        if (uri != null) {
+                            try {
+                                val timeMillis = System.currentTimeMillis()
+                                val destDir = File(context.filesDir, "custom_sounds")
+                                if (!destDir.exists()) destDir.mkdirs()
+                                val localFileName = "custom_music_${timeMillis}.mp3"
+                                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                                    File(destDir, localFileName).outputStream().use { outputStream ->
+                                        inputStream.copyTo(outputStream)
+                                    }
+                                }
+                                selectedTone = "local_file:$localFileName"
+                                android.widget.Toast.makeText(context, "Berhasil mengimpor musik HP! 📁", android.widget.Toast.LENGTH_SHORT).show()
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                                android.widget.Toast.makeText(context, "Gagal mengimpor file musik", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+
+                    val customSoundsList = remember(selectedTone) {
+                        val list = mutableListOf<Pair<String, String>>()
+                        val destDir = File(context.filesDir, "custom_sounds")
+                        if (destDir.exists()) {
+                            destDir.listFiles()?.forEach { file ->
+                                list.add("local_file:${file.name}" to "📁 Musik: ${file.name.take(24)}")
+                            }
+                        }
+                        list
+                    }
+
+                    val tonesList = listOf(
+                        "default" to "🎵 default bawaan hp",
+                        "custom_1" to "🎐 Melody Chime (Aplikasi)",
+                        "custom_2" to "📟 Retro Beep (Aplikasi)",
+                        "custom_3" to "🌌 Echo Syzer (Aplikasi)",
+                        "custom_sakura" to "🌸 Sakura Dream (Anime)",
+                        "custom_anime" to "⚡ Shinobi Energetic (Hot)"
+                    ) + customSoundsList
+
+                    val currentToneLabel = tonesList.firstOrNull { it.first == selectedTone }?.second ?: "🎵 default bawaan hp"
+
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isChecked) SurfaceDarkElevated else Color.Transparent)
-                            .clickable { selectedTone = p.first }
-                            .padding(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(SurfaceDarkElevated)
+                            .clickable { toneMenuExpanded = true }
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
                     ) {
-                        RadioButton(
-                            selected = isChecked,
-                            onClick = { selectedTone = p.first },
-                            colors = RadioButtonDefaults.colors(selectedColor = IndigoPrimary)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(text = p.second, color = TextLight, fontSize = 13.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = currentToneLabel,
+                                color = TextLight,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Pilih",
+                                tint = TextMuted
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = toneMenuExpanded,
+                            onDismissRequest = { toneMenuExpanded = false },
+                            modifier = Modifier
+                                .fillMaxWidth(0.8f)
+                                .heightIn(max = 280.dp)
+                                .background(SurfaceDarkElevated)
+                        ) {
+                            tonesList.forEach { p ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(p.second, color = TextLight, fontSize = 13.sp)
+                                    },
+                                    onClick = {
+                                        selectedTone = p.first
+                                        toneMenuExpanded = false
+                                    }
+                                )
+                            }
+                            Divider(color = SurfaceDark)
+                            DropdownMenuItem(
+                                text = {
+                                    Text("📁 + Pilih Musik Baru dari HP...", color = PinkAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                },
+                                onClick = {
+                                    toneMenuExpanded = false
+                                    musicPickerLauncher.launch("audio/*")
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -2744,4 +2888,453 @@ fun SakuraOverlay(
         }
     }
 }
+
+@Composable
+fun SettingsScreen(
+    viewModel: AlarmViewModel,
+    profilePicTrigger: Boolean,
+    onProfilePicChanged: () -> Unit,
+    onBack: () -> Unit,
+    onRequestNotificationPermission: () -> Unit
+) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
+    val userName by viewModel.userName.collectAsState()
+    var textInput by remember { mutableStateOf(userName) }
+    var serverUrlInput by remember { mutableStateOf(prefs.getString("sync_server_url", "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/") ?: "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/") }
+    
+    // Theme options
+    var selectedThemeMode by remember { mutableStateOf(AppThemeState.themeMode) }
+    
+    // Notification permission state
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        )
+    }
+
+    val profileImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val file = File(context.filesDir, "profile_pic.png")
+                    file.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                prefs.edit().putBoolean("has_custom_profile_pic", true).apply()
+                onProfilePicChanged()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            // Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.Default.ArrowBack,
+                        contentDescription = "Kembali",
+                        tint = TextLight
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Pengaturan & Profil",
+                        color = TextLight,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Konfigurasi identitas & performa aplikasi",
+                        color = TextMuted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Beautiful Profile Picture Avatar
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val profileFile = File(context.filesDir, "profile_pic.png")
+                    val hasCustomPic = prefs.getBoolean("has_custom_profile_pic", false) && profileFile.exists()
+                    val profileBitmap = remember(profilePicTrigger, hasCustomPic) {
+                        if (hasCustomPic) {
+                            try {
+                                BitmapFactory.decodeFile(profileFile.absolutePath)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        } else null
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .background(IndigoPrimary.copy(alpha = 0.2f))
+                            .border(2.dp, IndigoPrimary, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (profileBitmap != null) {
+                            Image(
+                                bitmap = profileBitmap.asImageBitmap(),
+                                contentDescription = "Foto Profil Anda",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            Text(
+                                text = userName.take(1).uppercase(),
+                                color = TextLight,
+                                fontSize = 42.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = { profileImageLauncher.launch("image/*") },
+                            colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Ganti Foto", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        if (hasCustomPic) {
+                            OutlinedButton(
+                                onClick = {
+                                    try {
+                                        if (profileFile.exists()) profileFile.delete()
+                                        prefs.edit().putBoolean("has_custom_profile_pic", false).apply()
+                                        onProfilePicChanged()
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red.copy(alpha = 0.6f)),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text("Hapus", color = Color.Red, fontSize = 11.sp)
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = textInput,
+                        onValueChange = { textInput = it },
+                        singleLine = true,
+                        label = { Text("Nama Pengguna (Display Name)") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = IndigoPrimary,
+                            unfocusedBorderColor = SurfaceDark,
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight,
+                            focusedLabelColor = IndigoPrimary,
+                            unfocusedLabelColor = TextMuted
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // Theme Mode Section
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Mode Tampilan (Theme)",
+                        color = IndigoPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙")
+                        modes.forEach { (mode, label) ->
+                            val isSelected = selectedThemeMode == mode
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) IndigoPrimary else SurfaceDark)
+                                    .clickable {
+                                        selectedThemeMode = mode
+                                        AppThemeState.themeMode = mode
+                                        prefs.edit().putString("theme_mode", mode).apply()
+                                    }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color.White else TextLight,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Sakura Toggle Section
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable {
+                            val nextVal = !AppThemeState.sakuraEnabled
+                            AppThemeState.sakuraEnabled = nextVal
+                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
+                        }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Animasi Kelopak Sakura 🌸", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text("Aktifkan efek kelopak bunga berguguran secara real-time", color = TextMuted, fontSize = 10.sp)
+                    }
+                    Switch(
+                        checked = AppThemeState.sakuraEnabled,
+                        onCheckedChange = { nextVal ->
+                            AppThemeState.sakuraEnabled = nextVal
+                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = IndigoPrimary
+                        )
+                    )
+                }
+            }
+
+            // Sync Server Selector
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Server Sinkronisasi Grup",
+                        color = IndigoPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/" to "Firebase (Anti-Blokir) 🌸",
+                            "https://kvdb.io/" to "KVDB (Biasa) 🌐"
+                        ).forEach { (url, label) ->
+                            val isSelected = serverUrlInput.trim().lowercase() == url.lowercase()
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) IndigoPrimary else SurfaceDark)
+                                    .clickable {
+                                        serverUrlInput = url
+                                        android.widget.Toast.makeText(context, "URL diubah ke: $url", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) Color.White else TextLight,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    OutlinedTextField(
+                        value = serverUrlInput,
+                        onValueChange = { serverUrlInput = it },
+                        singleLine = true,
+                        label = { Text("URL Server Sinkronisasi (Kustom)") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = IndigoPrimary,
+                            unfocusedBorderColor = SurfaceDark,
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight,
+                            focusedLabelColor = IndigoPrimary,
+                            unfocusedLabelColor = TextMuted
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+
+            // Notification Permission Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clickable {
+                            if (!hasNotificationPermission) {
+                                onRequestNotificationPermission()
+                            }
+                        }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Izin Berdering di Background 🔔", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (hasNotificationPermission) "Izin diberikan secara penuh" else "Izinkan notifikasi agar alarm berdering lancar",
+                            color = if (hasNotificationPermission) IndigoLight else Color.Yellow,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (hasNotificationPermission) IndigoPrimary.copy(alpha = 0.2f) else Color.Yellow.copy(alpha = 0.2f))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = if (hasNotificationPermission) "AKTIF" else "IZINKAN",
+                            color = if (hasNotificationPermission) IndigoLight else Color.Yellow,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Info & Bypass ISP block
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "⚡ Info Cloud & Bypass ISP",
+                        color = Color(0xFFFFB300),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Kini layanan sinkronisasi grup menggunakan Firebase Realtime Database secara default yang dijamin 100% cepat dan anti-blokir oleh seluruh ISP di Indonesia!\n\n" +
+                               "Jika Anda memilih server kustom eksternal seperti kvdb.io yang terblokir, Anda dapat mengaktifkan DNS Pribadi (Private DNS) Google atau Cloudflare di pengaturan HP Anda untuk solusi bypass permanen tanpa VPN dan hemat baterai.",
+                        color = TextLight,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
+            
+            // Save & Apply Button
+            Button(
+                onClick = {
+                    val finalName = textInput.trim().ifEmpty { userName }
+                    viewModel.updateUserName(finalName)
+                    prefs.edit().putString("sync_server_url", serverUrlInput).apply()
+                    com.example.data.api.NetworkClient.updateBaseUrl(serverUrlInput)
+                    android.widget.Toast.makeText(context, "Profil & Pengaturan Tersimpan!", android.widget.Toast.LENGTH_SHORT).show()
+                    onBack()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .padding(bottom = 16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PinkAccent),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("TERAPKAN & SIMPAN PROFIL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
 

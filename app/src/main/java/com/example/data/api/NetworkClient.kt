@@ -6,7 +6,7 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 
 object NetworkClient {
-    private var currentBaseUrl = "https://kvdb.io/"
+    private var currentBaseUrl = "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/"
     const val BUCKET_ID = "alarmgrup_v4_maichi_76da"
 
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
@@ -22,6 +22,25 @@ object NetworkClient {
 
     var api: KvdbApi = buildApi(currentBaseUrl)
         private set
+
+    fun getFullUrl(bucketId: String, key: String): String {
+        val baseUrl = currentBaseUrl
+        return if (baseUrl.contains("firebasedatabase.app")) {
+            // Firebase Realtime Database REST API requires .json suffix at the end
+            if (baseUrl.endsWith("/")) {
+                "$baseUrl$bucketId/$key.json"
+            } else {
+                "$baseUrl/$bucketId/$key.json"
+            }
+        } else {
+            // Standard kvdb.io format
+            if (baseUrl.endsWith("/")) {
+                "$baseUrl$bucketId/$key"
+            } else {
+                "$baseUrl/$bucketId/$key"
+            }
+        }
+    }
 
     fun updateBaseUrl(newUrl: String) {
         val sanitized = if (newUrl.endsWith("/")) newUrl else "$newUrl/"

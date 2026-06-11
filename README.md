@@ -6,13 +6,18 @@ Aplikasi manajemen alarm pribadi dan alarm kelompok cerdas yang tersinkronisasi 
 
 - **⏰ Alarm Pribadi (Personal Alarm)**: Penjadwalan alarm mandiri di perangkat lokal demi menjaga kepatuhan jadwal pribadi Anda secara independen.
 - **👥 Kamar Alarm Kelompok (Group Alarm Rooms)**: Buat atau gabung ke kamar kelompok menggunakan kode unik untuk menyinkronkan alarm bangun tidur, kelas, atau rapat bersama teman, kolega, atau keluarga Anda secara instan.
-- **🔄 Sinkronisasi Real-Time & Hibrida**: Menggunakan backend REST API yang tangguh untuk sinkronisasi alarm kelompok. Dilengkapi visual status indikator sinkronisasi (Tersinkron, Sinkronisasi, Koneksi Terputus).
-- **📶 Detektor Koneksi Akurat (Smart Off-line/On-line Handshake)**:
-  - Otomatis mendeteksi media koneksi aktif seperti **Wi-Fi 📶** atau **Data Seluler 📱**.
-  - Menyediakan pemberitahuan status **Offline ⚠️** jika koneksi mati saat aplikasi berjalan maupun ketika keluar.
-  - Memungkinkan pembuatan Kamar Grup secara Offline (disimpan lokal sementara) dan menyediakan tombol sekali sentuh **"Online-kan Grup & Sinkron Server 🔄"** untuk dipublikasikan ke awan setelah jaringan Anda kembali aktif.
-- **🔔 Tampilan Dering Prioritas Tinggi (Full-Screen Ringing Overlay)**:
-  - Mengimplementasikan `USE_FULL_SCREEN_INTENT` sehingga alarm berdering akan langsung memotong layar kunci (*lock screen*) atau muncul secara kokoh di lapisan teratas (*top bar/foreground*).
+- **🔄 Sinkronisasi Real-Time & Hibrida**: Menggunakan backend Firebase Realtime Database andal yang dijamin cepat dan bebas blokir oleh seluruh ISP di Indonesia, dilengkapi visual status indikator sinkronisasi.
+- **⚙️ Halaman Pengaturan Terpisah (Dedicated Settings Screen)**:
+  - Menu konfigurasi yang dipisahkan ke halaman tersendiri dengan animasi transisi *fade-in* dan *fade-out* bergaya modern guna menjaga aplikasi tetap super ringan dan hemat RAM.
+  - Memungkinkan penyesuaian Display Name, mode tema (Terang, Gelap, Sistem), animasi sakura, server sinkronisasi kustom, serta izin berdering di background.
+- **👤 Foto Profil Lokal & Mandiri (Secure Offline-First Avatars)**:
+  - Pengguna dapat mengunggah foto profil kustom sendiri.
+  - Demi menjaga keamanan, integritas data pribadi, dan privasi penuh, setiap foto yang diunggah disimpan di folder lokal aman terisolasi perangkat (`context.filesDir`), memastikan foto Anda sepenuhnya aman dan rapi meskipun server online mati.
+- **📁 Musik Kustom dari HP & Dropdown Ringkas (Custom Notification Sounds)**:
+  - Mengganti daftar pilihan nada dering panjang yang berat dengan *Compact Dropdown Menu* yang minimalis.
+  - Memungkinkan pengguna mengimpor lagu kesayangan/musik MP3 secara langsung dari penyimpanan HP lokal untuk dijadikan nada dering alarm kustom.
+- **🔔 Tampilan Dering Prioritas Tinggi & Real Full Screen**:
+  - Mengimplementasikan `USE_FULL_SCREEN_INTENT` yang sesungguhnya dengan tampilan layar penuh (*Immersive Full-Screen*), memotong lapisan status/navigation bar secara kokoh untuk memastikan Anda segera bangun.
   - Dilengkapi antarmuka pemutus alarm cepat berukuran ergonomis guna memastikan kemudahan penggunaan saat pertama kali terbangun.
 - **⚡ Keandalan Sistem Latar Belakang**:
   - Memanfaatkan `AlarmManager` presisi standar Android (`SCHEDULE_EXACT_ALARM` & `USE_EXACT_ALARM`).
