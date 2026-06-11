@@ -53,18 +53,36 @@ private val DarkColorScheme = darkColorScheme(
     outlineVariant = Color(0xFF21005D)
 )
 
+private val StarlightColorScheme = darkColorScheme(
+    primary = Color(0xFFFFB7C5), // Soft pastel Sakura pink
+    onPrimary = Color(0xFF3C0E1E), // Deep midnight violet-magenta
+    primaryContainer = Color(0xFF6A1B4D), // Soft cosmic purple-magenta
+    onPrimaryContainer = Color(0xFFFFD1DC),
+    secondary = Color(0xFFD1C4E9), // Dreamy pastel purple star glow
+    onSecondary = Color(0xFF311B92),
+    secondaryContainer = Color(0xFF4A148C), // Deep midnight purple
+    onSecondaryContainer = Color(0xFFEDE7F6),
+    background = Color(0xFF0F0A1C), // Deep starlight cosmic navy/violet
+    onBackground = Color(0xFFFFF0F5),
+    surface = Color(0xFF1D142C), // Translucent soft purple-indigo obsidian card
+    onSurface = Color(0xFFFFF0F5),
+    surfaceVariant = Color(0xFF2C1E42), // Rich twilight orchid highlights
+    onSurfaceVariant = Color(0xFFFFC0D9),
+    outline = Color(0xFFD1C4E9),
+    outlineVariant = Color(0xFF4A148C)
+)
+
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
-    val isDark = when (AppThemeState.themeMode) {
-        "dark" -> true
-        "light" -> false
-        else -> darkTheme
+    val colorScheme = when (AppThemeState.themeMode) {
+        "starlight" -> StarlightColorScheme
+        "dark" -> DarkColorScheme
+        "light" -> LightColorScheme
+        else -> if (darkTheme) DarkColorScheme else LightColorScheme
     }
-    
-    val colorScheme = if (isDark) DarkColorScheme else LightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,

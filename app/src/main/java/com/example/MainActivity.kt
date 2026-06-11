@@ -1778,7 +1778,7 @@ fun UserProfileAndSettingsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙")
+                    val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙", "starlight" to "Starlight ✨")
                     modes.forEach { (mode, label) ->
                         val isSelected = selectedThemeMode == mode
                         Box(
@@ -2793,9 +2793,23 @@ data class SakuraPetal(
     val alpha: Float
 )
 
+data class StarParticle(
+    val initialXRatio: Float,
+    val initialYRatio: Float,
+    val sizeDp: Float,
+    val speedY: Float,
+    val windX: Float,
+    val initialRotation: Float,
+    val rotationSpeed: Float,
+    val baseAlpha: Float,
+    val twinkleFreq: Float,
+    val color: Color
+)
+
 @Composable
 fun SakuraFallingCanvas(modifier: Modifier = Modifier) {
     val petalCount = 18 // Subtle density to remain elegant and beautiful
+    val starCount = 12
 
     // Pre-allocate the petals to avoid allocations on frames
     val petals = remember {
@@ -2812,6 +2826,31 @@ fun SakuraFallingCanvas(modifier: Modifier = Modifier) {
                 initialRotation = random.nextFloat() * 360f,
                 rotationSpeed = 30f + random.nextFloat() * 60f,
                 alpha = 0.35f + random.nextFloat() * 0.45f
+            )
+        }
+    }
+
+    // Pre-allocate stars for stardust sparkle
+    val stars = remember {
+        val random = java.util.Random(2026)
+        val colors = listOf(
+            Color(0xFFFFF9C4), // Soft warm yellow star
+            Color(0xFFE1BEE7), // Dreamy lavender star
+            Color(0xFFF8BBD0), // Soft pink star
+            Color.White        // Shimmering white star
+        )
+        List(starCount) {
+            StarParticle(
+                initialXRatio = random.nextFloat(),
+                initialYRatio = random.nextFloat(),
+                sizeDp = 4f + random.nextFloat() * 6f, // 4dp to 10dp
+                speedY = 0.08f + random.nextFloat() * 0.1f,
+                windX = 0.02f + random.nextFloat() * 0.04f,
+                initialRotation = random.nextFloat() * 360f,
+                rotationSpeed = 20f + random.nextFloat() * 40f,
+                baseAlpha = 0.4f + random.nextFloat() * 0.5f,
+                twinkleFreq = 1.5f + random.nextFloat() * 2.5f,
+                color = colors[random.nextInt(colors.size)]
             )
         }
     }
@@ -2839,6 +2878,18 @@ fun SakuraFallingCanvas(modifier: Modifier = Modifier) {
         }
     }
 
+    // A normalized sparkling 4-pointed star path
+    val baseStarPath = remember {
+        Path().apply {
+            moveTo(0f, -0.5f)
+            quadraticTo(0f, 0f, 0.5f, 0f)
+            quadraticTo(0f, 0f, 0f, 0.5f)
+            quadraticTo(0f, 0f, -0.5f, 0f)
+            quadraticTo(0f, 0f, 0f, -0.5f)
+            close()
+        }
+    }
+
     val petalColor = Color(0xFFFFB7C5) // Soft, authentic Sakura pink
 
     Canvas(modifier = modifier.fillMaxSize()) {
@@ -2846,6 +2897,37 @@ fun SakuraFallingCanvas(modifier: Modifier = Modifier) {
         val height = size.height
 
         if (width > 0 && height > 0) {
+            // 1. Draw drifting shimmering stars
+            stars.forEach { star ->
+                val rawY = (star.initialYRatio + (progress * star.speedY)) % 1.0f
+                val paddingY = 30f
+                val currentY = rawY * (height + paddingY * 2) - paddingY
+
+                val rawX = (star.initialXRatio + (progress * star.windX)) % 1.0f
+                val currentX = (rawX * width) % width
+
+                val currentRotation = star.initialRotation + (progress * star.rotationSpeed)
+                val starSizePx = star.sizeDp.dp.toPx()
+
+                // Calculate animated twinkle alpha
+                val twinkle = 0.3f + 0.7f * kotlin.math.abs(
+                    kotlin.math.sin(progress * star.twinkleFreq * 2 * kotlin.math.PI.toFloat())
+                )
+                val finalAlpha = star.baseAlpha * twinkle
+
+                rotate(currentRotation, pivot = Offset(currentX, currentY)) {
+                    translate(left = currentX, top = currentY) {
+                        drawScopeScale(scaleX = starSizePx, scaleY = starSizePx, pivot = Offset.Zero) {
+                            drawPath(
+                                path = baseStarPath,
+                                color = star.color.copy(alpha = finalAlpha)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 2. Draw falling sakura petals
             petals.forEach { petal ->
                 // Calculate dynamic coordinates with screen wrapping
                 val rawY = (petal.initialYRatio + (progress * petal.speedY)) % 1.0f
@@ -3111,7 +3193,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙")
+                        val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙", "starlight" to "Starlight ✨")
                         modes.forEach { (mode, label) ->
                             val isSelected = selectedThemeMode == mode
                             Box(
