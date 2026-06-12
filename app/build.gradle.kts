@@ -31,6 +31,10 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  val keystoreFile = file("${rootDir}/debug.keystore")
+  val base64File = file("${rootDir}/debug.keystore.base64")
+  val hasDebugKeystoreSource = keystoreFile.exists() || base64File.exists()
+
   signingConfigs {
     create("release") {
       val keystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
@@ -39,29 +43,29 @@ android {
       keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
       keyPassword = System.getenv("KEY_PASSWORD") ?: ""
     }
-    create("debugConfig") {
-      val keystoreFile = file("${rootDir}/debug.keystore")
-      val base64File = file("${rootDir}/debug.keystore.base64")
-      if (!keystoreFile.exists() && base64File.exists()) {
-          try {
-              val base64Text = base64File.readText().replace("\\s".toRegex(), "")
-              val decodedBytes = Base64.getDecoder().decode(base64Text)
-              keystoreFile.writeBytes(decodedBytes)
-              println("Reconstructed keystore from debug.keystore.base64 using Standard Decoder.")
-          } catch (e: Exception) {
-              try {
-                  val decodedBytes = Base64.getMimeDecoder().decode(base64File.readBytes())
-                  keystoreFile.writeBytes(decodedBytes)
-                  println("Reconstructed keystore from debug.keystore.base64 using MIME Decoder.")
-              } catch (e2: Exception) {
-                  println("Failed to reconstruct keystore from base64 file: ${e2.message}")
-              }
-          }
+    if (hasDebugKeystoreSource) {
+      create("debugConfig") {
+        if (!keystoreFile.exists() && base64File.exists()) {
+            try {
+                val base64Text = base64File.readText().replace("\\s".toRegex(), "")
+                val decodedBytes = Base64.getDecoder().decode(base64Text)
+                keystoreFile.writeBytes(decodedBytes)
+                println("Reconstructed keystore from debug.keystore.base64 using Standard Decoder.")
+            } catch (e: Exception) {
+                try {
+                    val decodedBytes = Base64.getMimeDecoder().decode(base64File.readBytes())
+                    keystoreFile.writeBytes(decodedBytes)
+                    println("Reconstructed keystore from debug.keystore.base64 using MIME Decoder.")
+                } catch (e2: Exception) {
+                    println("Failed to reconstruct keystore from base64 file: ${e2.message}")
+                }
+            }
+        }
+        storeFile = keystoreFile
+        storePassword = "android"
+        keyAlias = "androiddebugkey"
+        keyPassword = "android"
       }
-      storeFile = keystoreFile
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
     }
   }
 
@@ -74,7 +78,9 @@ android {
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
-      signingConfig = signingConfigs.getByName("debugConfig")
+      if (hasDebugKeystoreSource) {
+        signingConfig = signingConfigs.getByName("debugConfig")
+      }
     }
   }
   compileOptions {
