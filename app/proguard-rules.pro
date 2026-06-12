@@ -24,6 +24,12 @@
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.**
 
+# OkHttp Optional Security Providers Keep/Dontwarn Rules
+-dontwarn org.bouncycastle.jsse.**
+-dontwarn org.bouncycastle.jsse.provider.**
+-dontwarn org.conscrypt.**
+-dontwarn org.openjsse.**
+
 # Kotlin Coroutines
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
