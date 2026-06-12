@@ -1817,50 +1817,6 @@ fun UserProfileAndSettingsDialog(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                // Sakura Animation toggle section
-                Text(
-                    text = "Suara & Efek Visual Anime",
-                    color = IndigoPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceDarkElevated)
-                        .clickable {
-                            val nextVal = !AppThemeState.sakuraEnabled
-                            AppThemeState.sakuraEnabled = nextVal
-                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
-                        }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text("Animasi Kelopak Sakura", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("Aktifkan efek kelopak bunga berguguran", color = TextMuted, fontSize = 10.sp)
-                    }
-                    Switch(
-                        checked = AppThemeState.sakuraEnabled,
-                        onCheckedChange = { nextVal ->
-                            AppThemeState.sakuraEnabled = nextVal
-                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = IndigoPrimary,
-                            uncheckedThumbColor = Color(0xFF938F99),
-                            uncheckedTrackColor = Color(0xFFE7E0EC)
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 // Sync Server Section
                 Text(
                     text = "Server Sinkronisasi Grup",
@@ -2977,9 +2933,6 @@ fun SakuraOverlay(
 ) {
     Box(modifier = modifier) {
         content()
-        if (AppThemeState.sakuraEnabled) {
-            SakuraFallingCanvas()
-        }
     }
 }
 
@@ -3235,43 +3188,6 @@ fun SettingsScreen(
                             }
                         }
                     }
-                }
-            }
-
-            // Sakura Toggle Section
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .clickable {
-                            val nextVal = !AppThemeState.sakuraEnabled
-                            AppThemeState.sakuraEnabled = nextVal
-                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
-                        }
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Animasi Kelopak Sakura 🌸", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text("Aktifkan efek kelopak bunga berguguran secara real-time", color = TextMuted, fontSize = 10.sp)
-                    }
-                    Switch(
-                        checked = AppThemeState.sakuraEnabled,
-                        onCheckedChange = { nextVal ->
-                            AppThemeState.sakuraEnabled = nextVal
-                            prefs.edit().putBoolean("sakura_enabled", nextVal).apply()
-                        },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = IndigoPrimary
-                        )
-                    )
                 }
             }
 

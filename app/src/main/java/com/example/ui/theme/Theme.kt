@@ -12,13 +12,13 @@ import androidx.compose.ui.graphics.Color
 
 object AppThemeState {
     var themeMode by mutableStateOf("system") // "system", "light", "dark"
-    var sakuraEnabled by mutableStateOf(true) // will be cat pattern / ears / assets visual toggle
+    var sakuraEnabled by mutableStateOf(false) // disabled by default
 }
 
 private val LightColorScheme = lightColorScheme(
     primary = CatBrown,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFF5DFCFC), // Warm cream-brown container
+    primaryContainer = Color(0xFFD6EEF1), // Clean aqua container matching #BEE1E6
     onPrimaryContainer = CatDarkBrown,
     secondary = CatSoftOrange,
     onSecondary = Color.White,
@@ -37,7 +37,7 @@ private val LightColorScheme = lightColorScheme(
 private val DarkColorScheme = darkColorScheme(
     primary = CatNightBrown,
     onPrimary = CatNightBg,
-    primaryContainer = Color(0xFF3E2F23),
+    primaryContainer = Color(0xFF1D373F), // Dark deep teal-slate container
     onPrimaryContainer = CatNightText,
     secondary = CatNightAccent,
     onSecondary = CatNightBg,
@@ -47,7 +47,7 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = CatNightText,
     surface = CatNightSurface,
     onSurface = CatNightText,
-    surfaceVariant = Color(0xFF352B21),
+    surfaceVariant = Color(0xFF1B2F35), // Cohesive dark slate-teal variant
     onSurfaceVariant = CatNightAccent,
     outline = CatNightBrown,
     outlineVariant = CatNightSurface

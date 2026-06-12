@@ -69,9 +69,9 @@ fun AboutScreen(
     // Base theme parameters
     val isDark = MaterialTheme.colorScheme.background != CatCream
     val bgGradient = if (isDark) {
-        Brush.verticalGradient(listOf(CatNightBg, Color(0xFF150F0B)))
+        Brush.verticalGradient(listOf(CatNightBg, Color(0xFF0F191D)))
     } else {
-        Brush.verticalGradient(listOf(CatCream, Color(0xFFFFF3E6)))
+        Brush.verticalGradient(listOf(CatCream, Color(0xFFEFF7F8)))
     }
 
     val contentColor = if (isDark) CatNightText else CatMidnight
