@@ -20,14 +20,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Gitleaks checks for hardcoded credentials, APIs keys, and secrets in commits
       - name: Gitleaks Secret Detector
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true # Log violations without failing the build flow if needed, but alerting is active
+        continue-on-error: true
 
-      # Semgrep handles fast static analysis for code vulnerabilities (OWASP Top 10 etc.)
       - name: Semgrep Static Application Security Testing (SAST)
         uses: semgrep/semgrep-action@v1
         with:
@@ -64,7 +62,6 @@ jobs:
         with:
           cache-read-only: false
 
-      # Create custom .env configuration if properties are expected by the Secrets Gradle Plugin
       - name: Initialize Environment Variables
         run: |
           if [ -f .env.example ]; then
@@ -72,10 +69,8 @@ jobs:
           else
             touch .env
           fi
-          # Ensure there are no missing properties that would fail compilation
           echo "BUILD_ENV=ci" >> .env
 
-      # Android Lint runs static inspections which check correctness, security, performance, and accessibility.
       - name: Run Android Lint (Security & Rules)
         run: gradle :app:lintDebug --continue
         continue-on-error: true
@@ -84,7 +79,6 @@ jobs:
         run: gradle :app:testDebugUnitTest --continue
         continue-on-error: true
 
-      # Upload detailed Lint Report
       - name: Upload HTML Lint Report
         uses: actions/upload-artifact@v4
         with:
@@ -120,7 +114,6 @@ jobs:
         with:
           cache-read-only: false
 
-      # Prepare environment files so secrets gradle plugin compiles correctly
       - name: Initialize Environment Variables
         run: |
           if [ -f .env.example ]; then
@@ -130,22 +123,44 @@ jobs:
           fi
           echo "BUILD_ENV=ci" >> .env
 
-      # Assemble APK with dynamic versioning injection
+      # ✅ FIX #1 — Konversi PNG yang corrupt sebelum build
+      # File WebP/JPEG yang di-rename jadi .png akan ditolak AAPT2
+      - name: Fix Corrupt PNG Assets
+        run: |
+          sudo apt-get install -y imagemagick 2>/dev/null
+          DRAWABLE_DIR="app/src/main/res/drawable"
+          if [ -d "$DRAWABLE_DIR" ]; then
+            for f in "$DRAWABLE_DIR"/*.png; do
+              if [ -f "$f" ]; then
+                FILETYPE=$(file --mime-type -b "$f")
+                if [ "$FILETYPE" != "image/png" ]; then
+                  echo "⚠️  Fixing non-PNG file: $f (detected: $FILETYPE)"
+                  convert "$f" /tmp/fixed.png && mv /tmp/fixed.png "$f"
+                  echo "✅ Fixed: $f"
+                fi
+              fi
+            done
+          fi
+          echo "PNG asset check complete."
+
       - name: Assemble Debug APK
         run: gradle :app:assembleDebug
         env:
           VERSION_CODE: ${{ github.run_number }}
           VERSION_NAME: 1.0.${{ github.run_number }}
 
-      # Reconstruct and decode Release Keystore from Base64 if configured in secrets
+      # ✅ FIX #2 — Keystore di-decode ke app/ folder (bukan root)
+      # Sebelumnya: base64 -di > my-upload-key.jks  (salah: di root, -di tidak valid di Ubuntu)
+      # Sekarang:   base64 -d  > app/my-upload-key.jks (benar: di app/ folder, flag -d saja)
       - name: Reconstruct Release Keystore
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' }}
         run: |
-          echo "$RELEASE_KEYSTORE_BASE64" | base64 -di > my-upload-key.jks
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > app/my-upload-key.jks
+          echo "✅ Keystore decoded to: app/my-upload-key.jks"
 
-      # Compile and Sign Production Release APK if Keystore secret is configured
+      # ✅ FIX #3 — KEYSTORE_PATH sekarang relatif ke app/ folder
       - name: Assemble Release APK
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -158,7 +173,6 @@ jobs:
         if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' }}
         run: gradle :app:assembleRelease
 
-      # Upload the final built APK as GitHub Artifact
       - name: Upload Built APK Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -168,7 +182,6 @@ jobs:
             app/build/outputs/apk/release/app-release.apk
           if-no-files-found: warn
 
-      # Create Tag and Release in GitHub with direct APK Attachment (Only on pushes/merges to main branches)
       - name: Create GitHub Release and Upload APK
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/main-'))
         env:
@@ -177,7 +190,6 @@ jobs:
           TAG_NAME="v1.0.${{ github.run_number }}"
           RELEASE_TITLE="Update Version v1.0.${{ github.run_number }}"
           
-          # Choose release APK if it exists, otherwise fallback to debug APK
           APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
           if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
             APK_PATH="app/build/outputs/apk/release/app-release.apk"
@@ -188,7 +200,6 @@ jobs:
           
           echo "Creating Release $RELEASE_TITLE with tag $TAG_NAME..."
           
-          # Uses the official pre-installed GitHub CLI to generate tag, build release and attach the APK file
           gh release create "$TAG_NAME" \
             "$APK_PATH" \
             --title "$RELEASE_TITLE" \
