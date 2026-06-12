@@ -1,0 +1,54 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- Body -->
+    <path
+        android:fillColor="#D4956A"
+        android:pathData="M100,50 C140,50 160,80 160,120 C160,150 140,170 100,170 C60,170 40,150 40,120 C40,80 60,50 100,50 Z" />
+    <!-- Ears -->
+    <path
+        android:fillColor="#8B5E3C"
+        android:pathData="M60,65 L40,25 L80,50 Z" />
+    <path
+        android:fillColor="#8B5E3C"
+        android:pathData="M140,65 L160,25 L120,50 Z" />
+    <!-- Inner ears -->
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M60,60 L48,35 L72,50 Z" />
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M140,60 L152,35 L128,50 Z" />
+    <!-- Happy curved eyes -->
+    <path
+        android:strokeColor="#4A2E1A"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M55,105 Q65,90 75,105" />
+    <path
+        android:strokeColor="#4A2E1A"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M125,105 Q135,90 145,105" />
+    <!-- Blush -->
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M48,115 A10,10 0,1,1 48,114.9 M142,115 A10,10 0,1,1 142,114.9" />
+    <!-- Nose -->
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M95,115 L105,115 L100,121 Z" />
+    <!-- Smiling Mouth -->
+    <path
+        android:strokeColor="#4A2E1A"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M100,121 C95,128 85,124 85,121 C85,124 95,128 100,121 Z" />
+    <path
+        android:strokeColor="#4A2E1A"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M100,121 C105,128 115,124 115,121 C115,124 105,128 100,121 Z" />
+</vector>

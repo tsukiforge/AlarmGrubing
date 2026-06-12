@@ -12,64 +12,64 @@ import androidx.compose.ui.graphics.Color
 
 object AppThemeState {
     var themeMode by mutableStateOf("system") // "system", "light", "dark"
-    var sakuraEnabled by mutableStateOf(true)
+    var sakuraEnabled by mutableStateOf(true) // will be cat pattern / ears / assets visual toggle
 }
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFFFF729F), // Gorgeous vibrant Sakura Pink
+    primary = CatBrown,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFD1DC), // Soft cute pastel pink
-    onPrimaryContainer = Color(0xFF5C001C),
-    secondary = Color(0xFF8E24AA), // Elegant Lavender violet
+    primaryContainer = Color(0xFFF5DFCFC), // Warm cream-brown container
+    onPrimaryContainer = CatDarkBrown,
+    secondary = CatSoftOrange,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF3E5F5), // Light warm lilac
-    onSecondaryContainer = Color(0xFF4A0072),
-    background = Color(0xFFFFF7F9), // Fluffy cream-pink canvas
-    onBackground = Color(0xFF3C121E),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF3C121E),
-    surfaceVariant = Color(0xFFFFF0F3), // Velvet light pink details
-    onSurfaceVariant = Color(0xFF8C4C5E),
-    outline = Color(0xFFFFB3C6),
-    outlineVariant = Color(0xFFFFD1DC)
+    secondaryContainer = CatWarmGray,
+    onSecondaryContainer = CatMidnight,
+    background = CatCream,
+    onBackground = CatMidnight,
+    surface = CatSoftWhite,
+    onSurface = CatMidnight,
+    surfaceVariant = CatWarmGray,
+    onSurfaceVariant = CatDarkBrown,
+    outline = CatSoftOrange,
+    outlineVariant = CatWarmGray
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFFFF729F), // Glowing magic pink
-    onPrimary = Color(0xFF5C001C),
-    primaryContainer = Color(0xFF8F123C), // Sunset berry deep wine
-    onPrimaryContainer = Color(0xFFFFD1DC),
-    secondary = Color(0xFFB39DDB), // Lunar light violet
-    onSecondary = Color(0xFF311B92),
-    secondaryContainer = Color(0xFF5E35B1), // Cyber purple
-    onSecondaryContainer = Color(0xFFEDE7F6),
-    background = Color(0xFF14101A), // Celestial deep violet background
-    onBackground = Color(0xFFFFF0F5),
-    surface = Color(0xFF221A2A), // Cozy lavender/violet card
-    onSurface = Color(0xFFFFF0F5),
-    surfaceVariant = Color(0xFF2E243A), // Midnight lavender highlights
-    onSurfaceVariant = Color(0xFFFFC0D9),
-    outline = Color(0xFF7C4DFF),
-    outlineVariant = Color(0xFF21005D)
+    primary = CatNightBrown,
+    onPrimary = CatNightBg,
+    primaryContainer = Color(0xFF3E2F23),
+    onPrimaryContainer = CatNightText,
+    secondary = CatNightAccent,
+    onSecondary = CatNightBg,
+    secondaryContainer = CatNightSurface,
+    onSecondaryContainer = CatNightText,
+    background = CatNightBg,
+    onBackground = CatNightText,
+    surface = CatNightSurface,
+    onSurface = CatNightText,
+    surfaceVariant = Color(0xFF352B21),
+    onSurfaceVariant = CatNightAccent,
+    outline = CatNightBrown,
+    outlineVariant = CatNightSurface
 )
 
+// Deep Space Cat Theme
 private val StarlightColorScheme = darkColorScheme(
-    primary = Color(0xFFFFB7C5), // Soft pastel Sakura pink
-    onPrimary = Color(0xFF3C0E1E), // Deep midnight violet-magenta
-    primaryContainer = Color(0xFF6A1B4D), // Soft cosmic purple-magenta
-    onPrimaryContainer = Color(0xFFFFD1DC),
-    secondary = Color(0xFFD1C4E9), // Dreamy pastel purple star glow
-    onSecondary = Color(0xFF311B92),
-    secondaryContainer = Color(0xFF4A148C), // Deep midnight purple
-    onSecondaryContainer = Color(0xFFEDE7F6),
-    background = Color(0xFF0F0A1C), // Deep starlight cosmic navy/violet
-    onBackground = Color(0xFFFFF0F5),
-    surface = Color(0xFF1D142C), // Translucent soft purple-indigo obsidian card
-    onSurface = Color(0xFFFFF0F5),
-    surfaceVariant = Color(0xFF2C1E42), // Rich twilight orchid highlights
-    onSurfaceVariant = Color(0xFFFFC0D9),
-    outline = Color(0xFFD1C4E9),
-    outlineVariant = Color(0xFF4A148C)
+    primary = Color(0xFFE8A87C), // Space peach
+    onPrimary = Color(0xFF1E100D),
+    primaryContainer = Color(0xFF301B28), // Nebula violet
+    onPrimaryContainer = Color(0xFFFDE9DF),
+    secondary = Color(0xFFC38D9E), // Cosmic rose pink
+    onSecondary = Color(0xFF331620),
+    secondaryContainer = Color(0xFF1D142C), // Deep cosmic obsidian card
+    onSurface = Color(0xFFFFF8F0),
+    background = Color(0xFF0F0A1C), // Deep space blue/violet
+    onBackground = Color(0xFFFFF8F0),
+    surface = Color(0xFF1C132B),
+    surfaceVariant = Color(0xFF2B1D3D),
+    onSurfaceVariant = Color(0xFFF3C68F),
+    outline = Color(0xFFE8A87C),
+    outlineVariant = Color(0xFF1D142C)
 )
 
 @Composable

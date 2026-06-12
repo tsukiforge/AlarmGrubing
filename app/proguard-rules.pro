@@ -6,7 +6,7 @@
 -keepattributes Signature, InnerClasses, EnclosingMethod
 -keepattributes RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations, RuntimeVisibleParameterAnnotations, RuntimeInvisibleParameterAnnotations
 -keepclassmembers,allowobfuscation class * {
-    @retrofit2.http/* <methods>;
+    @retrofit2.http.* <methods>;
 }
 
 # Moshi Keep Rules

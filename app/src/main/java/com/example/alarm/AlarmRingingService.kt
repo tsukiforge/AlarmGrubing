@@ -30,6 +30,7 @@ class AlarmRingingService : Service() {
         createNotificationChannel()
     }
 
+    @Suppress("DEPRECATION")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "STOP") {
             stopSelf()
@@ -114,7 +115,6 @@ class AlarmRingingService : Service() {
         }
 
         // Vibrate
-        @Suppress("DEPRECATION")
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 500), 1))

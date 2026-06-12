@@ -16,4 +16,10 @@ interface KvdbApi {
         @Url url: String,
         @Body value: RequestBody
     ): Response<ResponseBody>
+
+    @POST
+    suspend fun postValue(
+        @Url url: String,
+        @Body value: RequestBody
+    ): Response<ResponseBody>
 }

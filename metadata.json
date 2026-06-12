@@ -1,6 +1,6 @@
 {
-  "name": "Alarm Grup",
-  "description": "Aplikasi alarm grup real-time & alarm pribadi dengan tema anime sakura starlight dan maskot chibi interaktif.",
+  "name": "Alarm Sync",
+  "description": "Aplikasi alarm grup real-time & alarm pribadi dengan tema Kucing (Cat Theme) yang elegan, modern, dan maskot meow interaktif.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

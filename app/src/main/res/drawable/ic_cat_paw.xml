@@ -1,0 +1,23 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- Main Paw Pad -->
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M100,100 C130,100 145,125 140,150 C135,170 120,185 100,185 C80,185 65,170 60,150 C55,125 70,100 100,100 Z" />
+    <!-- Toe Pads -->
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M55,75 C65,75 72,87 70,97 C68,107 57,112 47,108 C37,104 35,92 40,82 C44,75 49,75 55,75 Z" />
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M85,50 C95,50 102,62 100,72 C98,82 87,87 77,83 C67,79 65,67 70,57 C74,50 79,50 85,50 Z" />
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M115,50 C121,50 126,50 130,57 C135,67 133,79 123,83 C113,87 102,82 100,72 C98,62 105,50 115,50 Z" />
+    <path
+        android:fillColor="#FFB3C1"
+        android:pathData="M145,75 C151,75 156,75 160,82 C165,92 163,104 153,108 C143,112 132,107 130,97 C128,87 135,75 145,75 Z" />
+</vector>

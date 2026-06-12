@@ -30,6 +30,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
@@ -197,11 +199,11 @@ class MainActivity : ComponentActivity() {
                                 .background(BackgroundDark)
                         ) {
                             Image(
-                                painter = painterResource(id = R.drawable.img_anime_background_1780840432597),
+                                painter = painterResource(id = R.drawable.bg_cat_pattern),
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop,
-                                alpha = if (isSystemInDarkTheme()) 0.22f else 0.42f
+                                contentScale = ContentScale.Inside,
+                                alpha = if (isSystemInDarkTheme()) 0.05f else 0.12f
                             )
                             Box(
                                 modifier = Modifier
@@ -226,12 +228,17 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                         )
+                                    } else if (screen == "about") {
+                                        com.example.ui.AboutScreen(
+                                            onBack = { currentScreen = "settings" }
+                                        )
                                     } else {
                                         SettingsScreen(
                                             viewModel = viewModel,
                                             profilePicTrigger = profilePicTrigger,
                                             onProfilePicChanged = { profilePicTrigger = !profilePicTrigger },
                                             onBack = { currentScreen = "home" },
+                                            onNavigateToAbout = { currentScreen = "about" },
                                             onRequestNotificationPermission = {
                                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                                     requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -429,20 +436,25 @@ fun MainScreenContent(
                     )
                 }
 
-                // Anime Chibi Emoticon reactive companion with custom generated mascot image
+                // Feline Emoticon reactive companion with custom generated mascot image
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
+                    val catMascotRes = when {
+                        !isConnected -> R.drawable.ic_cat_sleeping
+                        activeTab == 0 -> R.drawable.ic_cat_yawn
+                        else -> R.drawable.ic_cat_happy
+                    }
                     Image(
-                        painter = painterResource(id = R.drawable.img_anime_mascot_1780840450056),
-                        contentDescription = "Sekai Chibi Mascot",
+                        painter = painterResource(id = catMascotRes),
+                        contentDescription = "Feline Mascot Companion",
                         modifier = Modifier
                             .size(54.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
                             .padding(2.dp),
-                        contentScale = ContentScale.Crop
+                        contentScale = ContentScale.Fit
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Column(
@@ -1646,19 +1658,19 @@ fun EmptyStatePlaceholder(
         verticalArrangement = Arrangement.Center
     ) {
         Image(
-            painter = painterResource(id = R.drawable.img_anime_mascot_1780840450056),
+            painter = painterResource(id = R.drawable.ic_cat_sleeping),
             contentDescription = "Mascot",
             modifier = Modifier
                 .size(110.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
                 .padding(2.dp),
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Fit
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "(｡· v ·｡)💤",
-            fontSize = 32.sp,
+            text = "(=ↀωↀ=) Purr... Zzz",
+            fontSize = 24.sp,
             color = IndigoPrimary.copy(alpha = 0.85f),
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -2034,7 +2046,7 @@ fun UserProfileAndSettingsDialog(
                                 modifier = Modifier.weight(1f)
                             )
                             Icon(
-                                imageVector = Icons.Default.KeyboardArrowRight,
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                                 contentDescription = "Active",
                                 tint = Color(0xFFC62828)
                             )
@@ -2479,7 +2491,7 @@ fun AddAlarmDialog(
                                     }
                                 )
                             }
-                            Divider(color = SurfaceDark)
+                            HorizontalDivider(color = SurfaceDark)
                             DropdownMenuItem(
                                 text = {
                                     Text("📁 + Pilih Musik Baru dari HP...", color = PinkAccent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -2977,6 +2989,7 @@ fun SettingsScreen(
     profilePicTrigger: Boolean,
     onProfilePicChanged: () -> Unit,
     onBack: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     onRequestNotificationPermission: () -> Unit
 ) {
     val context = LocalContext.current
@@ -2987,6 +3000,10 @@ fun SettingsScreen(
     
     // Theme options
     var selectedThemeMode by remember { mutableStateOf(AppThemeState.themeMode) }
+
+    // Feedback bottom sheet states
+    var showFeedbackSheet by remember { mutableStateOf(false) }
+    var feedbackTypeSelected by remember { mutableStateOf(com.example.ui.FeedbackType.GENERAL) }
     
     // Notification permission state
     var hasNotificationPermission by remember {
@@ -3041,7 +3058,7 @@ fun SettingsScreen(
             ) {
                 IconButton(onClick = onBack) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Kembali",
                         tint = TextLight
                     )
@@ -3370,6 +3387,121 @@ fun SettingsScreen(
                 }
             }
 
+            // Dukungan & Masukan Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "🐾 DUKUNGAN & MASUKAN",
+                        color = IndigoPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    
+                    // Option 1: Kirim Masukan
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                feedbackTypeSelected = com.example.ui.FeedbackType.GENERAL
+                                showFeedbackSheet = true
+                            }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(imageVector = Icons.Default.Email, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("🐾 Kirim Masukan", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Kirim saran atau cakar tanggapan untuk pengembangan aplikasi", color = TextMuted, fontSize = 10.sp)
+                        }
+                        Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+
+                    HorizontalDivider(color = SurfaceDark.copy(alpha = 0.5f), thickness = 1.dp)
+
+                    // Option 2: Beri Rating
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=${context.packageName}")).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                try {
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${context.packageName}")).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    try {
+                                        context.startActivity(webIntent)
+                                    } catch (ex: Exception) {
+                                        android.widget.Toast.makeText(context, "Play Store tidak ditemukan", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(imageVector = Icons.Default.Star, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("⭐ Beri Rating di PlayStore", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Beri bintang 5 untuk mendukung pengembang makin semangat", color = TextMuted, fontSize = 10.sp)
+                        }
+                        Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+
+                    HorizontalDivider(color = SurfaceDark.copy(alpha = 0.5f), thickness = 1.dp)
+
+                    // Option 3: Laporkan Bug
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                feedbackTypeSelected = com.example.ui.FeedbackType.BUG
+                                showFeedbackSheet = true
+                            }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(imageVector = Icons.Default.Warning, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("🐛 Laporkan Bug", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Laporkan masalah cakar atau kegagalan sinkronisasi alarm", color = TextMuted, fontSize = 10.sp)
+                        }
+                        Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+
+                    HorizontalDivider(color = SurfaceDark.copy(alpha = 0.5f), thickness = 1.dp)
+
+                    // Option 4: Tentang Aplikasi
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onNavigateToAbout() }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(imageVector = Icons.Default.Info, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("ℹ️ Tentang Aplikasi", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Ketahui detail pengembang, versi, spesifikasi, dan rahasia meow", color = TextMuted, fontSize = 10.sp)
+                        }
+                        Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+
             // Info & Bypass ISP block
             Card(
                 modifier = Modifier
@@ -3415,6 +3547,16 @@ fun SettingsScreen(
             ) {
                 Text("TERAPKAN & SIMPAN PROFIL", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
+        }
+
+        if (showFeedbackSheet) {
+            com.example.ui.FeedbackBottomSheet(
+                initialType = feedbackTypeSelected,
+                onDismiss = { showFeedbackSheet = false },
+                onSubmit = {
+                    showFeedbackSheet = false
+                }
+            )
         }
     }
 }
