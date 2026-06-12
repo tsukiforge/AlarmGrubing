@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kebijakan Privasi — Alarm Grup</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plus Jakarta Sans Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            bg: '#BEE1E6',       /* Soft Pastel Aqua Background */
+                            primary: '#205E6A',  /* Modern Deep Teal */
+                            accent: '#438F9E',   /* Ocean Teal Accent */
+                            lightBg: '#EFF7F8',  /* Ultra Light Aqua-White */
+                            cardBg: '#FFFFFF',   /* Paper White Surface */
+                            darkText: '#0F2C33',  /* On-Primary Dark text */
+                            navyDark: '#121F24'  /* Deep Midnight Slate */
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #EFF7F8;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .btn-primary {
+            background-color: #205E6A;
+            color: #FFFFFF;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-primary:hover {
+            background-color: #16434C;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(32, 94, 106, 0.3);
+        }
+    </style>
+</head>
+<body class="text-brand-darkText antialiased selection:bg-brand-primary selection:text-white min-h-screen flex flex-col justify-between">
+
+    <!-- HEADER / NAVIGATION -->
+    <nav class="bg-brand-bg/90 backdrop-blur-md border-b border-brand-primary/10 px-4 py-4 md:px-8">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <a href="index.html" class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-brand-primary flex items-center justify-center text-white text-lg">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div class="leading-none">
+                    <span class="block text-base font-bold text-brand-primary">Alarm Grup</span>
+                    <span class="block text-[10px] font-bold tracking-wider text-brand-accent/90 uppercase">Kebijakan Privasi</span>
+                </div>
+            </a>
+            
+            <a href="index.html" class="btn-primary px-4 py-2 rounded-xl font-bold text-xs tracking-wide">
+                <i class="fa-solid fa-arrow-left mr-2"></i>Kembali ke Beranda
+            </a>
+        </div>
+    </nav>
+
+    <!-- CONTENT BODY -->
+    <main class="max-w-4xl mx-auto px-4 py-12 flex-grow">
+        <div class="bg-white p-6 md:p-12 rounded-3xl shadow-xl border border-brand-primary/5 space-y-8">
+            <div class="border-b border-gray-100 pb-6 text-center md:text-left">
+                <h1 class="text-3xl md:text-4xl font-extrabold text-brand-primary">Kebijakan Privasi (Privacy Policy)</h1>
+                <p class="text-xs text-brand-accent/80 font-bold mt-2 font-mono">ID Paket Aplikasi: com.kukkistudio.alarmgrup</p>
+                <p class="text-xs text-gray-400 mt-1 font-semibold">Pembaruan Terakhir: 12 Juni 2026</p>
+            </div>
+
+            <section class="space-y-4">
+                <p class="text-sm text-brand-darkText/80 leading-relaxed">
+                    Terima kasih telah menggunakan aplikasi <strong>Alarm Grup</strong> yang dikembangkan oleh <strong>Kukki Studio</strong>. Kami sangat menghargai kepercayaan Anda dan berkomitmen untuk melindungi privasi serta keamanan data pribadi Anda. Halaman kebijakan privasi ini menjelaskan bagaimana aplikasi kami mengelola data Anda.
+                </p>
+            </section>
+
+            <!-- Section 1 -->
+            <section class="space-y-3">
+                <h2 class="text-lg font-extrabold text-brand-primary flex items-center">
+                    <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5"></span>
+                    1. Pengumpulan & Penggunaan Data
+                </h2>
+                <div class="pl-5 text-sm text-brand-darkText/80 leading-relaxed space-y-3">
+                    <p>
+                        Aplikasi <strong>Alarm Grup</strong> beroperasi dengan pendekatan <strong>Offline-First & Local-First</strong> untuk menjamin privasi Anda secara maksimal:
+                    </p>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li>
+                            <strong>Foto Profil:</strong> Foto profil kustom yang Anda pilih disimpan secara eksklusif dalam direktori sandboxed lokal perangkat Anda (<code class="font-mono text-xs bg-gray-100 px-1 py-0.5 rounded">context.filesDir</code>) dan tidak pernah diunggah ke server mana pun.
+                        </li>
+                        <li>
+                            <strong>Pemusatan Musik/MP3 Kustom:</strong> Akses ke file audio / musik Anda semata-mata digunakan untuk memainkan nada dering alarm yang Anda pilih di perangkat lokal Anda.
+                        </li>
+                        <li>
+                            <strong>Sinkronisasi Kamar (Group Lobbies):</strong> Saat Anda menggunakan fitur alarm kelompok, informasi mengenai nama grup, kode kamar, dan status alarm Anda tersinkronisasi murni secara real-time melalui enkripsi dan protokol real-time Firebase dengan aman. Data ini hanya digunakan demi keberfungsian fitur grup yang bersangkutan.
+                        </li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Section 2 -->
+            <section class="space-y-3">
+                <h2 class="text-lg font-extrabold text-brand-primary flex items-center">
+                    <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5"></span>
+                    2. Izin Perangkat (In-App Permissions)
+                </h2>
+                <div class="pl-5 text-sm text-brand-darkText/80 leading-relaxed space-y-2.5">
+                    <p>Kami memerlukan beberapa izin sistem Android yang penting untuk menjalankan fungsionalitas utama aplikasi:</p>
+                    <ul class="list-disc pl-5 space-y-1.5">
+                        <li><strong>Notification Access:</strong> Untuk menampilkan status bar informasi, pemberitahuan waktu alarm berikutnya, dan trigger alarm rilis.</li>
+                        <li><strong>Exact Alarm:</strong> Digunakan untuk merespons trigger waktu alarm secara menit-terinci agar tepat sasaran waktu bahkan saat ponsel dalam keadaan tertidur (doze mode).</li>
+                        <li><strong>Overlay Window (System Alert Screen):</strong> Untuk menyajikan tampilan dering penuh (immersive ringing screens) yang modern agar alarm Anda segera dimatikan atau disnooze tanpa harus entsirkular kunci layar secara rumit.</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Section 3 -->
+            <section class="space-y-3">
+                <h2 class="text-lg font-extrabold text-brand-primary flex items-center">
+                    <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5"></span>
+                    3. Keamanan Data & Pihak Ketiga
+                </h2>
+                <div class="pl-5 text-sm text-brand-darkText/80 leading-relaxed space-y-2">
+                    <p>
+                        Kami tidak melakukan transaksi, jual-beli, pemindaian, ataupun komparasi data privasi Anda dengan biro analitik bayaran atau pihak periklanan pengganggu manapun. Komunikasi API hibrida kami telah dimodifikasi kokoh agar aman dari enkripsi sewenang-wenang maupun pemblokiran oleh seluruh ISP (Internet Service Provider) utama di Indonesia guna kelangsungan sinkronisasi lobi grup Anda.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Section 4 -->
+            <section class="space-y-3">
+                <h2 class="text-lg font-extrabold text-brand-primary flex items-center">
+                    <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5"></span>
+                    4. Perubahan Kebijakan Privasi
+                </h2>
+                <div class="pl-5 text-sm text-brand-darkText/80 leading-relaxed space-y-2">
+                    <p>
+                        Kami dapat memperbarui kebijakan privasi ini dari waktu ke waktu guna menyelaraskan dengan pembaruan platform Android maupun peningkatan kepatuhan play store. Langkah penyesuaian akan diumumkan melalui pembaruan di halaman situs web atau rilis perubahan deskripsi build aplikasi.
+                    </p>
+                </div>
+            </section>
+
+            <!-- Section 5 -->
+            <section class="space-y-3">
+                <h2 class="text-lg font-extrabold text-brand-primary flex items-center">
+                    <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5"></span>
+                    5. Hubungi Kami
+                </h2>
+                <div class="pl-5 text-sm text-brand-darkText/80 leading-relaxed space-y-2">
+                    <p>Jika Anda memiliki pertanyaan tentang kebijakan privasi kami, atau masukan tentang fungsionalitas aplikasi, silakan hubungi tim kami melalui email resmi:</p>
+                    <p class="font-bold text-brand-accent mt-2">
+                        <i class="fa-solid fa-envelope mr-1"></i> faizinu61@gmail.com
+                    </p>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-brand-navyDark py-8 px-4 text-center text-gray-500 text-xs font-bold border-t border-brand-primary/10">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-brand-primary flex items-center justify-center text-white text-[10px]">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <span class="text-sm font-bold text-white tracking-wider">Alarm Grup</span>
+            </div>
+            <span>Hak Cipta &copy; 2026 M. Maichi & Kontributor. Hak Cipta Dilindungi.</span>
+        </div>
+    </footer>
+
+</body>
+</html>
