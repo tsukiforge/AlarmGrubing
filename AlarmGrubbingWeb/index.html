@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alarm Grup — Bangun Tepat Waktu Bersama Kelompok Anda</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plus Jakarta Sans Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            bg: '#BEE1E6',       /* Soft Pastel Aqua Background */
+                            primary: '#205E6A',  /* Modern Deep Teal */
+                            accent: '#438F9E',   /* Ocean Teal Accent */
+                            lightBg: '#EFF7F8',  /* Ultra Light Aqua-White */
+                            cardBg: '#FFFFFF',   /* Paper White Surface */
+                            darkText: '#0F2C33',  /* On-Primary Dark text */
+                            navyDark: '#121F24'  /* Deep Midnight Slate */
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #BEE1E6;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, #205E6A 0%, #438F9E 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .btn-primary {
+            background-color: #205E6A;
+            color: #FFFFFF;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-primary:hover {
+            background-color: #16434C;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(32, 94, 106, 0.3);
+        }
+        .btn-secondary {
+            background-color: transparent;
+            border: 2px solid #205E6A;
+            color: #205E6A;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-secondary:hover {
+            background-color: rgba(32, 94, 106, 0.08);
+            transform: translateY(-2px);
+        }
+        .card-custom {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card-custom:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 20px -8px rgba(32, 94, 106, 0.15);
+        }
+        .custom-glow {
+            box-shadow: 0 20px 40px -15px rgba(32, 94, 106, 0.2);
+        }
+    </style>
+</head>
+<body class="text-brand-darkText antialiased selection:bg-brand-primary selection:text-white min-h-screen flex flex-col">
+
+    <!-- NAVIGATION BAR -->
+    <nav class="sticky top-0 z-50 bg-brand-bg/90 backdrop-blur-md border-b border-brand-primary/10 px-4 py-3 md:px-8">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <!-- Brand Logo -->
+            <a href="#" class="flex items-center space-x-2.5">
+                <div class="w-10 h-10 rounded-xl bg-brand-primary flex items-center justify-center text-white text-xl custom-glow">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div class="leading-none">
+                    <span class="block text-lg font-bold text-brand-primary">Alarm Grup</span>
+                    <span class="block text-xs font-semibold tracking-wider text-brand-accent/90 uppercase">Sync Alarm Client</span>
+                </div>
+            </a>
+
+            <!-- Desktop Nav Links -->
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#fitur" class="text-brand-primary font-semibold hover:text-brand-accent transition text-sm">Fitur Utama</a>
+                <a href="#showcase" class="text-brand-primary font-semibold hover:text-brand-accent transition text-sm">Showcase Layar</a>
+                <a href="#arsitektur" class="text-brand-primary font-semibold hover:text-brand-accent transition text-sm">Teknologi</a>
+                <a href="#kontributor" class="text-brand-primary font-semibold hover:text-brand-accent transition text-sm">Kontributor</a>
+            </div>
+
+            <!-- CTA Download -->
+            <div class="flex items-center space-x-3">
+                <a href="https://github.com/Kukki-Studio/AlarmGrubbingWeb" target="_blank" class="text-brand-primary hover:text-brand-accent p-2 text-xl transition" title="Repositori Web">
+                    <i class="fa-brands fa-github"></i>
+                </a>
+                <a href="#unduh" class="btn-primary flex items-center space-x-2 px-4.5 py-2.5 rounded-xl font-bold text-sm tracking-wide shadow-sm">
+                    <i class="fa-solid fa-cloud-arrow-down"></i>
+                    <span>Download APK</span>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- HERO SECTION -->
+    <header class="relative overflow-hidden pt-8 pb-16 px-4 md:px-8">
+        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            
+            <!-- Hero Text -->
+            <div class="lg:col-span-7 text-center lg:text-left space-y-6">
+                <div class="inline-flex items-center space-x-2.5 px-3.5 py-1.5 rounded-full bg-brand-primary/10 border border-brand-primary/20">
+                    <span class="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="text-xs font-bold text-brand-primary uppercase tracking-wider">Tersedia Version 1.0.20 (Terbaru)</span>
+                </div>
+                
+                <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight text-brand-primary leading-tight">
+                    Bangun Tepat Waktu <br>
+                    <span class="text-brand-accent">Satu Kelompok, Satu Alarm!</span>
+                </h1>
+                
+                <p class="text-base md:text-lg text-brand-darkText/80 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
+                    Aplikasi manajemen alarm pribadi & kelompok cerdas yang tersinkronisasi secara real-time melalui teknologi Cloud, didukung oleh sistem failover offline mandiri yang andal dan aman dari jangkauan blokir ISP.
+                </p>
+
+                <!-- Hero Action Buttons -->
+                <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+                    <a href="#unduh" class="w-full sm:w-auto btn-primary flex items-center justify-center space-x-3 px-8 py-4 rounded-2xl font-bold text-base shadow-lg">
+                        <i class="fa-solid fa-download text-lg"></i>
+                        <span>Unduh Aplikasi APK</span>
+                    </a>
+                    <a href="https://github.com/Kukki-Studio/AlarmGrubbingWeb" target="_blank" class="w-full sm:w-auto btn-secondary flex items-center justify-center space-x-2 px-6 py-4 rounded-2xl font-bold text-base">
+                        <i class="fa-brands fa-github text-lg"></i>
+                        <span>Source Code Web</span>
+                    </a>
+                </div>
+
+                <!-- Stats Badges -->
+                <div class="grid grid-cols-3 gap-4 pt-6 max-w-md mx-auto lg:mx-0">
+                    <div class="p-3 bg-white/40 rounded-2xl border border-brand-primary/5 text-center">
+                        <h3 class="text-xl font-extrabold text-brand-primary leading-none">Real-Time</h3>
+                        <p class="text-[10px] font-bold text-brand-primary/70 uppercase tracking-widest mt-1">Firebase Sync</p>
+                    </div>
+                    <div class="p-3 bg-white/40 rounded-2xl border border-brand-primary/5 text-center">
+                        <h3 class="text-xl font-extrabold text-brand-primary leading-none">< 4 MB</h3>
+                        <p class="text-[10px] font-bold text-brand-primary/70 uppercase tracking-widest mt-1">Super Ringan</p>
+                    </div>
+                    <div class="p-3 bg-white/40 rounded-2xl border border-brand-primary/5 text-center">
+                        <h3 class="text-xl font-extrabold text-brand-primary leading-none">Kustom</h3>
+                        <p class="text-[10px] font-bold text-brand-primary/70 uppercase tracking-widest mt-1">Impor MP3</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hero Phone Mockup -->
+            <div class="lg:col-span-5 flex justify-center items-center">
+                <div class="relative w-80 max-w-full">
+                    <!-- Custom decorative circles -->
+                    <div class="absolute -top-6 -left-6 w-32 h-32 bg-brand-accent/20 rounded-full blur-2xl"></div>
+                    <div class="absolute -bottom-6 -right-6 w-32 h-32 bg-brand-primary/20 rounded-full blur-2xl"></div>
+                    
+                    <!-- Phone Frame -->
+                    <div class="relative bg-brand-navyDark p-3.5 rounded-[46px] shadow-2xl border-4 border-brand-primary/30 custom-glow">
+                        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-brand-navyDark rounded-b-2xl z-20 flex items-center justify-center">
+                            <span class="w-3" style="height: 3px; background-color: #333; border-radius: 2px;"></span>
+                        </div>
+                        
+                        <!-- Screen -->
+                        <div class="relative overflow-hidden rounded-[32px] bg-brand-lightBg aspect-[9/19.5]">
+                            <img src="images/hero.jpg" alt="Alarm Grup Hero Mockup" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- CARDS / FEATURE HIGHLIGHTS -->
+    <section id="fitur" class="bg-brand-lightBg py-20 px-4 md:px-8 border-t border-brand-primary/10">
+        <div class="max-w-7xl mx-auto space-y-12">
+            
+            <div class="text-center max-w-3xl mx-auto space-y-4">
+                <h2 class="text-xs uppercase tracking-widest font-extrabold text-brand-accent">Kompak & Powerful</h2>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-brand-primary">Fitur Unggulan Mempermudah Bangun Pagi</h2>
+                <p class="text-sm md:text-base text-brand-darkText/70 font-medium">
+                    Tidak ada lagi kata terlambat untuk beraktivitas bersama tim Anda. Alarm Grup menghadirkan integrasi murni hibrida yang tangguh secara offline demi keandalan mutlak.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Fitur 1 -->
+                <div class="card-custom bg-brand-cardBg p-8 rounded-3xl border border-brand-primary/5 space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-[#E8F5E9] flex items-center justify-center text-green-600 text-2xl">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-brand-primary">⏰ Alarm Pribadi Mandiri</h3>
+                    <p class="text-brand-darkText/70 text-sm leading-relaxed font-medium">
+                        Penjadwalan alarm mandiri di perangkat lokal demi menjaga kepatuhan jadwal pribadi Anda secara independen. Bekerja tanpa membutuhkan kuota internet.
+                    </p>
+                </div>
+
+                <!-- Fitur 2 -->
+                <div class="card-custom bg-brand-cardBg p-8 rounded-3xl border border-brand-primary/5 space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-primary/10 flex items-center justify-center text-brand-primary text-2xl">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-brand-primary">👥 Kamar Alarm Kelompok</h3>
+                    <p class="text-brand-darkText/70 text-sm leading-relaxed font-medium">
+                        Buat atau gabung ke kamar kelompok menggunakan kode unik untuk menyinkronkan alarm bangun tidur, kelas, atau rapat bersama rekan kerja, pacar, atau keluarga Anda secara instan.
+                    </p>
+                </div>
+
+                <!-- Fitur 3 -->
+                <div class="card-custom bg-brand-cardBg p-8 rounded-3xl border border-brand-primary/5 space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-[#FFF3E0] flex items-center justify-center text-orange-500 text-2xl">
+                        <i class="fa-solid fa-music"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-brand-primary">🎵 Nada Dering Lagu MP3 Kustom</h3>
+                    <p class="text-brand-darkText/70 text-sm leading-relaxed font-medium">
+                        Impor lagu MP3 kesayangan Anda langsung dari penyimpanan media ponsel Anda. Dipadukan dengan Compact Dropdown Selector yang minimalis dan ramah pengguna.
+                    </p>
+                </div>
+
+                <!-- Fitur 4 -->
+                <div class="card-custom bg-brand-cardBg p-8 rounded-3xl border border-brand-primary/5 space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-[#FFF0F2] flex items-center justify-center text-red-500 text-2xl">
+                        <i class="fa-solid fa-bell"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-brand-primary">🔔 Ringing Layar Penuh (Immersive)</h3>
+                    <p class="text-brand-darkText/70 text-sm leading-relaxed font-medium">
+                        Mengaktifkan alarm resolusi tinggi dengan menghapus/menimpa status bar dan bar navigasi demi menjamin Anda terbangun. Struktur tombol dismiss ergonomis dan lebar.
+                    </p>
+                </div>
+
+                <!-- Fitur 5 -->
+                <div class="card-custom bg-brand-cardBg p-8 rounded-3xl border border-brand-primary/5 space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-[#E1F5FE] flex items-center justify-center text-[#0288D1] text-2xl">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-brand-primary">⚡ Bebas Blokir ISP Indonesia</h3>
+                    <p class="text-brand-darkText/70 text-sm leading-relaxed font-medium">
+                        Komunikasi API server hibrida yang cepat, responsif, dan stabil, telah diuji tahan terhadap pemblokiran oleh seluruh ISP seluler maupun broadband terkemuka di Indonesia.
+                    </p>
+                </div>
+
+                <!-- Fitur 6 -->
+                <div class="card-custom bg-brand-cardBg p-8 rounded-3xl border border-brand-primary/5 space-y-4">
+                    <div class="w-12 h-12 rounded-2xl bg-brand-accent/10 flex items-center justify-center text-brand-accent text-2xl">
+                        <i class="fa-solid fa-user-shield"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-brand-primary">👤 Foto Profil Offline-First</h3>
+                    <p class="text-brand-darkText/70 text-sm leading-relaxed font-medium">
+                        Keamanan data kustom teratas. Foto profil disimpan aman secara lokal di sandbox sandboxed directory perangkat (`context.filesDir`) untuk menjamin privasi penuh.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- INTERACTIVE SHOWCASE FOR SCREENSHOTS -->
+    <section id="showcase" class="py-20 px-4 md:px-8 bg-brand-bg">
+        <div class="max-w-7xl mx-auto space-y-12">
+            
+            <div class="text-center max-w-3xl mx-auto space-y-4">
+                <h2 class="text-xs uppercase tracking-widest font-extrabold text-brand-primary">Preview Aplikasi</h2>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-brand-primary">Tangkapan Layar & Antarmuka Aplikasi</h2>
+                <p class="text-sm md:text-base text-brand-darkText/80 font-medium">
+                    Lihatlah betapa elegannya antarmuka Alarm Grup dalam memadukan warna soft pastel aqua, material rounded corner yang halus, serta tipografi display yang dinamis.
+                </p>
+            </div>
+
+            <!-- Showcase Grid Columns -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <!-- Screen 1: Alarm Dering -->
+                <div class="bg-brand-cardBg p-6 md:p-8 rounded-[36px] border border-brand-primary/10 shadow-lg space-y-6">
+                    <div class="overflow-hidden rounded-[24px] bg-brand-lightBg aspect-[16/10] relative">
+                        <img src="images/screen_ring.jpg" alt="Dering Layar Penuh" class="w-full h-full object-cover">
+                    </div>
+                    <div class="space-y-2">
+                        <div class="inline-block px-3 py-1 bg-red-100 text-red-600 rounded-full font-bold text-[10px] uppercase tracking-wider">
+                            Ringing Priority
+                        </div>
+                        <h3 class="text-2xl font-bold text-brand-primary">Dering Layar Penuh (Immersive overlay)</h3>
+                        <p class="text-sm text-brand-darkText/70 leading-relaxed font-semibold">
+                            Sistem menginstruksikan modul `Full Screen Intent` secara mendalam saat menderingkan alarm prioritas. Melampaui batasan layar kunci (*Lockscreen*) untuk memastikan pemadaman alarm tidak terhambat.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Screen 2: Dashboard Lobi -->
+                <div class="bg-brand-cardBg p-6 md:p-8 rounded-[36px] border border-brand-primary/10 shadow-lg space-y-6">
+                    <div class="overflow-hidden rounded-[24px] bg-brand-lightBg aspect-[16/10] relative">
+                        <img src="images/screen_dashboard.jpg" alt="Dashboard Lobi Grup" class="w-full h-full object-cover">
+                    </div>
+                    <div class="space-y-2">
+                        <div class="inline-block px-3 py-1 bg-green-100 text-green-700 rounded-full font-bold text-[10px] uppercase tracking-wider">
+                            Realtime Sync
+                        </div>
+                        <h3 class="text-2xl font-bold text-brand-primary">Kamar Kelompok & Status Indikator</h3>
+                        <p class="text-sm text-brand-darkText/70 leading-relaxed font-semibold">
+                            Tampilan lobby grup tempat Anda berkoordinasi. Dilengkapi dengan token grup (e.g. `BELAJAR-101`) yang dapat diklik untuk menyalin kodenya secara instan dan berbagi lewat aplikasi pesan.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ARCHITECTURE & TECHNOLOGY SECTION -->
+    <section id="arsitektur" class="py-20 px-4 md:px-8 bg-brand-navyDark text-white">
+        <div class="max-w-7xl mx-auto space-y-12">
+            
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                
+                <!-- Left Side: Tech Badges -->
+                <div class="lg:col-span-5 space-y-6">
+                    <span class="text-xs font-bold text-brand-accent tracking-widest uppercase">Arsitektur Tangguh</span>
+                    <h2 class="text-3xl md:text-4xl font-extrabold leading-tight">Teknologi Terkini Berstandar Industri</h2>
+                    <p class="text-sm text-gray-300 leading-relaxed font-medium">
+                        Alarm Grup tidak sekadar mengandalkan fungsionalitas, namun memprioritaskan performa rendering aplikasi yang hemat alokasi memori RAM serta penggunaan baterai yang efisien.
+                    </p>
+                    
+                    <!-- Stack List -->
+                    <div class="space-y-3.5">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-6 h-6 rounded-full bg-brand-primary flex items-center justify-center text-xs text-white">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                            <span class="text-sm font-semibold text-gray-200">Jetpack Compose UI (100% Declarative)</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="w-6 h-6 rounded-full bg-brand-primary flex items-center justify-center text-xs text-white">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                            <span class="text-sm font-semibold text-gray-200">Room Local Database Cache with Flow Stream</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="w-6 h-6 rounded-full bg-brand-primary flex items-center justify-center text-xs text-white">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                            <span class="text-sm font-semibold text-gray-200">Retrofit 2 with OkHttp REST Call Interceptor</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <span class="w-6 h-6 rounded-full bg-brand-primary flex items-center justify-center text-xs text-white">
+                                <i class="fa-solid fa-check"></i>
+                            </span>
+                            <span class="text-sm font-semibold text-gray-200">Foreground Service & Precise AlarmManager</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side: Interactive tech display grid -->
+                <div class="lg:col-span-7 grid grid-cols-2 gap-4">
+                    <!-- Kotlin Card -->
+                    <div class="bg-brand-primary/10 border border-brand-primary/20 p-6 rounded-3xl space-y-3">
+                        <div class="text-3xl text-indigo-400 font-bold font-mono">Kt</div>
+                        <h4 class="text-base font-bold text-white">Kotlin Standard</h4>
+                        <p class="text-xs text-gray-400 font-medium">Asinkron murni menggunakan Kotlin Coroutine untuk respon non-blocking yang instan.</p>
+                    </div>
+
+                    <!-- M3 Card -->
+                    <div class="bg-brand-primary/10 border border-brand-primary/20 p-6 rounded-3xl space-y-3">
+                        <div class="text-3xl text-emerald-400 font-bold font-mono">M3</div>
+                        <h4 class="text-base font-bold text-white">Material Design 3</h4>
+                        <p class="text-xs text-gray-400 font-medium">Komponen Material modern yang kaya dengan skema dinamis adaptif di Android terbaru.</p>
+                    </div>
+
+                    <!-- Room DB Card -->
+                    <div class="bg-brand-primary/10 border border-brand-primary/20 p-6 rounded-3xl space-y-3">
+                        <div class="text-3xl text-sky-400 font-bold font-mono">DB</div>
+                        <h4 class="text-base font-bold text-white">Room Persistence</h4>
+                        <p class="text-xs text-gray-400 font-medium">Penyimpanan terenkripsi lokal otomatis menjaga reliabilitas luring saat tak terkoneksi wifi.</p>
+                    </div>
+
+                    <!-- Firebase Card -->
+                    <div class="bg-brand-primary/10 border border-brand-primary/20 p-6 rounded-3xl space-y-3">
+                        <div class="text-3xl text-amber-400 font-bold font-mono">FB</div>
+                        <h4 class="text-base font-bold text-white">Firebase Sync</h4>
+                        <p class="text-xs text-gray-400 font-medium">Sinkronisasi pesan status alarm gila-gilaan cepat dengan latensi di bawah 1 detik.</p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ME_THE_TEAM / CONTRIBUTORS -->
+    <section id="kontributor" class="py-20 px-4 md:px-8 bg-brand-lightBg">
+        <div class="max-w-7xl mx-auto space-y-12">
+            
+            <div class="text-center max-w-3xl mx-auto space-y-4">
+                <h2 class="text-xs uppercase tracking-widest font-extrabold text-brand-primary">Tim Pengembang</h2>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-brand-primary">Real Contributors</h2>
+                <p class="text-sm md:text-base text-brand-darkText/70 font-semibold">
+                    Aplikasi ini dirintis dengan komitmen penuh dedikasi kolaboratif pengembang berbakat berikut:
+                </p>
+            </div>
+
+            <!-- Contributors Profile Row -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                <!-- Contributor 1 -->
+                <div class="bg-brand-cardBg border border-brand-primary/10 p-8 rounded-3xl flex flex-col md:flex-row items-center md:items-start text-center md:text-left space-y-6 md:space-y-0 md:space-x-6 card-custom">
+                    <div class="w-20 h-20 rounded-full bg-brand-primary/10 flex items-center justify-center text-4xl shadow-md border-2 border-brand-primary/20">
+                        👨‍💻
+                    </div>
+                    <div class="space-y-3 flex-1">
+                        <div>
+                            <h4 class="text-xl font-bold text-brand-primary leading-tight">M. Maichi</h4>
+                            <p class="text-xs font-bold uppercase tracking-wider text-brand-accent mt-0.5">Lead Architect & Lead Core Dev</p>
+                        </div>
+                        <p class="text-xs text-brand-darkText/80 leading-relaxed font-semibold">
+                            Pencetus ide utama, perancang tata letak Material 3, konfigurasi persistensi skema Room DB lokal, dan logic hibrida failover offline.
+                        </p>
+                        <div class="flex items-center justify-center md:justify-start space-x-3 pt-1">
+                            <a href="mailto:faizinu61@gmail.com" class="w-8 h-8 rounded-full bg-brand-primary/5 hover:bg-brand-primary hover:text-white flex items-center justify-center text-brand-primary transition">
+                                <i class="fa-solid fa-envelope text-xs"></i>
+                            </a>
+                            <span class="text-xs font-bold text-brand-primary/70">faizinu61@gmail.com</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contributor 2 -->
+                <div class="bg-brand-cardBg border border-brand-primary/10 p-8 rounded-3xl flex flex-col md:flex-row items-center md:items-start text-center md:text-left space-y-6 md:space-y-0 md:space-x-6 card-custom">
+                    <div class="w-20 h-20 rounded-full bg-brand-primary/10 flex items-center justify-center text-4xl shadow-md border-2 border-brand-primary/20">
+                        🤖
+                    </div>
+                    <div class="space-y-3 flex-1">
+                        <div>
+                            <h4 class="text-xl font-bold text-brand-primary leading-tight">AI Coding Agent</h4>
+                            <p class="text-xs font-bold uppercase tracking-wider text-brand-accent mt-0.5">AI Co-Developer (Antigravity)</p>
+                        </div>
+                        <p class="text-xs text-brand-darkText/80 leading-relaxed font-semibold">
+                            Mengotomatisasi boilerplate, memastikan efisiensi penulisan kode, penanganan dependensi Gradle, serta struktur optimasi Proguard R8.
+                        </p>
+                        <div class="flex items-center justify-center md:justify-start space-x-3 pt-1">
+                            <a href="https://ai.studio/build" target="_blank" class="w-8 h-8 rounded-full bg-brand-primary/5 hover:bg-brand-primary hover:text-white flex items-center justify-center text-brand-primary transition">
+                                <i class="fa-solid fa-globe text-xs"></i>
+                            </a>
+                            <span class="text-xs font-bold text-brand-primary/70">Google AI Studio</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- DOWNLOAD SECTION -->
+    <section id="unduh" class="py-20 px-4 md:px-8 bg-brand-primary text-white text-center">
+        <div class="max-w-4xl mx-auto space-y-8">
+            <h2 class="text-xs uppercase tracking-widest font-extrabold text-[#D6EEF1]">Unduh Aplikasi</h2>
+            <h2 class="text-3xl md:text-5xl font-extrabold leading-tight">Mulai Bangun Tepat Waktu Hari ini!</h2>
+            <p class="text-sm md:text-base text-gray-200 max-w-2xl mx-auto font-medium">
+                Dapatkan alarm prioritas tinggi yang andal, sinkronisasi instan, ringan, hemat alokasi storage, dan telah diuji compile sempurna.
+            </p>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+                <!-- Release APK Download -->
+                <a href="https://github.com/Kukki-Studio/AlarmGrubbingWeb/releases" target="_blank" class="w-full sm:w-auto bg-white text-brand-primary hover:bg-[#EFF7F8] px-8 py-4.5 rounded-2xl font-extrabold text-base transition-all shadow-md flex items-center justify-center space-x-3">
+                    <i class="fa-solid fa-android text-2xl text-green-600"></i>
+                    <div class="text-left leading-none">
+                        <span class="block text-xs font-bold text-brand-primary/60 uppercase">Download APK rilis</span>
+                        <span class="block text-sm font-black text-brand-primary mt-1">AlarmGrup-v1.0.20</span>
+                    </div>
+                </a>
+            </div>
+
+            <div class="pt-2 text-xs font-bold text-brand-accent/30 dark:text-gray-300">
+                MD5 Checksum Terverifikasi & Bebas Malware
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="bg-brand-navyDark py-12 px-4 md:px-8 text-center text-gray-400 border-t border-brand-primary/10">
+        <div class="max-w-7xl mx-auto space-y-6">
+            <div class="flex items-center justify-center space-x-2.5">
+                <div class="w-8 h-8 rounded-lg bg-brand-primary flex items-center justify-center text-white text-base">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <span class="text-base font-bold text-white tracking-wider">Alarm Grup</span>
+            </div>
+            
+            <p class="text-xs font-bold text-gray-500 max-w-sm mx-auto">
+                Aplikasi multi-fitur modular yang fleksibel berstandar modern kompilasi Android APK rilis.
+            </p>
+
+            <!-- Copyright and Links -->
+            <div class="flex flex-col sm:flex-row items-center justify-between pt-6 border-t border-gray-800 text-xs text-gray-500 font-bold gap-4">
+                <span>Hak Cipta &copy; 2026 M. Maichi & Kontributor. Hak Cipta Dilindungi.</span>
+                <div class="flex space-x-6">
+                    <a href="https://github.com/Kukki-Studio/AlarmGrubbingWeb" class="hover:text-white transition">Github Repo</a>
+                    <a href="#" class="hover:text-white transition">Kebijakan Privasi</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>

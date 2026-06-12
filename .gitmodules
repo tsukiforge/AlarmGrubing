@@ -1,0 +1,3 @@
+[submodule "AlarmGrubbingWeb"]
+	path = AlarmGrubbingWeb
+	url = https://github.com/Kukki-Studio/AlarmGrubbingWeb.git
