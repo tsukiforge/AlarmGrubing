@@ -271,6 +271,162 @@
         </div>
     </section>
 
+    <!-- SYNC FLOW SECTION (KIRIM & TERIMA KODE) -->
+    <section id="alur-sinkron" class="bg-brand-lightBg py-20 px-4 md:px-8 border-t border-brand-primary/10">
+        <div class="max-w-7xl mx-auto space-y-12">
+            
+            <div class="text-center max-w-3xl mx-auto space-y-4">
+                <div class="inline-flex items-center space-x-2 px-3 py-1 bg-brand-primary/10 rounded-full border border-brand-primary/20 text-xs font-bold text-brand-primary">
+                    <i class="fa-solid fa-arrows-spin"></i>
+                    <span>Satu Sentuhan Untuk Semua Perangkat</span>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-brand-primary">Bagaimana Cara Menyinkronkan Alarm?</h2>
+                <p class="text-sm md:text-base text-brand-darkText/70 font-medium">
+                    Sinkronisasi kelompok bekerja secara instan berbasis Cloud & Pin 6-Digit Acak. Tanpa perlu log in, tanpa perlu memasukkan email, aman dan sangat privat!
+                </p>
+            </div>
+
+            <!-- Flow Visual Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+                
+                <!-- PILAR 1: KIRIM (PEMBUATAN GRUP) -->
+                <div class="bg-white p-6 md:p-8 rounded-[32px] border border-brand-primary/10 shadow-lg space-y-6 relative overflow-hidden flex flex-col justify-between card-custom">
+                    <!-- Subtle background decoration -->
+                    <div class="absolute -top-12 -right-12 w-32 h-32 bg-brand-primary/5 rounded-full blur-xl"></div>
+                    
+                    <div class="space-y-6">
+                        <!-- Header -->
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-2xl bg-brand-primary text-white flex items-center justify-center text-xl shadow-md">
+                                <i class="fa-solid fa-paper-plane animate-bounce"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-extrabold text-brand-primary leading-tight">1. Alur PEMBUAT (Kirim)</h3>
+                                <p class="text-xs font-bold text-brand-accent/90 uppercase tracking-widest mt-0.5">Membuat & Membagikan Kolektif</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 1-2-3 -->
+                        <div class="space-y-6 relative pl-4 border-l-2 border-brand-primary/20">
+                            <!-- Step item 1 -->
+                            <div class="relative space-y-1">
+                                <div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-brand-primary border-4 border-white shadow"></div>
+                                <h4 class="text-base font-bold text-brand-primary">Langkah A: Buat Kamar Alarm Baru</h4>
+                                <p class="text-xs text-brand-darkText/70 leading-relaxed font-semibold">
+                                    Buka aplikasi Alarm Grup, lalu ketuk tombol <strong class="text-brand-primary font-bold">"Buat Kamar"</strong> di panel kelompok. Tentukan jam target dan profil rujukan.
+                                </p>
+                            </div>
+                            <!-- Step item 2 -->
+                            <div class="relative space-y-1">
+                                <div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-brand-primary border-4 border-white shadow"></div>
+                                <h4 class="text-base font-bold text-brand-primary">Langkah B: Dapatkan Token Unik (PIN)</h4>
+                                <p class="text-xs text-brand-darkText/70 leading-relaxed font-semibold">
+                                    Sistem Firebase realtime akan menggenerasi token 6-digit unik (Contoh: <code class="bg-brand-bg px-1.5 py-0.5 rounded text-brand-primary font-mono font-bold">BELAJAR-101</code>).
+                                </p>
+                            </div>
+                            <!-- Step item 3 -->
+                            <div class="relative space-y-1">
+                                <div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-brand-primary border-4 border-white shadow"></div>
+                                <h4 class="text-base font-bold text-brand-primary">Langkah C: Bagikan ke Teman</h4>
+                                <p class="text-xs text-brand-darkText/70 leading-relaxed font-semibold">
+                                    Ketuk token tersebut untuk menyalin kode secara instan atau langsung bagikan tangkapan kodenya ke WhatsApp, Telegram, atau SMS kelompok Anda.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mini Visual Mockup for Send -->
+                    <div class="bg-brand-lightBg p-4 rounded-2xl border border-brand-primary/10 mt-6 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">📱</span>
+                            <div>
+                                <span class="block text-[10px] uppercase font-bold text-brand-accent">TOKEN KAMAR SINKRON</span>
+                                <span class="font-mono text-base font-black text-brand-primary">BELAJAR-101</span>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 bg-brand-primary/10 text-brand-primary text-[10px] font-extrabold rounded-full uppercase tracking-wider">
+                            <i class="fa-solid fa-copy mr-1"></i> Salin Kode
+                        </span>
+                    </div>
+                </div>
+
+                <!-- PILAR 2: TERIMA (GABUNG KAMAR) -->
+                <div class="bg-white p-6 md:p-8 rounded-[32px] border border-brand-primary/10 shadow-lg space-y-6 relative overflow-hidden flex flex-col justify-between card-custom">
+                    <!-- Subtle background decoration -->
+                    <div class="absolute -top-12 -right-12 w-32 h-32 bg-brand-accent/5 rounded-full blur-xl"></div>
+                    
+                    <div class="space-y-6">
+                        <!-- Header -->
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-2xl bg-brand-accent text-white flex items-center justify-center text-xl shadow-md">
+                                <i class="fa-solid fa-download animate-pulse"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-extrabold text-brand-accent leading-tight">2. Alur PENERIMA (Terima)</h3>
+                                <p class="text-xs font-bold text-brand-primary/90 uppercase tracking-widest mt-0.5">Memasukkan Token & Sinkronisasi</p>
+                            </div>
+                        </div>
+
+                        <!-- Step 1-2-3 -->
+                        <div class="space-y-6 relative pl-4 border-l-2 border-brand-accent/20">
+                            <!-- Step item 1 -->
+                            <div class="relative space-y-1">
+                                <div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-brand-accent border-4 border-white shadow"></div>
+                                <h4 class="text-base font-bold text-brand-accent">Langkah A: Terima Token Dari Teman</h4>
+                                <p class="text-xs text-brand-darkText/70 leading-relaxed font-semibold">
+                                    Buka aplikasi Alarm Grup di perangkat Android Anda, pilih tab kelompok, lalu ketuk menu <strong class="text-brand-accent font-bold">"Join Kamar"</strong>.
+                                </p>
+                            </div>
+                            <!-- Step item 2 -->
+                            <div class="relative space-y-1">
+                                <div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-brand-accent border-4 border-white shadow"></div>
+                                <h4 class="text-base font-bold text-brand-accent">Langkah B: Tempel & Konfirmasi PIN</h4>
+                                <p class="text-xs text-brand-darkText/70 leading-relaxed font-semibold">
+                                    Tempelkan kode yang disalin (Contoh: <code class="bg-brand-bg px-1.5 py-0.5 rounded text-brand-primary font-mono font-bold">BELAJAR-101</code>) lalu tekan tombol konfirmasi terima.
+                                </p>
+                            </div>
+                            <!-- Step item 3 -->
+                            <div class="relative space-y-1">
+                                <div class="absolute -left-[25px] top-1 w-4 h-4 rounded-full bg-brand-accent border-4 border-white shadow"></div>
+                                <h4 class="text-base font-bold text-brand-accent">Langkah C: Sinkron Instan Berhasil</h4>
+                                <p class="text-xs text-brand-darkText/70 leading-relaxed font-semibold">
+                                    Alarm secara otomatis tersimpan di perangkat lokal Anda. Saat pembuat alarm mengubah jadwal, alarm Anda otomatis ikut terupdate dalam hitungan milidetik!
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mini Visual Mockup for Accept -->
+                    <div class="bg-brand-lightBg p-4 rounded-2xl border border-brand-primary/10 mt-6 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="text-2xl">⚡</span>
+                            <div>
+                                <span class="block text-[10px] uppercase font-bold text-[#E65100]">STATUS KONEKSI</span>
+                                <span class="text-xs font-semibold text-brand-primary"><span class="inline-block w-2 h-2 rounded-full bg-green-500 animate-ping mr-1"></span> Tersinkronisasi Akurat</span>
+                            </div>
+                        </div>
+                        <span class="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-extrabold rounded-full uppercase tracking-wider">
+                            Aktif
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Call to Actions or Note -->
+            <div class="p-6 bg-brand-primary/5 rounded-[24px] border border-brand-primary/10 max-w-xl mx-auto flex items-start space-x-4">
+                <div class="text-2xl text-brand-primary shrink-0"><i class="fa-solid fa-circle-question"></i></div>
+                <div class="space-y-1">
+                    <h4 class="text-sm font-bold text-brand-primary">Ingin membatalkan atau keluar dari kamar?</h4>
+                    <p class="text-xs text-brand-darkText/80 leading-relaxed font-semibold">
+                        Sangat mudah! Jika Anda ingin menghapus sinkronisasi, Anda cukup menghapus alarm kelompok tersebut dari beranda. Desain asimetris kami memastikan Anda memegang kontrol penuh atas alarm perangkat sendiri.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
     <!-- INTERACTIVE SHOWCASE FOR SCREENSHOTS -->
     <section id="showcase" class="py-20 px-4 md:px-8 bg-brand-bg">
         <div class="max-w-7xl mx-auto space-y-12">
