@@ -3,8 +3,22 @@ name: Android Security and Build CI/CD
 on:
   push:
     branches: [ "main", "main-*", "master" ]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/android-ci.yml'
   pull_request:
     branches: [ "main", "master" ]
+    paths:
+      - 'app/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/android-ci.yml'
 
 # ✅ FIX Node.js 24: tambahkan env global ini
 env:

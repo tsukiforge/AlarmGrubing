@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Survei Pendapat Pengguna — Alarm Grup</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plus Jakarta Sans Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            bg: '#BEE1E6',       /* Soft Pastel Aqua Background */
+                            primary: '#205E6A',  /* Modern Deep Teal */
+                            accent: '#438F9E',   /* Ocean Teal Accent */
+                            lightBg: '#EFF7F8',  /* Ultra Light Aqua-White */
+                            cardBg: '#FFFFFF',   /* Paper White Surface */
+                            darkText: '#0F2C33',  /* On-Primary Dark text */
+                            navyDark: '#121F24'  /* Deep Midnight Slate */
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #EFF7F8;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .btn-primary {
+            background-color: #205E6A;
+            color: #FFFFFF;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-primary:hover {
+            background-color: #16434C;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(32, 94, 106, 0.3);
+        }
+        .form-radio:checked {
+            color: #205E6A;
+            border-color: #205E6A;
+        }
+        .option-card {
+            transition: all 0.2s ease-in-out;
+            border: 2px solid transparent;
+        }
+        .option-card:hover {
+            border-color: #438F9E;
+            background-color: #EFF7F8;
+        }
+        .option-card-selected {
+            border-color: #205E6A !important;
+            background-color: #BEE1E6/30 !important;
+        }
+    </style>
+</head>
+<body class="text-brand-darkText antialiased selection:bg-brand-primary selection:text-white min-h-screen flex flex-col justify-between">
+
+    <!-- HEADER / NAVIGATION -->
+    <nav class="bg-brand-bg/90 backdrop-blur-md border-b border-brand-primary/10 px-4 py-4 md:px-8">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <a href="index.html" class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-xl bg-brand-primary flex items-center justify-center text-white text-lg">
+                    <i class="fa-solid fa-square-poll-horizontal"></i>
+                </div>
+                <div class="leading-none">
+                    <span class="block text-base font-bold text-brand-primary">Alarm Grup</span>
+                    <span class="block text-[10px] font-bold tracking-wider text-brand-accent/90 uppercase">Survei Pengguna</span>
+                </div>
+            </a>
+            
+            <a href="index.html" class="btn-primary px-4 py-2 rounded-xl font-bold text-xs tracking-wide">
+                <i class="fa-solid fa-arrow-left mr-2"></i>Kembali ke Beranda
+            </a>
+        </div>
+    </nav>
+
+    <!-- CONTENT BODY -->
+    <main class="max-w-3xl mx-auto px-4 py-12 flex-grow w-full">
+        <div class="bg-white p-6 md:p-12 rounded-[32px] shadow-xl border border-brand-primary/5 space-y-8">
+            <div class="border-b border-gray-100 pb-6 text-center md:text-left">
+                <h1 class="text-3xl md:text-4xl font-extrabold text-brand-primary">Survei Fitur Baru: Transfer File</h1>
+                <p class="text-xs text-brand-accent/80 font-bold mt-2 font-mono">Bantu Kami Mengembangkan Alarm Grup Lebih Baik!</p>
+                <p class="text-xs text-gray-400 mt-1 font-semibold">Tanggapan Anda akan langsung dikirimkan ke pengembang kami.</p>
+            </div>
+
+            <!-- Formspree / FormSubmit - Direct email handler (FREE) -->
+            <form action="https://formsubmit.co/faizinu61@gmail.com" method="POST" class="space-y-8">
+                <!-- HoneyPot (Anti Spam protection) -->
+                <input type="text" name="_honey" style="display:none">
+                <!-- Disable Captcha optionally for seamless flow -->
+                <input type="hidden" name="_captcha" value="false">
+                <!-- Custom Redirect after submission -->
+                <input type="hidden" name="_next" value="https://faizinuha.github.io/AlarmGrubing/index.html">
+
+                <!-- Q1 -->
+                <div class="space-y-3">
+                    <label class="block text-base font-extrabold text-brand-primary flex items-start">
+                        <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5 mt-0.5 shrink-0"></span>
+                        1. Bagaimana pendapat Anda mengenai fitur "Transfer File" (Bebas jenis berkas) di dalam aplikasi Alarm Grup?
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pl-5">
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="pendapat_fitur" value="Sangat Berguna" class="form-radio h-5 w-5 text-brand-primary" required>
+                            <span class="text-sm font-semibold">Sangat Berguna (Sering berkoordinasi file grup)</span>
+                        </label>
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="pendapat_fitur" value="Cukup Berguna" class="form-radio h-5 w-5 text-brand-primary">
+                            <span class="text-sm font-semibold">Cukup Berguna (Hanya kadang-kadang digunakan)</span>
+                        </label>
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="pendapat_fitur" value="Biasa Saja" class="form-radio h-5 w-5 text-brand-primary">
+                            <span class="text-sm font-semibold">Biasa Saja (Lebih sering memakai WhatsApp/Telegram)</span>
+                        </label>
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="pendapat_fitur" value="Tidak Butuh" class="form-radio h-5 w-5 text-brand-primary">
+                            <span class="text-sm font-semibold">Tidak Butuh (Hanya fokus menggunakan alarm)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q2 (The core pricing/subscription question) -->
+                <div class="space-y-3">
+                    <label class="block text-base font-extrabold text-brand-primary flex items-start">
+                        <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5 mt-0.5 shrink-0"></span>
+                        2. Apakah Anda lebih memilih fitur ini berbasis Berlangganan (Premium) atau Tetap Gratis dengan opsi donasi/dukungan iklan?
+                    </label>
+                    <div class="grid grid-cols-1 gap-3 pl-5">
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-start space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="opsi_pembayaran" value="Gratis Selamanya dengan Iklan" class="form-radio h-5 w-5 text-brand-primary mt-0.5" required>
+                            <div class="leading-snug">
+                                <span class="block text-sm font-bold">Tetap Gratis (Dengan Iklan / Batasan Transfer Harian)</span>
+                                <span class="block text-xs text-gray-400 font-semibold mt-1">Suka versi gratis, mau didukung oleh iklan atau batasan ringan untuk menjaga biaya server.</span>
+                            </div>
+                        </label>
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-start space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="opsi_pembayaran" value="Berbayar Sekali Seumur Hidup (One-time Lifetime)" class="form-radio h-5 w-5 text-brand-primary mt-0.5">
+                            <div class="leading-snug">
+                                <span class="block text-sm font-bold text-brand-primary">Berbayar Sekali Seumur Hidup (Membuka semua fitur selamanya)</span>
+                                <span class="block text-xs text-gray-400 font-semibold mt-1">Membayar 1 kali pembelian in-app (misal Rp 15rb - Rp 29rb) untuk bebas dari limitasi, bebas iklan, dan bisa transfer file besar tanpa repot.</span>
+                            </div>
+                        </label>
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-start space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="opsi_pembayaran" value="Donasi Sukarela" class="form-radio h-5 w-5 text-brand-primary mt-0.5">
+                            <div class="leading-snug">
+                                <span class="block text-sm font-bold">Donasi Sukarela (Tanpa Iklan Wajib)</span>
+                                <span class="block text-xs text-gray-400 font-semibold mt-1">Aplikasi sepenuhnya gratis tanpa iklan, namun ada tombol donasi (Saweria/Trakteer) bagi yang ingin membantu server saja.</span>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q3 -->
+                <div class="space-y-3">
+                    <label class="block text-base font-extrabold text-brand-primary flex items-start">
+                        <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5 mt-0.5 shrink-0"></span>
+                        3. Bagaimana tanggapan Anda mengenai batas ukuran berkas gratis (30-40 MB per kiriman)?
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pl-5">
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="batas_ukuran" value="Sudah Cukup" class="form-radio h-5 w-5 text-brand-primary" required>
+                            <span class="text-sm font-semibold">Sudah Cepat & Cukup (Untuk PDF/Gambar/MP3)</span>
+                        </label>
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="batas_ukuran" value="Terlalu Kecil" class="form-radio h-5 w-5 text-brand-primary">
+                            <span class="text-sm font-semibold">Terlalu Kecil (Minimal 100 MB agar bisa video)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q4 -->
+                <div class="space-y-3">
+                    <label class="block text-base font-extrabold text-brand-primary flex items-start">
+                        <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5 mt-0.5 shrink-0"></span>
+                        4. Apakah Anda menyukai konsep transfer "Kirim -> Terima" berbasis input PIN/Kode 6-digit acak (Tanpa perlu login)?
+                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pl-5">
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="konsep_pin" value="Suka Bebas Login" class="form-radio h-5 w-5 text-brand-primary" required>
+                            <span class="text-sm font-semibold">Sangat Suka! (Praktis, cepat & privat!)</span>
+                        </label>
+                        <label class="option-card p-4 rounded-2xl bg-gray-50 flex items-center space-x-3 cursor-pointer border border-gray-200">
+                            <input type="radio" name="konsep_pin" value="Butuh Login" class="form-radio h-5 w-5 text-brand-primary">
+                            <span class="text-sm font-semibold">Lebih baik login (Agar ada riwayat pengiriman)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Q5 (Feedback text) -->
+                <div class="space-y-3">
+                    <label class="block text-base font-extrabold text-brand-primary flex items-start">
+                        <span class="w-2.5 h-6 bg-brand-accent rounded-full mr-2.5 mt-0.5 shrink-0"></span>
+                        5. Ada ide fitur lain atau masukan tambahan untuk Alarm Grup? (Opsional)
+                    </label>
+                    <div class="pl-5">
+                        <textarea name="masukan_tambahan" rows="4" placeholder="Ketik kritik, saran, ide, atau sapaan Anda di sini..." class="w-full p-4 rounded-2xl border border-gray-200 outline-none focus:border-brand-primary focus:ring-1 focus:ring-brand-primary/20 text-sm font-medium placeholder:text-gray-400"></textarea>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="pl-5 pt-4 flex flex-col sm:flex-row items-center gap-4">
+                    <button type="submit" class="w-full sm:w-auto btn-primary px-8 py-4 rounded-2xl font-extrabold text-base tracking-wide shadow-md flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>Kirim Tanggapan Saya</span>
+                    </button>
+                    <p class="text-xs text-gray-400 font-bold text-center sm:text-left">
+                        <i class="fa-solid fa-shield-halved mr-1 text-green-600"></i> Data aman & diproses secara privat tanpa pihak pelacak eksternal.
+                    </p>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-brand-navyDark py-8 px-4 text-center text-gray-500 text-xs font-bold border-t border-brand-primary/10 mt-12">
+        <div class="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-2">
+                <div class="w-6 h-6 rounded-lg bg-brand-primary flex items-center justify-center text-white text-[10px]">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <span class="text-sm font-bold text-white tracking-wider">Alarm Grup</span>
+            </div>
+            <span>Hak Cipta &copy; 2026 M. Maichi & Kontributor. Hak Cipta Dilindungi.</span>
+        </div>
+    </footer>
+
+</body>
+</html>
