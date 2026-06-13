@@ -2,17 +2,20 @@ package com.example.ui
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.alarm.AlarmScheduler
 import com.example.data.db.AppDatabase
 import com.example.data.model.Alarm
 import com.example.data.repository.AlarmRepository
+import com.example.data.repository.FileTransferRepository
 import com.example.data.helper.NetworkConnectionHelper
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 import java.util.UUID
 
 class AlarmViewModel(application: Application) : AndroidViewModel(application) {
@@ -26,6 +29,14 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     private val notesRepo = com.example.data.repository.NotesRepository(context)
     private val _notes = MutableStateFlow<List<com.example.data.model.Note>>(emptyList())
     val notes: StateFlow<List<com.example.data.model.Note>> = _notes.asStateFlow()
+
+    // File Transfer Components & State
+    private val fileTransferRepo = FileTransferRepository(context)
+    private val _localFiles = MutableStateFlow<List<File>>(emptyList())
+    val localFiles: StateFlow<List<File>> = _localFiles.asStateFlow()
+
+    private val _showSurveyPrompt = MutableStateFlow(false)
+    val showSurveyPrompt: StateFlow<Boolean> = _showSurveyPrompt.asStateFlow()
 
     // User details states
     private val _userId = MutableStateFlow("")
@@ -89,6 +100,8 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
             startPolling(grpCode)
         }
         loadNotes()
+        loadLocalFiles()
+        checkSurveyPrompt()
     }
 
     fun updateUserName(name: String) {
@@ -484,6 +497,88 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     private fun stopPolling() {
         pollJob?.cancel()
         pollJob = null
+    }
+
+    // --- File Transfer Operations ---
+
+    fun loadLocalFiles() {
+        _localFiles.value = fileTransferRepo.getLocalSharedFiles()
+    }
+
+    fun uploadSharedFile(
+        uri: Uri,
+        onProgress: (String) -> Unit,
+        onResult: (Result<String>) -> Unit
+    ) {
+        viewModelScope.launch {
+            // Generate a random 6-digit PIN
+            val randomPin = (100000..999999).random().toString()
+            onProgress("Memulai unggahan...")
+            val res = fileTransferRepo.uploadFile(uri, randomPin, _userName.value, onProgress)
+            if (res.isSuccess) {
+                // Copy locally so it shows in history
+                try {
+                    val cr = context.contentResolver
+                    var name = "unggah_$randomPin"
+                    cr.query(uri, null, null, null, null)?.use { cursor ->
+                        val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (cursor.moveToFirst() && idx != -1) name = cursor.getString(idx)
+                    }
+                    val target = File(File(context.filesDir, "shared_files"), name)
+                    cr.openInputStream(uri)?.use { input ->
+                        target.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                loadLocalFiles()
+                checkSurveyPrompt()
+            }
+            onResult(res)
+        }
+    }
+
+    fun downloadSharedFile(
+        code: String,
+        onProgress: (String) -> Unit,
+        onResult: (Result<File>) -> Unit
+    ) {
+        viewModelScope.launch {
+            val res = fileTransferRepo.downloadFile(code, onProgress)
+            if (res.isSuccess) {
+                loadLocalFiles()
+                checkSurveyPrompt()
+            }
+            onResult(res)
+        }
+    }
+
+    fun deleteLocalFile(file: File) {
+        fileTransferRepo.deleteLocalFile(file)
+        loadLocalFiles()
+    }
+
+    fun clearAllLocalFiles() {
+        fileTransferRepo.clearAllLocalFiles()
+        loadLocalFiles()
+    }
+
+    fun checkSurveyPrompt() {
+        val sends = sharedPrefs.getInt("file_share_send_count", 0)
+        val recvs = sharedPrefs.getInt("file_share_receive_count", 0)
+        val surveyShown = sharedPrefs.getBoolean("file_share_survey_shown_v1", false)
+        if ((sends > 0 || recvs > 0) && !surveyShown) {
+            _showSurveyPrompt.value = true
+        }
+    }
+
+    fun dismissSurveyPrompt(neverShowAgain: Boolean) {
+        _showSurveyPrompt.value = false
+        if (neverShowAgain) {
+            sharedPrefs.edit().putBoolean("file_share_survey_shown_v1", true).apply()
+        }
     }
 
     override fun onCleared() {
