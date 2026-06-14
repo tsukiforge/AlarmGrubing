@@ -15,7 +15,21 @@ Dokumen ini disusun sebagai lampiran teknis resmi pengembang untuk keperluan aud
 
 ## 📜 Kronologi Pembaruan Aplikasi Sesuai Riwayat Tag GitHub (Chronological Version History)
 
-### 🚀 Versi 1.1.0 (Rilis Mayor Stabil - Fitur Berbagi Berkas & Keamanan FileProvider)
+### 🚀 Versi 1.0.2
+📥 1. Pembaruan Fitur Berbagi Berkas (Multi-select & Auto Download)
+Penyimpanan Otomatis (Download Folder): Setiap berkas yang dibagikan atau diunduh dari kode pin kini otomatis diunduh dan tersimpan rapi langsung di folder bawaan Unduhan (Downloads) HP Anda agar mudah diakses.
+Kirim Banyak Berkas Sekaligus (Maksimal 5 Berkas): Anda sekarang bisa memilih hingga 5 berkas sekaligus dari galeri atau dokumen sistem. Berkas-berkas tersebut akan otomatis dikompresi menjadi satu file .zip sebelum dikirim demi menghemat kuota, dan otomatis diekstrak kembali menjadi berkas asal saat diunduh penerima.
+👥 2. Visualisasi Foto Profil Anggota Grup
+Deretan Avatar Anggota: Di dalam ruang utama Dasbor Grup, sekarang terdapat daftar tumpukan avatar visual yang cantik dari setiap anggota kamar grup yang aktif.
+Profil Tanpa Batas: Jika anggota mengunggah foto profil di tab Pengaturan, fotonya akan terbit secara otomatis sebagai avatar lingkaran. Jika masih bawaan, aplikasi akan membuatkan inisial huruf dengan kombinasi warna unik berdasarkan identitas unik mereka secara dinamis.
+🔔 3. Lonceng Peringatan Rilis Pembaruan Aplikasi (Notifikasi Update)
+Tombol Lonceng Cepat: Ditambahkan ikon lonceng notifikasi di bagian atas menu beranda tepat di sebelah profil Anda. Jika terdapat rilis APK terbaru, titik indikator berwarna merah terang akan menyala secara otomatis.
+Update Instan Sekali Klik: Mengklik tombol lonceng akan membuka dialog modern untuk memeriksa status kesesuaian sistem. Anda dapat melihat catatan rilis rincian pembaruan, dan dialihkan ke pengunduhan file APK versi paling mutakhir secara langsung menggunakan browser bawaan.
+📢 4. Fitur "Bangunkan Kamar" (Sinyal Alarm Instan Anggota)
+Kirim Sinyal Alarm Langsung: Bingung membangunkan salah satu kawan kamar grup yang belum bangun? Cukup klik area avatar grup untuk memunculkan panel daftar anggota, lalu tekan tombol "Bangunkan 🔔" di sebelah nama kawan Anda.
+Alarm Paksa Berdering: Handphone kawan Anda yang ditargetkan akan langsung menyalakan alarm alarm utama secara instan dengan nada dering aktif, getaran penuh, disertai pesan darurat pribadi di layarnya: "Bangun Oy!! ⏰ Dibangunkan oleh [Nama Anda]". Sinyal alarm ini bekerja secara instan secara real-time.
+
+### 🚀 Versi 1.0.28 (Rilis Mayor Stabil - Fitur Berbagi Berkas & Keamanan FileProvider)
 > **Tanggal Rilis**: 13 Juni 2026  
 > **Target SDK / Android API**: Android 14 (API Level 34)  
 

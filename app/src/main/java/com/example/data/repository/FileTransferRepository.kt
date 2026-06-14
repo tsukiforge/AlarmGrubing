@@ -128,10 +128,22 @@ class FileTransferRepository(private val context: Context) {
             onProgress("Mendekode isi berkas...")
             val fileBytes = Base64.decode(transferData.fileData, Base64.DEFAULT)
 
-            // Save locally
-            onProgress("Menyimpan di memori lokal...")
+            // Save locally and automatically handle if ZIP or single file
             val destFile = File(sharedDir, transferData.fileName)
-            destFile.writeBytes(fileBytes)
+            if (transferData.fileName.endsWith(".zip", ignoreCase = true)) {
+                onProgress("Mendekode & mengekstrak file-file (.zip)...")
+                destFile.writeBytes(fileBytes)
+                unzipFile(destFile, sharedDir, context)
+            } else {
+                onProgress("Menyimpan di memori lokal...")
+                destFile.writeBytes(fileBytes)
+                try {
+                    onProgress("Menyimpan di folder Unduhan HP...")
+                    saveToSystemDownloads(context, fileBytes, transferData.fileName, transferData.fileType)
+                } catch (e: java.lang.Exception) {
+                    e.printStackTrace()
+                }
+            }
 
             // Update stats
             val prefs = context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE)
@@ -142,6 +154,89 @@ class FileTransferRepository(private val context: Context) {
         } catch (e: Exception) {
             e.printStackTrace()
             Result.failure(e)
+        }
+    }
+
+    fun zipUris(uris: List<Uri>, destZipFile: File): Boolean {
+        return try {
+            java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(destZipFile.outputStream())).use { zos ->
+                uris.forEach { uri ->
+                    var name = "berkas_${System.currentTimeMillis()}"
+                    context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (cursor.moveToFirst() && idx != -1) {
+                            name = cursor.getString(idx)
+                        }
+                    }
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        val entry = java.util.zip.ZipEntry(name)
+                        zos.putNextEntry(entry)
+                        input.copyTo(zos)
+                        zos.closeEntry()
+                    }
+                }
+            }
+            true
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    fun unzipFile(zipFile: File, targetDir: File, context: Context) {
+        try {
+            java.util.zip.ZipInputStream(java.io.BufferedInputStream(zipFile.inputStream())).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    if (!entry.isDirectory) {
+                        val destFile = File(targetDir, entry.name)
+                        destFile.parentFile?.mkdirs()
+                        destFile.outputStream().use { fos ->
+                            zis.copyTo(fos)
+                        }
+                        
+                        val ext = entry.name.substringAfterLast('.', "")
+                        val mimeType = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase()) ?: "application/octet-stream"
+                        saveToSystemDownloads(context, destFile.readBytes(), entry.name, mimeType)
+                    }
+                    zis.closeEntry()
+                    entry = zis.nextEntry
+                }
+            }
+            if (zipFile.exists()) {
+                zipFile.delete()
+            }
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun saveToSystemDownloads(context: Context, fileBytes: ByteArray, fileName: String, mimeType: String): Boolean {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val resolver = context.contentResolver
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.write(fileBytes)
+                    }
+                    true
+                } else false
+            } else {
+                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+                val destFile = File(downloadsDir, fileName)
+                destFile.writeBytes(fileBytes)
+                true
+            }
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+            false
         }
     }
 

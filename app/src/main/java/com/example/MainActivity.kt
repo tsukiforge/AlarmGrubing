@@ -304,10 +304,29 @@ fun MainScreenContent(
     val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
     val isConnected by NetworkConnectionHelper.observeConnection(context).collectAsState(initial = NetworkConnectionHelper.isConnected(context))
     val networkType = remember(isConnected) { NetworkConnectionHelper.getNetworkType(context) }
+    val coroutineScope = rememberCoroutineScope()
 
     var showAddDialog by remember { mutableStateOf(false) }
     var alarmToEdit by remember { mutableStateOf<Alarm?>(null) }
     var showUserNameDialog by remember { mutableStateOf(false) }
+
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var updateInfoState by remember { mutableStateOf<GithubUpdateChecker.UpdateInfo?>(null) }
+    var showUpdateDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isConnected) {
+        if (isConnected) {
+            isCheckingUpdate = true
+            try {
+                val info = GithubUpdateChecker.checkForUpdates()
+                updateInfoState = info
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                isCheckingUpdate = false
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -336,59 +355,239 @@ fun MainScreenContent(
             }
 
             Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-                    .clickable { onNavigateToSettings() }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                val profileFile = File(context.filesDir, "profile_pic.png")
-                val hasCustomPic = prefs.getBoolean("has_custom_profile_pic", false) && profileFile.exists()
-                val profileBitmap = remember(profilePicTrigger, hasCustomPic) {
-                    if (hasCustomPic) {
-                        try {
-                            BitmapFactory.decodeFile(profileFile.absolutePath)
-                        } catch (e: Exception) {
-                            null
-                        }
-                    } else null
-                }
-
-                if (profileBitmap != null) {
-                    Image(
-                        bitmap = profileBitmap.asImageBitmap(),
-                        contentDescription = "Foto Profil",
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
+                // --- Notification Bell Icon for Updates ---
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable { showUpdateDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = "Pemberitahuan Update",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(IndigoPrimary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = userName.take(1).uppercase(),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                    if (updateInfoState?.hasUpdate == true) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .align(Alignment.TopEnd)
+                                .padding(top = 4.dp, end = 4.dp)
+                                .clip(CircleShape)
+                                .background(Color.Red)
                         )
                     }
                 }
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = userName,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
-                    maxLines = 1
-                )
+
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .clickable { onNavigateToSettings() }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val profileFile = File(context.filesDir, "profile_pic.png")
+                    val hasCustomPic = prefs.getBoolean("has_custom_profile_pic", false) && profileFile.exists()
+                    val profileBitmap = remember(profilePicTrigger, hasCustomPic) {
+                        if (hasCustomPic) {
+                            try {
+                                BitmapFactory.decodeFile(profileFile.absolutePath)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        } else null
+                    }
+
+                    if (profileBitmap != null) {
+                        Image(
+                            bitmap = profileBitmap.asImageBitmap(),
+                            contentDescription = "Foto Profil",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(IndigoPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = userName.take(1).uppercase(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = userName,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        maxLines = 1
+                    )
+                }
             }
+        }
+
+        // --- Elegant Dialog for update notifications ---
+        if (showUpdateDialog) {
+            AlertDialog(
+                onDismissRequest = { showUpdateDialog = false },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Pembaruan Aplikasi 🔔", fontWeight = FontWeight.Bold)
+                    }
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        if (isCheckingUpdate) {
+                            CircularProgressIndicator(
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Mengecek pembaruan aplikasi...",
+                                color = TextMuted,
+                                fontSize = 12.sp,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        } else {
+                            val info = updateInfoState
+                            if (info != null) {
+                                if (info.hasUpdate) {
+                                    Text(
+                                        text = "Versi baru tersedia! 🚀",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 16.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Versi Terbaru: ${info.latestVersion}",
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextLight,
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    if (info.releaseNotes.isNotEmpty()) {
+                                        Text(
+                                            text = "Catatan Pembaruan:",
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextLight,
+                                            fontSize = 12.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = info.releaseNotes,
+                                            color = TextMuted,
+                                            fontSize = 11.sp,
+                                            maxLines = 5,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                    }
+                                    Text(
+                                        text = "Klik tombol di bawah ini untuk mengunduh rilis berkas APK melalui browser Anda secara instan.",
+                                        color = TextMuted,
+                                        fontSize = 11.sp
+                                    )
+                                } else if (info.errorMessage != null) {
+                                    Text(
+                                        text = "Koneksi Bermasalah",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Red,
+                                        fontSize = 15.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = info.errorMessage,
+                                        color = TextMuted,
+                                        fontSize = 12.sp
+                                    )
+                                } else {
+                                    Text(
+                                        text = "Aplikasi Anda Sudah Terupdate! ✨",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF2E7D32),
+                                        fontSize = 15.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Anda menggunakan versi ${com.example.BuildConfig.VERSION_NAME} (code: ${com.example.BuildConfig.VERSION_CODE}) yang merupakan versi stabil terbaru.",
+                                        color = TextMuted,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "Gagal memuat status pembaruan. Silakan klik tombol periksa ulang di bawah.",
+                                    color = TextMuted,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    val info = updateInfoState
+                    if (info?.hasUpdate == true) {
+                        Button(
+                            onClick = {
+                                showUpdateDialog = false
+                                GithubUpdateChecker.openUpdateUrl(context, info.downloadUrl)
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Perbarui Sekarang 🚀", color = Color.White)
+                        }
+                    } else if (!isCheckingUpdate) {
+                        Button(
+                            onClick = {
+                                isCheckingUpdate = true
+                                coroutineScope.launch {
+                                    try {
+                                        updateInfoState = GithubUpdateChecker.checkForUpdates()
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    } finally {
+                                        isCheckingUpdate = false
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Text("Periksa Ulang 🔄", color = Color.White)
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUpdateDialog = false }) {
+                        Text("Tutup", color = TextMuted)
+                    }
+                },
+                containerColor = SurfaceDark
+            )
         }
 
         // --- 🌸 KAWAII ANIME COMPANION WIDGET 🌸 ---
@@ -1077,6 +1276,9 @@ fun GroupDashboardScreen(
     onAddAlarmClick: () -> Unit,
     onEditAlarmClick: (Alarm) -> Unit
 ) {
+    val members by viewModel.groupMembers.collectAsState()
+    val myUid by viewModel.userId.collectAsState()
+    var showMemberWakeDialog by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -1157,6 +1359,85 @@ fun GroupDashboardScreen(
                                     color = TextMuted,
                                     fontSize = 11.sp
                                 )
+                            }
+                            if (members.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showMemberWakeDialog = true }
+                                        .padding(vertical = 4.dp),
+                                    horizontalArrangement = Arrangement.Start,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy((-8).dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        members.take(14).forEach { member ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(28.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(android.graphics.Color.parseColor(member.colorHex ?: "#FFB7B2")))
+                                                    .border(1.5.dp, Color.White, CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (member.profileImageBase64 != null) {
+                                                    val pBitmap = remember(member.profileImageBase64) {
+                                                        try {
+                                                            val bytes = android.util.Base64.decode(member.profileImageBase64, android.util.Base64.DEFAULT)
+                                                            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                        } catch (e: Exception) {
+                                                            null
+                                                        }
+                                                    }
+                                                    if (pBitmap != null) {
+                                                        Image(
+                                                            bitmap = pBitmap.asImageBitmap(),
+                                                            contentDescription = null,
+                                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                    } else {
+                                                        Text(
+                                                            text = member.userId.take(1).uppercase(),
+                                                            color = Color.White,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                } else {
+                                                    Text(
+                                                        text = member.userId.take(1).uppercase(),
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        if (members.size > 14) {
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Text(
+                                                text = "+${members.size - 14}",
+                                                color = TextMuted,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = "Bangunkan 🔔",
+                                        color = Color(0xFF6750A4),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .background(Color(0xFF6750A4).copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
                             }
                         }
 
@@ -1343,6 +1624,168 @@ fun GroupDashboardScreen(
                 }
             }
         }
+    }
+
+    if (showMemberWakeDialog) {
+        val context = LocalContext.current
+        AlertDialog(
+            onDismissRequest = { showMemberWakeDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = IndigoPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Kelola & Bangunkan Kamar 📢⏰", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextLight)
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
+                    Text(
+                        text = "Kirim sinyal getar & peringatan alarm instan ke handphone anggota kamar grup terpilih sekarang juga!",
+                        color = TextMuted,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    
+                    if (members.isEmpty()) {
+                        Text(
+                            text = "Tidak ada anggota lain yang aktif saat ini.",
+                            color = TextMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 16.dp).align(Alignment.CenterHorizontally)
+                        )
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            items(members) { member ->
+                                val isMe = member.userId == myUid
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = SurfaceDark.copy(alpha = 0.5f)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(8.dp).fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(32.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(android.graphics.Color.parseColor(member.colorHex ?: "#FFB7B2"))),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (member.profileImageBase64 != null) {
+                                                    val pBitmap = remember(member.profileImageBase64) {
+                                                        try {
+                                                            val bytes = android.util.Base64.decode(member.profileImageBase64, android.util.Base64.DEFAULT)
+                                                            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                                        } catch (e: Exception) {
+                                                            null
+                                                        }
+                                                    }
+                                                    if (pBitmap != null) {
+                                                        Image(
+                                                            bitmap = pBitmap.asImageBitmap(),
+                                                            contentDescription = null,
+                                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                                            contentScale = ContentScale.Crop
+                                                        )
+                                                    } else {
+                                                        Text(
+                                                            text = member.userId.take(2).uppercase(),
+                                                            color = Color.White,
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    }
+                                                } else {
+                                                    Text(
+                                                        text = member.userId.take(2).uppercase(),
+                                                        color = Color.White,
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.width(10.dp))
+                                            Column {
+                                                Text(
+                                                    text = member.userId,
+                                                    color = TextLight,
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.SemiBold
+                                                )
+                                                Text(
+                                                    text = if (isMe) "Kamu (Aktif)" else "Aktif baru saja",
+                                                    color = if (isMe) IndigoPrimary else TextMuted,
+                                                    fontSize = 11.sp
+                                                )
+                                            }
+                                        }
+
+                                        if (!isMe) {
+                                            var isWaking by remember { mutableStateOf(false) }
+                                            Button(
+                                                onClick = {
+                                                    isWaking = true
+                                                    viewModel.wakeUpMember(member.userId) { success ->
+                                                        isWaking = false
+                                                        if (success) {
+                                                            android.widget.Toast.makeText(
+                                                                context,
+                                                                "Berhasil mengirim alarm sinyal ke ${member.userId}!",
+                                                                android.widget.Toast.LENGTH_SHORT
+                                                            ).show()
+                                                        } else {
+                                                            android.widget.Toast.makeText(
+                                                                context,
+                                                                "Gagal mengirim sinyal bangun, periksa jaringan.",
+                                                                android.widget.Toast.LENGTH_SHORT
+                                                            ).show()
+                                                        }
+                                                    }
+                                                },
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
+                                                shape = RoundedCornerShape(20.dp),
+                                                modifier = Modifier.height(30.dp),
+                                                enabled = !isWaking
+                                            ) {
+                                                if (isWaking) {
+                                                    CircularProgressIndicator(
+                                                        color = Color.White,
+                                                        modifier = Modifier.size(14.dp),
+                                                        strokeWidth = 2.dp
+                                                    )
+                                                } else {
+                                                    Text("Bangunkan 🔔", fontSize = 11.sp, color = Color.White)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showMemberWakeDialog = false }) {
+                    Text("Selesai", color = IndigoPrimary)
+                }
+            },
+            containerColor = SurfaceDark
+        )
     }
 }
 
@@ -3504,25 +3947,46 @@ fun FileSharingScreenContent(viewModel: AlarmViewModel) {
     var showRxDialog by remember { mutableStateOf(false) }
     
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            uploadingState = true
-            uploadProgress = "Mengecek berkas..."
-            viewModel.uploadSharedFile(
-                uri = uri,
-                onProgress = { progress -> uploadProgress = progress },
-                onResult = { result ->
-                    uploadingState = false
-                    if (result.isSuccess) {
-                        uploadedPin = result.getOrNull()
-                        showUploadSuccessDialog = true
-                    } else {
-                        val errMsg = result.exceptionOrNull()?.message ?: "Gagal mengunggah berkas"
-                        android.widget.Toast.makeText(context, errMsg, android.widget.Toast.LENGTH_LONG).show()
-                    }
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            if (uris.size > 5) {
+                android.widget.Toast.makeText(context, "Maksimal memilih 5 berkas sekaligus! Silakan coba lagi.", android.widget.Toast.LENGTH_LONG).show()
+            } else {
+                uploadingState = true
+                uploadProgress = "Mengecek berkas..."
+                if (uris.size == 1) {
+                    viewModel.uploadSharedFile(
+                        uri = uris[0],
+                        onProgress = { progress -> uploadProgress = progress },
+                        onResult = { result ->
+                            uploadingState = false
+                            if (result.isSuccess) {
+                                uploadedPin = result.getOrNull()
+                                showUploadSuccessDialog = true
+                            } else {
+                                val errMsg = result.exceptionOrNull()?.message ?: "Gagal mengunggah berkas"
+                                android.widget.Toast.makeText(context, errMsg, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    )
+                } else {
+                    viewModel.uploadMultipleSharedFiles(
+                        uris = uris,
+                        onProgress = { progress -> uploadProgress = progress },
+                        onResult = { result ->
+                            uploadingState = false
+                            if (result.isSuccess) {
+                                uploadedPin = result.getOrNull()
+                                showUploadSuccessDialog = true
+                            } else {
+                                val errMsg = result.exceptionOrNull()?.message ?: "Gagal mengunggah berkas"
+                                android.widget.Toast.makeText(context, errMsg, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    )
                 }
-            )
+            }
         }
     }
 

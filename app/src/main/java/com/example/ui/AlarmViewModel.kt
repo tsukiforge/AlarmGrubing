@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.app.Application
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -17,6 +18,9 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.UUID
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
+import com.example.data.api.NetworkClient
 
 class AlarmViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -56,6 +60,10 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isOfflineGroup = MutableStateFlow(false)
     val isOfflineGroup: StateFlow<Boolean> = _isOfflineGroup.asStateFlow()
+
+    // Group Members state
+    private val _groupMembers = MutableStateFlow<List<com.example.data.model.MemberData>>(emptyList())
+    val groupMembers: StateFlow<List<com.example.data.model.MemberData>> = _groupMembers.asStateFlow()
 
     // Sync State
     private val _syncState = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
@@ -477,13 +485,134 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
 
     // --- Polling Realtime Background ---
 
+    fun uploadMyMemberProfile() {
+        val code = _joinedGroupCode.value ?: return
+        if (_isOfflineGroup.value) return
+        val uid = _userId.value
+        viewModelScope.launch {
+            try {
+                // Read profile image if any
+                val file = File(context.filesDir, "profile_pic.png")
+                val hasCustom = sharedPrefs.getBoolean("has_custom_profile_pic", false) && file.exists()
+                var base64: String? = null
+                if (hasCustom) {
+                    try {
+                        val bytes = file.readBytes()
+                        base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+                
+                // Color hex mapping based on Hashcode uniquely
+                val colors = listOf("#FFB7B2", "#FFDAC1", "#E2F0CB", "#B5EAD7", "#C7CEEA", "#FFC6FF", "#E8AEB7")
+                val idx = Math.abs(uid.hashCode()) % colors.size
+                val uColor = colors[idx]
+
+                val memberData = com.example.data.model.MemberData(
+                    userId = uid,
+                    profileImageBase64 = base64,
+                    colorHex = uColor,
+                    lastActive = System.currentTimeMillis()
+                )
+                
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val mAdapter = moshiObj.adapter(com.example.data.model.MemberData::class.java)
+                val json = mAdapter.toJson(memberData)
+                val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
+                
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_${code}/$uid")
+                NetworkClient.api.putValue(url, requestBody)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     private fun startPolling(code: String) {
         if (_isOfflineGroup.value) return
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
+            // Check-in initially
+            uploadMyMemberProfile()
+            
             while (true) {
                 try {
                     repository.syncGroupAlarmsLocal(code, context)
+                    
+                    // Also maintain check-in and active status
+                    uploadMyMemberProfile()
+
+                    // Sync group members
+                    try {
+                        val memberUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_$code")
+                        val response = NetworkClient.api.getValue(memberUrl)
+                        if (response.isSuccessful) {
+                            val rBodyString = response.body()?.string()
+                            if (rBodyString != null && rBodyString.trim() != "null") {
+                                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                                    .build()
+                                val type = com.squareup.moshi.Types.newParameterizedType(
+                                    Map::class.java,
+                                    String::class.java,
+                                    com.example.data.model.MemberData::class.java
+                                )
+                                val mapAdapter: com.squareup.moshi.JsonAdapter<Map<String, com.example.data.model.MemberData>> = moshiObj.adapter(type)
+                                val membersMap = mapAdapter.fromJson(rBodyString)
+                                if (membersMap != null) {
+                                    val now = System.currentTimeMillis()
+                                    val activeMembersList = membersMap.values.filter {
+                                        (now - (it.lastActive ?: 0L)) < 600_000L // 10 minutes timeout
+                                    }
+                                    _groupMembers.value = activeMembersList
+                                }
+                            }
+                        }
+                    } catch (e2: Exception) {
+                        e2.printStackTrace()
+                    }
+
+                    // Check wake triggers for ourselves
+                    try {
+                        val triggerUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_triggers_${code}/${_userId.value}")
+                        val response = NetworkClient.api.getValue(triggerUrl)
+                        if (response.isSuccessful) {
+                            val bodyStr = response.body()?.string()
+                            if (bodyStr != null && bodyStr.trim() != "null") {
+                                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                                    .build()
+                                val adapter = moshiObj.adapter(com.example.data.model.WakeTrigger::class.java)
+                                val trigger = adapter.fromJson(bodyStr)
+                                if (trigger != null) {
+                                    val now = System.currentTimeMillis()
+                                    if (now - trigger.timestamp < 45_000L) { // Triggered in the last 45 secs
+                                        val serviceIntent = Intent(context, com.example.alarm.AlarmRingingService::class.java).apply {
+                                            putExtra("ALARM_ID", "wake_up_trigger_${trigger.timestamp}")
+                                            putExtra("ALARM_TITLE", "Bangun Oy!! ⏰ Dibangunkan oleh ${trigger.senderName}")
+                                            putExtra("ALARM_TONE", "default")
+                                            putExtra("ALARM_IS_GROUP", true)
+                                            putExtra("ALARM_GROUP_CODE", code)
+                                        }
+                                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                            context.startForegroundService(serviceIntent)
+                                        } else {
+                                            context.startService(serviceIntent)
+                                        }
+                                    }
+                                    
+                                    val emptyBody = "null".toRequestBody("application/json".toMediaTypeOrNull())
+                                    NetworkClient.api.putValue(triggerUrl, emptyBody)
+                                }
+                            }
+                        }
+                    } catch (e3: Exception) {
+                        e3.printStackTrace()
+                    }
+
                     _syncState.value = SyncStatus.Synced
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -497,6 +626,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     private fun stopPolling() {
         pollJob?.cancel()
         pollJob = null
+        _groupMembers.value = emptyList()
     }
 
     // --- File Transfer Operations ---
@@ -540,6 +670,43 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun uploadMultipleSharedFiles(
+        uris: List<Uri>,
+        onProgress: (String) -> Unit,
+        onResult: (Result<String>) -> Unit
+    ) {
+        viewModelScope.launch {
+            onProgress("Mempersiapkan kompresi...")
+            val randomPin = (100000..999999).random().toString()
+            val tempZipFile = File(context.cacheDir, "UnggahanGrup_v110_$randomPin.zip")
+            
+            val zipSuccess = fileTransferRepo.zipUris(uris, tempZipFile)
+            if (!zipSuccess) {
+                onResult(Result.failure(Exception("Gagal membuat paket ZIP dari berkas terpilih")))
+                return@launch
+            }
+            
+            onProgress("Mengunggah paket berkas...")
+            val zipUri = Uri.fromFile(tempZipFile)
+            val res = fileTransferRepo.uploadFile(zipUri, randomPin, _userName.value, onProgress)
+            
+            if (res.isSuccess) {
+                // Copy/extract locally for the user's history row so it displays unzipped files
+                onProgress("Mengekstrak paket lokal...")
+                try {
+                    fileTransferRepo.unzipFile(tempZipFile, File(context.filesDir, "shared_files"), context)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                loadLocalFiles()
+                checkSurveyPrompt()
+            } else {
+                tempZipFile.delete()
+            }
+            onResult(res)
+        }
+    }
+
     fun downloadSharedFile(
         code: String,
         onProgress: (String) -> Unit,
@@ -578,6 +745,31 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         _showSurveyPrompt.value = false
         if (neverShowAgain) {
             sharedPrefs.edit().putBoolean("file_share_survey_shown_v1", true).apply()
+        }
+    }
+
+    fun wakeUpMember(targetUserId: String, onResult: (Boolean) -> Unit) {
+        val code = _joinedGroupCode.value ?: return
+        if (_isOfflineGroup.value) return
+        viewModelScope.launch {
+            try {
+                val trigger = com.example.data.model.WakeTrigger(
+                    senderName = _userName.value,
+                    timestamp = System.currentTimeMillis()
+                )
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val adapter = moshiObj.adapter(com.example.data.model.WakeTrigger::class.java)
+                val json = adapter.toJson(trigger)
+                val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_triggers_${code}/$targetUserId")
+                val response = NetworkClient.api.putValue(url, requestBody)
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false)
+            }
         }
     }
 
