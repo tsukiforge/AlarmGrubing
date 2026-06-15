@@ -3,10 +3,10 @@
 
 ---
 
-## 🚀 Versi Rilis Terbaru (Stabil): **v1.1.0**
+## 🚀 Versi Rilis Terbaru (Stabil): **v1.0.30**
 > **Arsitektur Rilis**: Lompat dari rilis debug `v1.0.28` langsung menuju rilis stabil komersial `v1.1.0` guna memperkenalkan fitur Mayor "Transfer & Berbagi Berkas".
 
-### **Apa yang Baru di Versi v1.1.0? (Copy-Paste untuk APKPure / Play Store)**
+### **Apa yang Baru di Versi v1.0.30 (Copy-Paste untuk APKPure / Play Store)**
 * **📁 Fitur Transfer & Berbagi Berkas Asimetris**:
   * Mengirim dan menerima file nada dering kustom, audio (.mp3, .wav), dokumen, atau gambar belajar antar-perangkat secara instan melalui server cloud.
   * **Tanpa Perlu Login/Daftar**: Keamanan asimetris berbasis Kode PIN 6-digit acak sekali pakai yang aman dan bersih.
