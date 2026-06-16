@@ -49,6 +49,13 @@ Proyek ini terwujud berkat dedikasi kolaboratif pengembang berbakat berikut:
 
 ---
 
+## 🎨 Apresiasi Karya Seni (Art Credits)
+
+Ilustrasi maskot kucing imut di dalam aplikasi ini terinspirasi dari karya seni berikut:
+- **Doodle Kucing Imut**: Terinspirasi dari/merujuk pada karya pembuat asli di [Pinterest Pin 912682680754112540](https://id.pinterest.com/pin/912682680754112540/), direpresentasikan kembali demi visualisasi estetik di dalam aplikasi.
+
+---
+
 ## 🛠️ Langkah-langkah Penginstalan & Kompilasi
 
 1. **Prasyarat**:

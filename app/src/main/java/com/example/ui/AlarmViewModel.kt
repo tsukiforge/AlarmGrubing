@@ -65,9 +65,18 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     private val _groupMembers = MutableStateFlow<List<com.example.data.model.MemberData>>(emptyList())
     val groupMembers: StateFlow<List<com.example.data.model.MemberData>> = _groupMembers.asStateFlow()
 
+    // Awake status state
+    private val _awakeStatuses = MutableStateFlow<List<com.example.data.model.AwakeStatus>>(emptyList())
+    val awakeStatuses: StateFlow<List<com.example.data.model.AwakeStatus>> = _awakeStatuses.asStateFlow()
+
     // Sync State
     private val _syncState = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val syncState: StateFlow<SyncStatus> = _syncState.asStateFlow()
+
+    private val _chatMessages = MutableStateFlow<List<com.example.data.model.ChatMessage>>(emptyList())
+    val chatMessages: StateFlow<List<com.example.data.model.ChatMessage>> = _chatMessages.asStateFlow()
+
+    private var lastSentTime = 0L
 
     // Alarms lists
     val personalAlarms: StateFlow<List<Alarm>> = repository.getPersonalAlarms()
@@ -367,6 +376,62 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun joinGroupViaQr(qrPayload: String, onResult: (Boolean, String?) -> Unit) {
+        val parts = qrPayload.split("|")
+        if (parts.size != 2) {
+            onResult(false, "Format QR Code tidak valid")
+            return
+        }
+        val code = parts[0]
+        val timestampStr = parts[1]
+        
+        val timestamp = timestampStr.toLongOrNull()
+        if (timestamp == null) {
+            onResult(false, "Format waktu QR Code tidak valid")
+            return
+        }
+        
+        val now = System.currentTimeMillis()
+        val tenMinutesInMs = 10 * 60 * 1000L
+        if (now - timestamp > tenMinutesInMs) {
+            onResult(false, "QR Code sudah kedaluwarsa (berlaku maks 10 menit)")
+            return
+        }
+        if (now < timestamp - 60000L) { // Allow 1 minute buffer for clock drift
+            onResult(false, "Waktu QR Code tidak sinkron dengan perangkat")
+            return
+        }
+
+        viewModelScope.launch {
+            _syncState.value = SyncStatus.Syncing
+            val cloudGroup = repository.fetchGroupFromCloud(code)
+            if (cloudGroup != null) {
+                // Save locally
+                sharedPrefs.edit()
+                    .putString("joined_group_code", code)
+                    .putString("joined_group_name", cloudGroup.name)
+                    .putBoolean("is_creator", false)
+                    .putBoolean("is_offline_group", false)
+                    .apply()
+
+                _joinedGroupCode.value = code
+                _joinedGroupName.value = cloudGroup.name
+                _isCreator.value = false
+                _isOfflineGroup.value = false
+
+                // Overwrite local copy with cloud alarms & schedule
+                repository.syncGroupAlarmsLocal(code, context)
+
+                _syncState.value = SyncStatus.Success("Berhasil bergabung dengan grup ${cloudGroup.name}")
+                startPolling(code)
+                onResult(true, null)
+            } else {
+                _syncState.value = SyncStatus.Error("Kamar alarm tidak aktif atau tidak ditemukan di server cloud")
+                onResult(false, "Kamar alarm tidak aktif atau tidak ditemukan di server cloud")
+            }
+        }
+    }
+
     fun leaveGroup() {
         stopPolling()
         val code = _joinedGroupCode.value
@@ -545,6 +610,13 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                     // Also maintain check-in and active status
                     uploadMyMemberProfile()
 
+                    // Sync awake statuses
+                    try {
+                        syncAwakeStatusesInternal(code)
+                    } catch (eAwake: Exception) {
+                        eAwake.printStackTrace()
+                    }
+
                     // Sync group members
                     try {
                         val memberUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_$code")
@@ -613,6 +685,13 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                         e3.printStackTrace()
                     }
 
+                    // Sync Group Chat
+                    try {
+                        syncChatMessagesInternal(code)
+                    } catch (eChat: Exception) {
+                        eChat.printStackTrace()
+                    }
+
                     _syncState.value = SyncStatus.Synced
                 } catch (e: Exception) {
                     e.printStackTrace()
@@ -627,6 +706,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         pollJob?.cancel()
         pollJob = null
         _groupMembers.value = emptyList()
+        _awakeStatuses.value = emptyList()
     }
 
     // --- File Transfer Operations ---
@@ -769,6 +849,262 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 e.printStackTrace()
                 onResult(false)
+            }
+        }
+    }
+
+    fun updateMyAwakeStatus(isAwake: Boolean, nickname: String, onResult: (Boolean) -> Unit = {}) {
+        val code = _joinedGroupCode.value ?: return
+        if (_isOfflineGroup.value) return
+        val uid = _userId.value
+        viewModelScope.launch {
+            try {
+                val status = com.example.data.model.AwakeStatus(
+                    userId = uid,
+                    nickname = nickname,
+                    isAwake = isAwake,
+                    timestamp = System.currentTimeMillis()
+                )
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val adapter = moshiObj.adapter(com.example.data.model.AwakeStatus::class.java)
+                val json = adapter.toJson(status)
+                val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
+                
+                // Safe and secure node validation: Put only to user's own uid node inside the specific room code node
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "awake_statuses_${code}/$uid")
+                val response = NetworkClient.api.putValue(url, requestBody)
+                
+                if (response.isSuccessful) {
+                    syncAwakeStatusesInternal(code)
+                }
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false)
+            }
+        }
+    }
+
+    suspend fun syncAwakeStatusesInternal(code: String) {
+        if (_isOfflineGroup.value) return
+        try {
+            val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "awake_statuses_$code")
+            val response = NetworkClient.api.getValue(url)
+            if (response.isSuccessful) {
+                val bodyStr = response.body()?.string()
+                if (bodyStr != null && bodyStr.trim() != "null") {
+                    val moshiObj = com.squareup.moshi.Moshi.Builder()
+                        .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                        .build()
+                    val type = com.squareup.moshi.Types.newParameterizedType(
+                        Map::class.java,
+                        String::class.java,
+                        com.example.data.model.AwakeStatus::class.java
+                    )
+                    val mapAdapter: com.squareup.moshi.JsonAdapter<Map<String, com.example.data.model.AwakeStatus>> = moshiObj.adapter(type)
+                    val map = mapAdapter.fromJson(bodyStr)
+                    if (map != null) {
+                        val now = System.currentTimeMillis()
+                        val oneDayInMs = 24 * 60 * 60 * 1000L
+                        
+                        // User only sees status of members of the SAME room.
+                        // And we only display active ones (less than 24h old)
+                        val activeStatuses = map.values.filter {
+                            (now - it.timestamp) < oneDayInMs
+                        }
+                        _awakeStatuses.value = activeStatuses
+                        
+                        // Auto-cleanup: delete entries older than 24 hours on Firebase Firebase node REST API
+                        map.forEach { (key, status) ->
+                            if (now - status.timestamp >= oneDayInMs) {
+                                val deleteUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "awake_statuses_${code}/$key")
+                                val emptyBody = "null".toRequestBody("application/json".toMediaTypeOrNull())
+                                viewModelScope.launch {
+                                    try {
+                                        NetworkClient.api.putValue(deleteUrl, emptyBody)
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        _awakeStatuses.value = emptyList()
+                    }
+                } else {
+                    _awakeStatuses.value = emptyList()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    suspend fun syncChatMessagesInternal(code: String) {
+        if (_isOfflineGroup.value) return
+        try {
+            val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "chat_$code")
+            val response = NetworkClient.api.getValue(url)
+            if (response.isSuccessful) {
+                val bodyStr = response.body()?.string()
+                if (bodyStr != null && bodyStr.trim() != "null" && bodyStr.trim().isNotEmpty()) {
+                    val moshiObj = com.squareup.moshi.Moshi.Builder()
+                        .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                        .build()
+                    val type = com.squareup.moshi.Types.newParameterizedType(
+                        List::class.java,
+                        com.example.data.model.ChatMessage::class.java
+                    )
+                    val listAdapter: com.squareup.moshi.JsonAdapter<List<com.example.data.model.ChatMessage>> = moshiObj.adapter(type)
+                    val rawList = listAdapter.fromJson(bodyStr)
+                    if (rawList != null) {
+                        // Requirements: Pesan otomatis terhapus setelah 7 hari
+                        val now = System.currentTimeMillis()
+                        val sevenDaysInMs = 7 * 24 * 60 * 60 * 1000L
+                        val cleanList = rawList.filter { (now - it.timestamp) < sevenDaysInMs }
+                        
+                        _chatMessages.value = cleanList
+                        
+                        // If any expired messages were filtered, sync the cleaned list back to the cloud
+                        if (cleanList.size != rawList.size) {
+                            val json = listAdapter.toJson(cleanList)
+                            val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
+                            NetworkClient.api.putValue(url, requestBody)
+                        }
+                    } else {
+                        _chatMessages.value = emptyList()
+                    }
+                } else {
+                    _chatMessages.value = emptyList()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun sendChatMessage(text: String, onResult: (Boolean, String?) -> Unit) {
+        val code = _joinedGroupCode.value
+        if (code == null) {
+            onResult(false, "Tidak berada dalam grup manapun")
+            return
+        }
+        if (_isOfflineGroup.value) {
+            onResult(false, "Grup offline tidak mendukung chat cloud")
+            return
+        }
+        if (text.trim().isEmpty()) {
+            onResult(false, "Pesan tidak boleh kosong")
+            return
+        }
+        
+        // Anti-Spam Rate limit: max 1 pesan per 3 detik
+        val now = System.currentTimeMillis()
+        if (now - lastSentTime < 3000L) {
+            val remainSeconds = ((3000L - (now - lastSentTime)) / 1000) + 1
+            onResult(false, "Batas pengiriman pesan terlampaui. Harap tunggu $remainSeconds detik lagi.")
+            return
+        }
+        
+        lastSentTime = now
+        
+        viewModelScope.launch {
+            try {
+                // Sanitize message text: filter kata kasar, email, No HP
+                val sanitizedText = com.example.data.helper.ChatSanitizer.sanitize(text)
+                
+                val currentNick = sharedPrefs.getString("wake_nickname", "") ?: ""
+                val senderName = if (currentNick.isNotBlank()) currentNick else _userName.value
+                
+                val newMessage = com.example.data.model.ChatMessage(
+                    id = java.util.UUID.randomUUID().toString().take(6),
+                    senderId = _userId.value,
+                    senderNickname = senderName,
+                    messageText = sanitizedText,
+                    timestamp = now
+                )
+                
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "chat_$code")
+                
+                // Get existing chat list
+                var currentList = emptyList<com.example.data.model.ChatMessage>()
+                val response = NetworkClient.api.getValue(url)
+                if (response.isSuccessful) {
+                    val bodyStr = response.body()?.string()
+                    if (bodyStr != null && bodyStr.trim() != "null" && bodyStr.trim().isNotEmpty()) {
+                        val moshiObj = com.squareup.moshi.Moshi.Builder()
+                            .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                            .build()
+                        val type = com.squareup.moshi.Types.newParameterizedType(
+                            List::class.java,
+                            com.example.data.model.ChatMessage::class.java
+                        )
+                        val listAdapter: com.squareup.moshi.JsonAdapter<List<com.example.data.model.ChatMessage>> = moshiObj.adapter(type)
+                        val parsed = listAdapter.fromJson(bodyStr)
+                        if (parsed != null) {
+                            currentList = parsed
+                        }
+                    }
+                }
+                
+                // Append and filter old messages (> 7 days)
+                val sevenDaysInMs = 7 * 24 * 60 * 60 * 1000L
+                val updatedList = (currentList + newMessage).filter { (now - it.timestamp) < sevenDaysInMs }
+                
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val type = com.squareup.moshi.Types.newParameterizedType(
+                    List::class.java,
+                    com.example.data.model.ChatMessage::class.java
+                )
+                val listAdapter = moshiObj.adapter<List<com.example.data.model.ChatMessage>>(type)
+                
+                val json = listAdapter.toJson(updatedList)
+                val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
+                val writeResponse = NetworkClient.api.putValue(url, requestBody)
+                
+                if (writeResponse.isSuccessful) {
+                    _chatMessages.value = updatedList
+                    onResult(true, null)
+                } else {
+                    onResult(false, "Gagal mengirim pesan ke server")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false, "Kesalahan jaringan: ${e.message}")
+            }
+        }
+    }
+
+    fun closeGroupAndCleanChat() {
+        if (!_isCreator.value) return
+        val code = _joinedGroupCode.value ?: return
+        
+        viewModelScope.launch {
+            try {
+                // Delete chat
+                val chatUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "chat_$code")
+                val emptyBody = "null".toRequestBody("application/json".toMediaTypeOrNull())
+                NetworkClient.api.putValue(chatUrl, emptyBody)
+                
+                // Delete active statuses inside the room
+                val awakeStatusesUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "awake_statuses_$code")
+                NetworkClient.api.putValue(awakeStatusesUrl, emptyBody)
+
+                // Delete members lists
+                val membersUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_$code")
+                NetworkClient.api.putValue(membersUrl, emptyBody)
+                
+                // Delete group configuration on cloud
+                val configUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "group_$code")
+                NetworkClient.api.putValue(configUrl, emptyBody)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                leaveGroup()
             }
         }
     }

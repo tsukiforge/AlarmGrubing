@@ -83,6 +83,9 @@ import com.example.ui.theme.SurfaceDark
 import com.example.ui.theme.SurfaceDarkElevated
 import com.example.ui.theme.TextLight
 import com.example.ui.theme.TextMuted
+import com.example.ui.CameraQrScannerDialog
+import com.example.ui.ShowGroupQrDialog
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import java.util.*
 
 class MainActivity : ComponentActivity() {
@@ -1064,6 +1067,7 @@ fun AlarmCard(
     }
 }
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun GroupOnboardingScreen(
     viewModel: AlarmViewModel,
@@ -1126,25 +1130,88 @@ fun GroupOnboardingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (isJoining) {
-                    OutlinedTextField(
-                        value = groupCodeInput,
-                        onValueChange = {
-                            if (it.length <= 4) groupCodeInput = it.filter { c -> c.isDigit() }
-                        },
-                        label = { Text("Kode Grup (4 digit)") },
-                        placeholder = { Text("Contoh: 9736") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = IndigoPrimary,
-                            unfocusedBorderColor = SurfaceDarkElevated,
-                            focusedTextColor = TextLight,
-                            unfocusedTextColor = TextLight,
-                            focusedLabelColor = IndigoPrimary,
-                            unfocusedLabelColor = TextMuted
-                        ),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    var showCameraScanner by remember { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = groupCodeInput,
+                            onValueChange = {
+                                if (it.length <= 4) groupCodeInput = it.filter { c -> c.isDigit() }
+                            },
+                            label = { Text("Kode Grup (4 digit)") },
+                            placeholder = { Text("Contoh: 9736") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = IndigoPrimary,
+                                unfocusedBorderColor = SurfaceDarkElevated,
+                                focusedTextColor = TextLight,
+                                unfocusedTextColor = TextLight,
+                                focusedLabelColor = IndigoPrimary,
+                                unfocusedLabelColor = TextMuted
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        FilledIconButton(
+                            onClick = { showCameraScanner = true },
+                            colors = IconButtonDefaults.filledIconButtonColors(containerColor = IndigoPrimary),
+                            modifier = Modifier.size(54.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QrCode,
+                                contentDescription = "Scan QR Code",
+                                tint = Color.White
+                            )
+                        }
+                    }
+
+                    if (showCameraScanner) {
+                        CameraQrScannerDialog(
+                            onDismiss = { showCameraScanner = false },
+                            onQrScanned = { result ->
+                                showCameraScanner = false
+                                errorMessage = null
+                                
+                                val parts = result.split("|")
+                                if (parts.size != 2) {
+                                    errorMessage = "QR Code tidak valid! Hanya gunakan QR Code dari aplikasi ini."
+                                    return@CameraQrScannerDialog
+                                }
+                                val code = parts[0]
+                                val timestampStr = parts[1]
+                                val timestamp = timestampStr.toLongOrNull()
+                                if (timestamp == null) {
+                                    errorMessage = "Format QR Code tidak dikenali."
+                                    return@CameraQrScannerDialog
+                                }
+                                val now = System.currentTimeMillis()
+                                val tenMinutesInMs = 10 * 60 * 1000L
+                                if (now - timestamp > tenMinutesInMs) {
+                                    errorMessage = "QR Code sudah kedaluwarsa setelah 10 menit demi keamanan!"
+                                    return@CameraQrScannerDialog
+                                }
+                                if (now < timestamp - 60000L) {
+                                    errorMessage = "Perangkat Anda tidak sinkron dengan pembuat QR!"
+                                    return@CameraQrScannerDialog
+                                }
+
+                                // Auto-fill code field
+                                groupCodeInput = code
+
+                                // Auto-join room!
+                                viewModel.joinGroupViaQr(result) { success, error ->
+                                    if (!success) {
+                                        errorMessage = error ?: "Gagal bergabung lewat QR Code."
+                                    }
+                                }
+                            }
+                        )
+                    }
                 } else {
                     OutlinedTextField(
                         value = groupNameInput,
@@ -1279,11 +1346,16 @@ fun GroupDashboardScreen(
     val members by viewModel.groupMembers.collectAsState()
     val myUid by viewModel.userId.collectAsState()
     var showMemberWakeDialog by remember { mutableStateOf(false) }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(bottom = 80.dp)
-    ) {
+    var showExitChoiceDialog by remember { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
+    var showChatDialog by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
         item {
             Text(
                 text = "📬 Alarm Kelompok (${alarms.size})",
@@ -1312,6 +1384,13 @@ fun GroupDashboardScreen(
                 )
             }
         }
+
+        item {
+            Spacer(modifier = Modifier.height(10.dp))
+            AwakeStatusControlCard(viewModel = viewModel, code = code)
+        }
+
+
 
         item {
             Spacer(modifier = Modifier.height(16.dp))
@@ -1442,7 +1521,13 @@ fun GroupDashboardScreen(
                         }
 
                         IconButton(
-                            onClick = { viewModel.leaveGroup() }
+                            onClick = {
+                                if (isCreator && !isOfflineGroup) {
+                                    showExitChoiceDialog = true
+                                } else {
+                                    viewModel.leaveGroup()
+                                }
+                            }
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
@@ -1600,18 +1685,35 @@ fun GroupDashboardScreen(
                             )
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(IndigoPrimary.copy(alpha = 0.15f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = if (isCreator) "Pemilik" else "Anggota",
-                                color = IndigoLight,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { showQrDialog = true },
+                                colors = ButtonDefaults.textButtonColors(contentColor = CyanAccent),
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.QrCode,
+                                    contentDescription = "Share via QR",
+                                    tint = CyanAccent,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Bagikan QR", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(IndigoPrimary.copy(alpha = 0.15f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = if (isCreator) "Pemilik" else "Anggota",
+                                    color = IndigoLight,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
 
@@ -1624,6 +1726,285 @@ fun GroupDashboardScreen(
                 }
             }
         }
+
+        item {
+            Spacer(modifier = Modifier.height(10.dp))
+            val awakeStatuses by viewModel.awakeStatuses.collectAsState()
+            val myStatusObj = awakeStatuses.find { it.userId == myUid }
+            val isMeAwake = myStatusObj?.isAwake ?: false
+            val myCurrentNickname = myStatusObj?.nickname ?: ""
+
+            val context = LocalContext.current
+            val wakePrefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
+            val savedNickname = remember { wakePrefs.getString("wake_nickname", "") ?: "" }
+
+            var localNickname by remember(myCurrentNickname) { 
+                mutableStateOf(if (myCurrentNickname.isNotBlank()) myCurrentNickname else if (savedNickname.isNotBlank()) savedNickname else "") 
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3EDF7)),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "☀️ Status Bangun Kamar",
+                                color = TextLight,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF6750A4).copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "ROOM ${code}",
+                                    color = Color(0xFF6750A4),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "🔒 PRIVASI DIUTAMAKAN: Hanya anggota kamar ini yang dapat memantau status Anda. Tidak melacak lokasi/GPS. Seluruh data status otomatis dibersihkan total setelah 24 jam.",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Input Nickname Samaran (Anonim)
+                    OutlinedTextField(
+                        value = localNickname,
+                        onValueChange = { 
+                            localNickname = it
+                            wakePrefs.edit().putString("wake_nickname", it).apply()
+                        },
+                        label = { Text("Nama Panggilan / Samaran Anda", fontSize = 12.sp) },
+                        placeholder = { Text("Contoh: Kawan Bobo (Kosongkan jika mau pake nama asli)", fontSize = 12.sp) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight,
+                            focusedBorderColor = Color(0xFF6750A4),
+                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
+                            focusedLabelColor = Color(0xFF6750A4),
+                            unfocusedLabelColor = TextMuted
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Status Toggle Button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = "Status Anda saat ini:", color = TextMuted, fontSize = 11.sp)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isMeAwake) Color(0xFF2E7D32) else Color(0xFFC62828))
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isMeAwake) "SUDAH BANGUN 🙋‍♂️" else "BELUM BANGUN 😴",
+                                    color = if (isMeAwake) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = {
+                                val finalNick = localNickname.trim().ifBlank { 
+                                    val fallbackName = wakePrefs.getString("user_name", "") ?: ""
+                                    if (fallbackName.isNotBlank()) fallbackName else "Anggota-${myUid}"
+                                }
+                                viewModel.updateMyAwakeStatus(!isMeAwake, finalNick) { success ->
+                                    if (success) {
+                                        wakePrefs.edit().putString("wake_nickname", localNickname).apply()
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isMeAwake) Color.Gray else Color(0xFF2E7D32)
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = if (isMeAwake) "Set Belum Bangun 😴" else "SAYA SUDAH BANGUN! ☀️",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Matrix Status Bangun Anggota Room (${awakeStatuses.size} Orang):",
+                        color = TextLight,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    if (awakeStatuses.isEmpty()) {
+                        Text(
+                            text = "Belum ada status bangun. Jadilah yang pertama bangun hari ini! ☀️",
+                            color = TextMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            awakeStatuses.forEach { status ->
+                                val isMe = status.userId == myUid
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            if (isMe) Color.White.copy(alpha = 0.4f) else Color.Transparent,
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(if (status.isAwake) Color(0xFF2E7D32) else Color(0xFFC62828))
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Column {
+                                            Text(
+                                                text = "${status.nickname}${if (isMe) " (Anda)" else ""}",
+                                                color = TextLight,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                            val timeDiff = System.currentTimeMillis() - status.timestamp
+                                            val minutes = timeDiff / 1000 / 60
+                                            val timeStr = when {
+                                                minutes < 1 -> "Baru saja aktif"
+                                                minutes < 60 -> "$minutes menit lalu"
+                                                else -> "${minutes / 60} jam lalu"
+                                            }
+                                            Text(
+                                                text = "Terakhir aktif: $timeStr",
+                                                color = TextMuted,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(
+                                                if (status.isAwake) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (status.isAwake) "SUDAH BANGUN ☀️" else "BELUM BANGUN 💤",
+                                            color = if (status.isAwake) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showExitChoiceDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitChoiceDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = Color(0xFFBA1A1A),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Keluar atau Tutup Kamar?", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextLight)
+                }
+            },
+            text = {
+                Text(
+                    text = "Anda adalah pembuat kamar alarm ini. Anda dapat memilih:\n\n" +
+                            "1. ⚠️ TUTUP KAMAR & HAPUS CHAT: Menghapus seluruh data kamar alarm, seluruh member, dan semua riwayat obrolan secara permanen dan aman dari server cloud.\n\n" +
+                            "2. 🚶 KELUAR KAMAR SAJA: Keluar dari kamar tanpa menghapus data server cloud.",
+                    color = TextMuted,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitChoiceDialog = false
+                        viewModel.closeGroupAndCleanChat()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A))
+                ) {
+                    Text("Tutup Kamar & Hapus Chat 🔒", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(
+                        onClick = {
+                            showExitChoiceDialog = false
+                            viewModel.leaveGroup()
+                        }
+                    ) {
+                        Text("Keluar Kamar Saja", fontSize = 11.sp)
+                    }
+                    TextButton(
+                        onClick = { showExitChoiceDialog = false }
+                    ) {
+                        Text("Batal", fontSize = 11.sp, color = TextMuted)
+                    }
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(20.dp)
+        )
     }
 
     if (showMemberWakeDialog) {
@@ -1785,6 +2166,537 @@ fun GroupDashboardScreen(
                 }
             },
             containerColor = SurfaceDark
+        )
+    }
+
+    if (showQrDialog) {
+        ShowGroupQrDialog(groupCode = code, onDismiss = { showQrDialog = false })
+    }
+
+    if (!isOfflineGroup) {
+        val chatMessages by viewModel.chatMessages.collectAsState()
+        FloatingActionButton(
+            onClick = { showChatDialog = true },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(bottom = 16.dp, start = 8.dp),
+            containerColor = IndigoPrimary,
+            contentColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Chat,
+                    contentDescription = "Buka Chat Kamar",
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Chat (${chatMessages.size})",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+    }
+
+    if (showChatDialog) {
+        GroupChatDialog(viewModel = viewModel, onDismiss = { showChatDialog = false })
+    }
+}
+
+@Composable
+fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: String) {
+    val awakeStatuses by viewModel.awakeStatuses.collectAsState()
+    val myUid by viewModel.userId.collectAsState()
+    val currentUserName by viewModel.userName.collectAsState()
+
+    val myStatus = awakeStatuses.find { it.userId == myUid }
+    val myIsAwake = myStatus?.isAwake ?: false
+
+    // Maintain a local mutable state for the custom anonymous nickname or pseudonym.
+    var customNickname by remember { mutableStateOf("") }
+    
+    // Initialize nickname
+    LaunchedEffect(myStatus, currentUserName) {
+        if (customNickname.isEmpty()) {
+            customNickname = myStatus?.nickname ?: currentUserName
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f)),
+        shape = RoundedCornerShape(24.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = IndigoPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Status Sudah Bangun ⏰",
+                    color = TextLight,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Hanya anggota di Room ini yang bisa melihat status Anda. Data dibersihkan otomatis setelah 24 jam.",
+                color = TextMuted,
+                fontSize = 11.sp,
+                lineHeight = 14.sp
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Input custom pseudonym/nickname
+            OutlinedTextField(
+                value = customNickname,
+                onValueChange = { customNickname = it },
+                label = { Text("Nama Samaran / Nickname (Anonim)", fontSize = 11.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = TextLight,
+                    unfocusedTextColor = TextLight,
+                    focusedBorderColor = IndigoPrimary,
+                    unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
+                    focusedLabelColor = IndigoPrimary,
+                    unfocusedLabelColor = TextMuted
+                )
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Buttons row: "Sudah Bangun ☀️" / "Masih Tidur 💤"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val context = LocalContext.current
+                Button(
+                    onClick = {
+                        val finalNick = customNickname.ifBlank { "Anonim" }
+                        viewModel.updateMyAwakeStatus(isAwake = true, nickname = finalNick) { success ->
+                            if (success) {
+                                android.widget.Toast.makeText(context, "Status diperbarui: Sudah Bangun! ☀️", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (myIsAwake) Color(0xFF2E7D32) else Color(0xFF2E7D32).copy(alpha = 0.15f),
+                        contentColor = if (myIsAwake) Color.White else Color(0xFF2E7D32)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("☀️ Sudah Bangun", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Button(
+                    onClick = {
+                        val finalNick = customNickname.ifBlank { "Anonim" }
+                        viewModel.updateMyAwakeStatus(isAwake = false, nickname = finalNick) { success ->
+                            if (success) {
+                                android.widget.Toast.makeText(context, "Status diperbarui: Masih Tidur 💤", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (!myIsAwake && myStatus != null) Color(0xFFBA1A1A) else Color(0xFFBA1A1A).copy(alpha = 0.15f),
+                        contentColor = if (!myIsAwake && myStatus != null) Color.White else Color(0xFFBA1A1A)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("💤 Masih Tidur", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            val otherStatuses = awakeStatuses.filter { it.userId != myUid }
+            
+            if (awakeStatuses.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = TextMuted.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Text(
+                    text = "Daftar Terjaga Hari Ini (${awakeStatuses.count { it.isAwake }} Terjaga)",
+                    color = TextLight,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (myStatus != null) {
+                        AwakeMemberStatusRow(status = myStatus, isMe = true)
+                    }
+                    otherStatuses.forEach { status ->
+                        AwakeMemberStatusRow(status = status, isMe = false)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GroupChatDialog(
+    viewModel: com.example.ui.AlarmViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val activity = remember(context) { context as? android.app.Activity }
+    
+    // REQUIREMENT: Screenshot/Screen recording protection
+    // NOTE: FLAG_SECURE is disabled here to prevent the web stream preview in AI Studio from going completely black.
+    // In production, please uncomment this safety flag to secure against screenshots/mirroring.
+    DisposableEffect(activity) {
+        // activity?.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose {
+            // activity?.window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        }
+    }
+
+    val chatMessages by viewModel.chatMessages.collectAsState()
+    val myUid by viewModel.userId.collectAsState()
+
+    var messageText by remember { mutableStateOf("") }
+    var isSending by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.75f)
+                .padding(vertical = 4.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            shape = RoundedCornerShape(24.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Cute mascot illustration from sent image
+                        Image(
+                            painter = painterResource(id = R.drawable.img_app_icon_fg_new_1781280494329),
+                            contentDescription = "Mascot Meong",
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "💬 Chat Keamanan Kamar",
+                                color = TextLight,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "Hanya member • Anti-Screen/Export 🔒",
+                                color = TextMuted,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup",
+                            tint = TextLight
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = TextMuted.copy(alpha = 0.15f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Chat Messages Container (Nested bounded scroll)
+                val scrollState = rememberScrollState()
+                LaunchedEffect(chatMessages.size) {
+                    if (chatMessages.isNotEmpty()) {
+                        scrollState.animateScrollTo(scrollState.maxValue)
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .background(Color.Black.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                        .padding(8.dp)
+                ) {
+                    if (chatMessages.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "Belum ada pesan.",
+                                color = TextMuted,
+                                fontSize = 11.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Sapa anggota kamar kamu di sini!",
+                                color = TextMuted.copy(alpha = 0.8f),
+                                fontSize = 9.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(scrollState),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            chatMessages.forEach { msg ->
+                                val isMe = msg.senderId == myUid
+                                val alignment = if (isMe) Alignment.End else Alignment.Start
+                                val bubbleColor = if (isMe) Color(0xFF6750A4) else Color(0xFFE8E0E9).copy(alpha = 0.85f)
+                                val textColor = if (isMe) Color.White else Color(0xFF1D1B20)
+
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = alignment
+                                ) {
+                                    // Sender name & time indicator
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isMe) "Anda" else msg.senderNickname,
+                                            color = TextLight,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        // Timestamp formatted simply
+                                        val timeStr = remember(msg.timestamp) {
+                                            val cal = Calendar.getInstance()
+                                            cal.timeInMillis = msg.timestamp
+                                            val hours = String.format("%02d", cal.get(Calendar.HOUR_OF_DAY))
+                                            val mins = String.format("%02d", cal.get(Calendar.MINUTE))
+                                            "$hours:$mins"
+                                        }
+                                        Text(
+                                            text = timeStr,
+                                            color = TextMuted,
+                                            fontSize = 8.sp
+                                        )
+                                    }
+
+                                    // Message Bubble
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(
+                                                RoundedCornerShape(
+                                                    topStart = 12.dp,
+                                                    topEnd = 12.dp,
+                                                    bottomStart = if (isMe) 12.dp else 2.dp,
+                                                    bottomEnd = if (isMe) 2.dp else 12.dp
+                                                )
+                                            )
+                                            .background(bubbleColor)
+                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(
+                                            text = msg.messageText,
+                                            color = textColor,
+                                            fontSize = 12.sp,
+                                            lineHeight = 15.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Text Input and Send Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = messageText,
+                        onValueChange = { messageText = it },
+                        placeholder = { Text("Ketik pesan...", fontSize = 12.sp) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 6.dp),
+                        maxLines = 2,
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, color = TextLight),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedContainerColor = Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    IconButton(
+                        onClick = {
+                            if (messageText.trim().isNotEmpty()) {
+                                isSending = true
+                                viewModel.sendChatMessage(messageText) { success, error ->
+                                    isSending = false
+                                    if (success) {
+                                        messageText = ""
+                                    } else if (error != null) {
+                                        android.widget.Toast.makeText(context, error, android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        },
+                        enabled = !isSending && messageText.trim().isNotEmpty(),
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = com.example.ui.theme.IndigoPrimary,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color.White.copy(alpha = 0.12f),
+                            disabledContentColor = Color.White.copy(alpha = 0.38f)
+                        ),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        if (isSending) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Send,
+                                contentDescription = "Kirim",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AwakeMemberStatusRow(status: com.example.data.model.AwakeStatus, isMe: Boolean) {
+    val durationText = remember(status.timestamp) {
+        val diff = System.currentTimeMillis() - status.timestamp
+        val minutes = diff / (60 * 1000L)
+        when {
+            minutes < 1 -> "Baru saja"
+            minutes < 60 -> "$minutes mnt lalu"
+            else -> {
+                val hours = minutes / 60
+                if (hours < 24) "$hours jam lalu" else "Hari lalu"
+            }
+        }
+    }
+
+    val displayNick = status.nickname.ifBlank { "Anonim" }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.04f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (status.isAwake) Color(0xFF2E7D32).copy(alpha = 0.2f)
+                        else Color(0xFFBA1A1A).copy(alpha = 0.2f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (status.isAwake) "☀️" else "💤",
+                    fontSize = 16.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = displayNick,
+                        color = TextLight,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (isMe) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Anda",
+                            color = IndigoPrimary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(IndigoPrimary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = if (status.isAwake) "Sudah Bangun" else "Masih Tidur",
+                    color = if (status.isAwake) Color(0xFF4CAF50) else Color(0xFFEF5350),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Text(
+            text = durationText,
+            color = TextMuted,
+            fontSize = 11.sp
         )
     }
 }
@@ -2604,6 +3516,21 @@ fun AddAlarmDialog(
     var minute by remember { mutableIntStateOf(alarmToEdit?.minute ?: 0) }
     var selectedTone by remember { mutableStateOf(alarmToEdit?.ringtoneUri ?: "default") }
 
+    var previewingTone by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        com.example.audio.TonePreviewPlayer.setOnStateChangedListener {
+            previewingTone = com.example.audio.TonePreviewPlayer.currentlyPlayingTone
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            com.example.audio.TonePreviewPlayer.setOnStateChangedListener(null)
+            com.example.audio.TonePreviewPlayer.stop()
+        }
+    }
+
     val selectedDays = remember {
         mutableStateListOf<Int>().apply {
             if (alarmToEdit != null && alarmToEdit.daysOfWeek.isNotEmpty()) {
@@ -2890,13 +3817,39 @@ fun AddAlarmDialog(
                                 .background(SurfaceDarkElevated)
                         ) {
                             tonesList.forEach { p ->
+                                val isThisTonePlaying = previewingTone == p.first
                                 DropdownMenuItem(
                                     text = {
-                                        Text(p.second, color = TextLight, fontSize = 13.sp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = p.second,
+                                                color = TextLight,
+                                                fontSize = 13.sp,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    com.example.audio.TonePreviewPlayer.play(context, p.first)
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (isThisTonePlaying) Icons.Filled.Close else Icons.Default.PlayArrow,
+                                                    contentDescription = if (isThisTonePlaying) "Stop Preview" else "Play Preview",
+                                                    tint = if (isThisTonePlaying) PinkAccent else TextMuted,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
                                     },
                                     onClick = {
                                         selectedTone = p.first
                                         toneMenuExpanded = false
+                                        com.example.audio.TonePreviewPlayer.stop()
                                     }
                                 )
                             }
