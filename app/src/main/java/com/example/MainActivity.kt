@@ -24,6 +24,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -2246,35 +2247,28 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = null,
                     tint = IndigoPrimary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Status Sudah Bangun ⏰",
                     color = TextLight,
-                    fontSize = 16.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
             
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Hanya anggota di Room ini yang bisa melihat status Anda. Data dibersihkan otomatis setelah 24 jam.",
-                color = TextMuted,
-                fontSize = 11.sp,
-                lineHeight = 14.sp
-            )
+            Spacer(modifier = Modifier.height(10.dp))
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Input custom pseudonym/nickname
+            // Input custom pseudonym/nickname - Modern & Compact Input
             OutlinedTextField(
                 value = customNickname,
                 onValueChange = { customNickname = it },
-                label = { Text("Nama Samaran / Nickname (Anonim)", fontSize = 11.sp) },
+                placeholder = { Text("Nama Samaran / Nickname (Opsional anonim)", fontSize = 11.sp, color = TextMuted) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, color = TextLight),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = TextLight,
                     unfocusedTextColor = TextLight,
@@ -2285,76 +2279,129 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
                 )
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Buttons row: "Sudah Bangun ☀️" / "Masih Tidur 💤"
+            // Modern Segmented Toggles
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black.copy(alpha = 0.15f))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val context = LocalContext.current
-                Button(
-                    onClick = {
-                        val finalNick = customNickname.ifBlank { "Anonim" }
-                        viewModel.updateMyAwakeStatus(isAwake = true, nickname = finalNick) { success ->
-                            if (success) {
-                                android.widget.Toast.makeText(context, "Status diperbarui: Sudah Bangun! ☀️", android.widget.Toast.LENGTH_SHORT).show()
+                
+                // Option: Awake
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (myIsAwake) Color(0xFF2E7D32) else Color.Transparent)
+                        .clickable {
+                            val finalNick = customNickname.ifBlank { "Anonim" }
+                            viewModel.updateMyAwakeStatus(isAwake = true, nickname = finalNick) { success ->
+                                if (success) {
+                                    android.widget.Toast.makeText(context, "Status diperbarui: Sudah Bangun! ☀️", android.widget.Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (myIsAwake) Color(0xFF2E7D32) else Color(0xFF2E7D32).copy(alpha = 0.15f),
-                        contentColor = if (myIsAwake) Color.White else Color(0xFF2E7D32)
-                    ),
-                    shape = RoundedCornerShape(14.dp)
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("☀️ Sudah Bangun", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("☀️", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Sudah Bangun",
+                            color = if (myIsAwake) Color.White else TextMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
 
-                Button(
-                    onClick = {
-                        val finalNick = customNickname.ifBlank { "Anonim" }
-                        viewModel.updateMyAwakeStatus(isAwake = false, nickname = finalNick) { success ->
-                            if (success) {
-                                android.widget.Toast.makeText(context, "Status diperbarui: Masih Tidur 💤", android.widget.Toast.LENGTH_SHORT).show()
+                // Option: Sleeping
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (!myIsAwake && myStatus != null) Color(0xFFBA1A1A) else Color.Transparent)
+                        .clickable {
+                            val finalNick = customNickname.ifBlank { "Anonim" }
+                            viewModel.updateMyAwakeStatus(isAwake = false, nickname = finalNick) { success ->
+                                if (success) {
+                                    android.widget.Toast.makeText(context, "Status diperbarui: Masih Tidur 💤", android.widget.Toast.LENGTH_SHORT).show()
+                                }
                             }
                         }
-                    },
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (!myIsAwake && myStatus != null) Color(0xFFBA1A1A) else Color(0xFFBA1A1A).copy(alpha = 0.15f),
-                        contentColor = if (!myIsAwake && myStatus != null) Color.White else Color(0xFFBA1A1A)
-                    ),
-                    shape = RoundedCornerShape(14.dp)
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("💤 Masih Tidur", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Text("💤", fontSize = 14.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Masih Tidur",
+                            color = if (!myIsAwake && myStatus != null) Color.White else TextMuted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
             val otherStatuses = awakeStatuses.filter { it.userId != myUid }
             
             if (awakeStatuses.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = TextMuted.copy(alpha = 0.2f))
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = TextMuted.copy(alpha = 0.12f))
+                Spacer(modifier = Modifier.height(10.dp))
                 
-                Text(
-                    text = "Daftar Terjaga Hari Ini (${awakeStatuses.count { it.isAwake }} Terjaga)",
-                    color = TextLight,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Kehadiran Anggota Kamar",
+                        color = TextLight,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(IndigoPrimary.copy(alpha = 0.15f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "${awakeStatuses.count { it.isAwake }} / ${awakeStatuses.size} Terjaga",
+                            color = IndigoPrimary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
 
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
                 ) {
                     if (myStatus != null) {
-                        AwakeMemberStatusRow(status = myStatus, isMe = true)
+                        item {
+                            AwakeMemberStatusRow(status = myStatus, isMe = true)
+                        }
                     }
-                    otherStatuses.forEach { status ->
+                    items(otherStatuses) { status ->
                         AwakeMemberStatusRow(status = status, isMe = false)
                     }
                 }
@@ -2627,76 +2674,99 @@ fun AwakeMemberStatusRow(status: com.example.data.model.AwakeStatus, isMe: Boole
         val minutes = diff / (60 * 1000L)
         when {
             minutes < 1 -> "Baru saja"
-            minutes < 60 -> "$minutes mnt lalu"
+            minutes < 60 -> "${minutes}m lalu"
             else -> {
                 val hours = minutes / 60
-                if (hours < 24) "$hours jam lalu" else "Hari lalu"
+                if (hours < 24) "${hours}j lalu" else "1h+"
             }
         }
     }
+    
+    val nickname = status.nickname.ifBlank { "Anonim" }
+    
+    val bgColor = remember(nickname) {
+        val colors = listOf(
+            Color(0xFFE8EAF6), Color(0xFFE1F5FE), Color(0xFFE8F5E9),
+            Color(0xFFFFF3E0), Color(0xFFFFEBEE), Color(0xFFF3E5F5)
+        )
+        colors[Math.abs(nickname.hashCode()) % colors.size]
+    }
+    
+    val textColor = remember(nickname) {
+        val colors = listOf(
+            Color(0xFF3F51B5), Color(0xFF0288D1), Color(0xFF2E7D32),
+            Color(0xFFE65100), Color(0xFFC2185B), Color(0xFF8E24AA)
+        )
+        colors[Math.abs(nickname.hashCode()) % colors.size]
+    }
 
-    val displayNick = status.nickname.ifBlank { "Anonim" }
+    val initials = nickname.take(2).uppercase()
 
-    Row(
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White.copy(alpha = 0.04f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .width(68.dp)
+            .padding(horizontal = 2.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier.size(52.dp),
+            contentAlignment = Alignment.BottomEnd
+        ) {
             Box(
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(46.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (status.isAwake) Color(0xFF2E7D32).copy(alpha = 0.2f)
-                        else Color(0xFFBA1A1A).copy(alpha = 0.2f)
-                    ),
+                    .background(bgColor)
+                    .border(
+                        width = 2.dp,
+                        color = if (status.isAwake) Color(0xFF4CAF50) else Color(0xFFE57373),
+                        shape = CircleShape
+                    )
+                    .align(Alignment.Center),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initials,
+                    color = textColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            
+            // Emoji overlay badge
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .background(if (status.isAwake) Color(0xFF4CAF50) else Color(0xFFE57373))
+                    .border(1.dp, MaterialTheme.colorScheme.surface, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = if (status.isAwake) "☀️" else "💤",
-                    fontSize = 16.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = displayNick,
-                        color = TextLight,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    if (isMe) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Anda",
-                            color = IndigoPrimary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .background(IndigoPrimary.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 4.dp, vertical = 1.dp)
-                        )
-                    }
-                }
-                Text(
-                    text = if (status.isAwake) "Sudah Bangun" else "Masih Tidur",
-                    color = if (status.isAwake) Color(0xFF4CAF50) else Color(0xFFEF5350),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = 9.sp
                 )
             }
         }
-
+        
+        Spacer(modifier = Modifier.height(4.dp))
+        
+        Text(
+            text = if (isMe) "Anda" else nickname,
+            color = TextLight,
+            fontSize = 11.sp,
+            fontWeight = if (isMe) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center
+        )
+        
         Text(
             text = durationText,
             color = TextMuted,
-            fontSize = 11.sp
+            fontSize = 9.sp,
+            maxLines = 1,
+            textAlign = TextAlign.Center
         )
     }
 }
