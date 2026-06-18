@@ -22,7 +22,37 @@ Aplikasi manajemen alarm pribadi dan alarm kelompok cerdas yang tersinkronisasi 
 - **⚡ Keandalan Sistem Latar Belakang**:
   - Memanfaatkan `AlarmManager` presisi standar Android (`SCHEDULE_EXACT_ALARM` & `USE_EXACT_ALARM`).
   - Diterapkan menggunakan `Foreground Service` tangguh lengkap dengan notifikasi persisten agar proses dering tidak dihentikan oleh pembatas daya otomatis Android (*Doze Mode*).
-- **🔄 Pengecekan Update & Kesalahan Jaringan Terdistribusi**: Dilengkapi modul pengecekan pembaruan rilis terotomatisasi secara simultan serta penanganan kesalahan jaringan yang proaktif di semua fitur inti.
+- **🔄 Pengecekan Update & Kesalahan Jaringan Terdistribusi**: Dilengkapi modul pengecekan pembaruan rilis terotomatisasi secara simultan serta penanganan kesalahan jaringan yang proaktif di semua fitur inti. Aliran pengecekan kini dibekali fitur penanganan kesalahan aman dari HTTP 404, menghilangkan notifikasi kegagalan jika repositori rilis belum terbit di GitHub.
+
+---
+
+## 🚀 Pembaruan Sistem, Keamanan & CI/CD Terkini
+
+Kami terus melakukan optimalisasi untuk menghadirkan kualitas aplikasi terbaik, andal, dan aman:
+
+### 1. 🔧 Penanganan Kesalahan & Keamanan Pengecekan Update (Fix 404 Error)
+* **Status Masalah**: Sebelumnya, modul `GithubUpdateChecker` memicu peringatan error HTTP 404 jika repositori GitHub belum memiliki rilis resmi (GitHub Releases).
+* **Solusi**: Diimplementasikan logika penanganan aman (*graceful fallback*): jika respons GitHub mengembalikan 404, aplikasi secara cerdas mengonversi status tersebut sebagai penanda bahwa aplikasi telah berada pada versi terbaru (`hasUpdate = false`), bukan kegagalan sistem. Pengalaman pengguna kini lebih bersih dan bebas dari dialog galat tak terduga.
+
+### 2. 🎨 Penyempurnaan Tema Profil (Clean Smooth Theme)
+* Menyederhanakan opsi tema grafis pada halaman profil pengguna dengan menghapus pilihan warna tema yang kurang konsisten (Starlight dan System).
+* Menyisakan dua mode visual terpoles sempurna:
+  * **Putih Smooth (☀️)**: Tampilan terang yang lembut di mata dengan kontras seimbang.
+  * **Gelap (🌙)**: Tampilan gelap pekat yang hemat daya dan bersahabat untuk aktivitas malam hari.
+
+### 3. 🤖 Pipeline Otomatisasi CI/CD & Rilis (.github/workflows/release.yml)
+* **Alur Kerja GitHub Actions**: Pengunggahan rilis otomatis terpicu setiap kali tag versi baru berformat `v*` (contoh: `v1.0.0`) dikirim ke repositori.
+* **Kompilasi Otomatis**: Pipeline otomatis membangun Debug APK (`./gradlew assembleDebug`) secara mandiri pada wadah Cloud Ubuntu yang terisolasi dan aman.
+* **Generasi Changelog Cerdas**: Sistem secara otomatis mengekstrak catatan komit (commit logs) sejak versi rilisan terakhir dan membaginya ke dalam kelompok:
+  * 🚀 **Fitur Baru**: Untuk komit berlabel penambahan fitur (`feat`, `feature`, `tambah`, `add`, `fitur`).
+  * 🔧 **Perbaikan (Bug Fixes)**: Untuk komit perbaikan masalah (`fix`, `bug`, `perbaikan`, `solve`, `resolve`).
+  * 📝 **Pemberitahuan Lainnya**: Untuk komit pemeliharaan umum lainnya.
+* **Manajemen Rilis**: Hasil kompilasi APK dideploy secara instan ke portal rilis GitHub disertai catatan changelog otomatis.
+
+### 📌 Aturan Penamaan Versi (Semantic Versioning - x.y.z):
+* **Patch (x.y.z -> eg: 1.0.1)**: Untuk **perbaikan bug (fix)** minor maupun pembenahan stabilitas sistem.
+* **Minor (x.y.z -> eg: 1.1.0)**: Untuk **penambahan fitur baru (tambah fitur)** secara backward-compatible.
+* **Major (x.y.z -> eg: 2.0.0)**: Untuk perombakan arsitektural besar atau perubahan yang tidak kompatibel ke belakang.
 
 ---
 

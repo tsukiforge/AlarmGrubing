@@ -175,7 +175,8 @@ class MainActivity : ComponentActivity() {
             var profilePicTrigger by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
-                AppThemeState.themeMode = prefs.getString("theme_mode", "system") ?: "system"
+                val savedMode = prefs.getString("theme_mode", "light") ?: "light"
+                AppThemeState.themeMode = if (savedMode == "dark") "dark" else "light"
                 AppThemeState.sakuraEnabled = prefs.getBoolean("sakura_enabled", true)
                 var serverUrl = prefs.getString("sync_server_url", "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/") ?: "https://server-ba906-default-rtdb.asia-southeast1.firebasedatabase.app/"
                 if (serverUrl.contains("alarmsync-faizinu-default-rtdb")) {
@@ -3225,7 +3226,7 @@ fun UserProfileAndSettingsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙", "starlight" to "Starlight ✨")
+                    val modes = listOf("light" to "Putih Smooth ☀️", "dark" to "Gelap 🌙")
                     modes.forEach { (mode, label) ->
                         val isSelected = selectedThemeMode == mode
                         Box(
@@ -4639,7 +4640,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val modes = listOf("system" to "Sistem 📱", "light" to "Terang ☀️", "dark" to "Gelap 🌙", "starlight" to "Starlight ✨")
+                        val modes = listOf("light" to "Putih Smooth ☀️", "dark" to "Gelap 🌙")
                         modes.forEach { (mode, label) ->
                             val isSelected = selectedThemeMode == mode
                             Box(

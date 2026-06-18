@@ -33,7 +33,8 @@ object GithubUpdateChecker {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
                         return@withContext if (response.code == 404) {
-                            UpdateInfo(errorMessage = "Belum ada rilis versi di GitHub untuk repositori ini (HTTP 404) / no releases yet.")
+                            // Anggap sudah up to date jika tidak ada release ditemukan (404)
+                            UpdateInfo(hasUpdate = false, errorMessage = null)
                         } else {
                             UpdateInfo(errorMessage = "Gagal memuat update dari GitHub (HTTP ${response.code}).")
                         }

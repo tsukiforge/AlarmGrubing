@@ -1,0 +1,106 @@
+name: Release App
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Generate Release Notes
+        id: changelog
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            commits=$(git log --pretty=format:"%s")
+          else
+            commits=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"%s")
+          fi
+
+          features=""
+          fixes=""
+          others=""
+
+          while IFS= read -r line || [[ -n "$line" ]]; do
+            if [ -z "$line" ]; then
+              continue
+            fi
+            
+            # Convert to clean lowercase for safe classification
+            lower_line=$(echo "$line" | tr '[:upper:]' '[:lower:]')
+            
+            if [[ "$lower_line" =~ ^(feat|feature|tambah|add|fitur)[:\ ] || "$lower_line" =~ ^(feat|feature|tambah|add|fitur)$ || "$lower_line" == feat* || "$lower_line" == feature* ]]; then
+              features="$features
+* $line"
+            elif [[ "$lower_line" =~ ^(fix|bug|perbaikan|solve|resolve)[:\ ] || "$lower_line" =~ ^(fix|bug|perbaikan|solve|resolve)$ || "$lower_line" == fix* || "$lower_line" == bug* || "$lower_line" == perbaikan* ]]; then
+              fixes="$fixes
+* $line"
+            else
+              others="$others
+* $line"
+            fi
+          done <<< "$commits"
+
+          echo "changelog_content<<EOF" >> $GITHUB_OUTPUT
+          if [ -n "$features" ]; then
+            echo "### 🚀 Fitur Baru" >> $GITHUB_OUTPUT
+            echo "$features" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -n "$fixes" ]; then
+            echo "### 🔧 Perbaikan (Bug Fixes)" >> $GITHUB_OUTPUT
+            echo "$fixes" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -n "$others" ]; then
+            echo "### 📝 Pembaruan Lainnya" >> $GITHUB_OUTPUT
+            echo "$others" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -z "$features" ] && [ -z "$fixes" ] && [ -z "$others" ]; then
+            echo "* Tidak ada riwayat perubahan (empty commit logs)" >> $GITHUB_OUTPUT
+          fi
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/debug/app-debug.apk
+          name: Release ${{ github.ref_name }}
+          body: |
+            ## Pembaruan (Changelog):
+            ${{ steps.changelog.outputs.changelog_content }}
+            
+            ---
+            ### 📌 Aturan Penamaan Versi (Semantic Versioning - x.y.z):
+            * **Patch (x.y.z -> eg: 1.0.1)**: Untuk **perbaikan bug (fix)** / perbaikan minor.
+            * **Minor (x.y.z -> eg: 1.1.0)**: Untuk **penambahan fitur baru (tambah fitur)** secara backward-compatible.
+            * **Major (x.y.z -> eg: 2.0.0)**: Untuk perubahan besar / tidak kompatibel ke belakang.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
