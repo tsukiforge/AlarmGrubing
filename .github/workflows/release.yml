@@ -54,13 +54,10 @@ jobs:
             
             if [[ "$lower_line" =~ ^(feat|feature|tambah|add|fitur)[:\ ] || "$lower_line" =~ ^(feat|feature|tambah|add|fitur)$ || "$lower_line" == feat* || "$lower_line" == feature* ]]; then
               features="$features
-* $line"
             elif [[ "$lower_line" =~ ^(fix|bug|perbaikan|solve|resolve)[:\ ] || "$lower_line" =~ ^(fix|bug|perbaikan|solve|resolve)$ || "$lower_line" == fix* || "$lower_line" == bug* || "$lower_line" == perbaikan* ]]; then
               fixes="$fixes
-* $line"
             else
               others="$others
-* $line"
             fi
           done <<< "$commits"
 
