@@ -164,7 +164,7 @@ jobs:
         run: gradle :app:assembleDebug
         env:
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: 1.0.${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
 
       # ✅ FIX KEYSTORE — decode ke app/ folder (bukan root)
       - name: Reconstruct Release Keystore
@@ -179,7 +179,7 @@ jobs:
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: 1.0.${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
           KEYSTORE_PATH: my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -201,8 +201,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="v1.0.${{ github.run_number }}"
-          RELEASE_TITLE="Update Version v1.0.${{ github.run_number }}"
+          TAG_NAME="v1.1.${{ github.run_number }}"
+          RELEASE_TITLE="Update Version v1.1.${{ github.run_number }}"
           APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
           if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
             APK_PATH="app/build/outputs/apk/release/app-release.apk"
@@ -213,5 +213,5 @@ jobs:
           gh release create "$TAG_NAME" \
             "$APK_PATH" \
             --title "$RELEASE_TITLE" \
-            --notes "Automated release v1.0.${{ github.run_number }} (build: ${{ github.run_number }}). Commit: ${{ github.sha }}." \
+            --notes "Automated release v1.1.${{ github.run_number }} (build: ${{ github.run_number }}). Commit: ${{ github.sha }}." \
             --target ${{ github.sha }}
