@@ -1732,6 +1732,8 @@ fun GroupDashboardScreen(
         item {
             Spacer(modifier = Modifier.height(10.dp))
             val awakeStatuses by viewModel.awakeStatuses.collectAsState()
+            val activeCouple by viewModel.activeCouplePair.collectAsState()
+            val pendingCoupleRequests by viewModel.pendingCoupleRequests.collectAsState()
             val myStatusObj = awakeStatuses.find { it.userId == myUid }
             val isMeAwake = myStatusObj?.isAwake ?: false
             val myCurrentNickname = myStatusObj?.nickname ?: ""
@@ -1867,6 +1869,212 @@ fun GroupDashboardScreen(
                     HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.height(12.dp))
 
+                    // ======================= COUPLE SYNC MODE OPTIONAL LAYER =======================
+                    if (activeCouple != null) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFFFF1F2))
+                                .border(1.dp, Color(0xFFFCA5A5), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("💕", fontSize = 16.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Couple Sync Mode Terhubung",
+                                        color = Color(0xFF9F1239),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                
+                                IconButton(
+                                    onClick = { viewModel.unpair {} },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Text("💔", fontSize = 14.sp)
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                val isSelfA = activeCouple!!.partnerA == myUid
+                                val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+                                
+                                val nameA = if (isSelfA) "${activeCouple!!.partnerAName} (Anda)" else activeCouple!!.partnerAName
+                                val scoreA = activeCouple!!.scoreA
+                                val streakA = activeCouple!!.streakA
+                                val isAwakeA = activeCouple!!.lastWakeA == todayStr
+                                
+                                val nameB = if (!isSelfA) "${activeCouple!!.partnerBName} (Anda)" else activeCouple!!.partnerBName
+                                val scoreB = activeCouple!!.scoreB
+                                val streakB = activeCouple!!.streakB
+                                val isAwakeB = activeCouple!!.lastWakeB == todayStr
+
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFFEFF6FF))
+                                        .padding(8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(text = nameA, color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(text = if (isAwakeA) "☀️ Bangun" else "💤 Tidur", color = Color(0xFF374151), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(text = "Poin: $scoreA | Streak: $streakA 🔥", color = Color(0xFF0284C7), fontSize = 9.sp)
+                                }
+
+                                Column(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFFFFF1F2))
+                                        .padding(8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(text = nameB, color = Color(0xFF881337), fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(text = if (isAwakeB) "☀️ Bangun" else "💤 Tidur", color = Color(0xFF374151), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(text = "Poin: $scoreB | Streak: $streakB 🔥", color = Color(0xFFDB2777), fontSize = 9.sp)
+                                }
+                            }
+                            
+                            if (activeCouple!!.syncBonusToday) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFFFEF3C7))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "⚡ Sync Bonus Hari Ini Aktif! Kedua pasangan bangun selisih <10 m (+15 poin)!",
+                                        color = Color(0xFFB45309),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    // Display pending couple invitations directed to me
+                    val myReceivedRequests = pendingCoupleRequests.filter { it.partnerB == myUid }
+                    if (myReceivedRequests.isNotEmpty() && activeCouple == null) {
+                        myReceivedRequests.forEach { req ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFFEF9C3))
+                                    .border(1.dp, Color(0xFFFDE047), RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Text(
+                                    text = "💕 Undangan Pasangan",
+                                    color = Color(0xFF713F12),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${req.partnerAName} ingin menyandingkan alarm berdua dengan Anda (Couple Sync) di grup ini.",
+                                    color = Color(0xFF854D0E),
+                                    fontSize = 11.sp
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Button(
+                                        onClick = { viewModel.acceptPairRequest(req) {} },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(vertical = 4.dp)
+                                    ) {
+                                        Text("Terima 💕", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Button(
+                                        onClick = { viewModel.rejectOrCancelPairRequest(req) {} },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(vertical = 4.dp)
+                                    ) {
+                                        Text("Tolak ❌", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
+                    // Display pending couple requests sent by me
+                    val mySentRequests = pendingCoupleRequests.filter { it.partnerA == myUid }
+                    if (mySentRequests.isNotEmpty() && activeCouple == null) {
+                        mySentRequests.forEach { req ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFF1F5F9))
+                                    .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
+                                    .padding(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "💕 Menunggu Balasan...",
+                                        color = Color(0xFF334155),
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                    TextButton(
+                                        onClick = { viewModel.rejectOrCancelPairRequest(req) {} },
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text("Batalkan ❌", color = Color(0xFFEF4444), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Menunggu persetujuan dari ${req.partnerBName} untuk mengaktifkan Couple Sync.",
+                                    color = Color(0xFF475569),
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+
                     Text(
                         text = "Matrix Status Bangun Anggota Room (${awakeStatuses.size} Orang):",
                         color = TextLight,
@@ -1897,7 +2105,7 @@ fun GroupDashboardScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
                                         Box(
                                             modifier = Modifier
                                                 .size(8.dp)
@@ -1927,20 +2135,79 @@ fun GroupDashboardScreen(
                                         }
                                     }
 
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(
-                                                if (status.isAwake) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                                            )
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                                     ) {
-                                        Text(
-                                            text = if (status.isAwake) "SUDAH BANGUN ☀️" else "BELUM BANGUN 💤",
-                                            color = if (status.isAwake) Color(0xFF2E7D32) else Color(0xFFC62828),
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
+                                        val hasActiveC = activeCouple != null
+                                        val reqSent = pendingCoupleRequests.any { it.partnerA == myUid && it.partnerB == status.userId }
+                                        val reqRecv = pendingCoupleRequests.any { it.partnerB == myUid && it.partnerA == status.userId }
+                                        val isMyP = activeCouple != null && (activeCouple!!.partnerA == status.userId || activeCouple!!.partnerB == status.userId)
+
+                                        if (!isMe) {
+                                            if (isMyP) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(Color(0xFFFFF1F2))
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("💕 Pasangan", color = Color(0xFFE11D48), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            } else if (reqSent) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(Color(0xFFF1F5F9))
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("💕 Dipinta", color = Color(0xFF475569), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            } else if (reqRecv) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(Color(0xFFFEF9C3))
+                                                        .clickable {
+                                                            val req = pendingCoupleRequests.find { it.partnerB == myUid && it.partnerA == status.userId }
+                                                            if (req != null) {
+                                                                viewModel.acceptPairRequest(req) {}
+                                                            }
+                                                        }
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("💕 Terima?", color = Color(0xFF854D0E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            } else if (!hasActiveC) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(Color(0xFFECEFF1))
+                                                        .clickable {
+                                                            viewModel.sendPairRequest(status.userId, status.nickname) {}
+                                                        }
+                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("💕 Pair", color = Color(0xFF607D8B), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(
+                                                    if (status.isAwake) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                                                )
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = if (status.isAwake) "SUDAH BANGUN ☀️" else "BELUM BANGUN 💤",
+                                                color = if (status.isAwake) Color(0xFF2E7D32) else Color(0xFFC62828),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }

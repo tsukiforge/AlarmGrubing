@@ -62,6 +62,19 @@
                 android:resource="@xml/note_widget_info" />
         </receiver>
 
+        <receiver android:name=".widget.CoupleWidgetProvider"
+            android:exported="true"
+            android:label="💕 Bel Pasangan (Couple)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.example.widget.ACTION_REFRESH_COUPLE" />
+                <action android:name="com.example.widget.ACTION_TOGGLE_AWAKE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/couple_widget_info" />
+        </receiver>
+
         <service android:name=".alarm.AlarmRingingService"
             android:foregroundServiceType="mediaPlayback"
             android:enabled="true"

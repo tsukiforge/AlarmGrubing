@@ -69,6 +69,13 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     private val _awakeStatuses = MutableStateFlow<List<com.example.data.model.AwakeStatus>>(emptyList())
     val awakeStatuses: StateFlow<List<com.example.data.model.AwakeStatus>> = _awakeStatuses.asStateFlow()
 
+    // Couple Sync state
+    private val _activeCouplePair = MutableStateFlow<com.example.data.model.CouplePair?>(null)
+    val activeCouplePair: StateFlow<com.example.data.model.CouplePair?> = _activeCouplePair.asStateFlow()
+
+    private val _pendingCoupleRequests = MutableStateFlow<List<com.example.data.model.CouplePair>>(emptyList())
+    val pendingCoupleRequests: StateFlow<List<com.example.data.model.CouplePair>> = _pendingCoupleRequests.asStateFlow()
+
     // Sync State
     private val _syncState = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val syncState: StateFlow<SyncStatus> = _syncState.asStateFlow()
@@ -617,6 +624,13 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                         eAwake.printStackTrace()
                     }
 
+                    // Sync couple pairs
+                    try {
+                        syncCouplePairsInternal(code)
+                    } catch (eCouple: Exception) {
+                        eCouple.printStackTrace()
+                    }
+
                     // Sync group members
                     try {
                         val memberUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_$code")
@@ -707,6 +721,8 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         pollJob = null
         _groupMembers.value = emptyList()
         _awakeStatuses.value = emptyList()
+        _activeCouplePair.value = null
+        _pendingCoupleRequests.value = emptyList()
     }
 
     // --- File Transfer Operations ---
@@ -877,6 +893,115 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 val response = NetworkClient.api.putValue(url, requestBody)
                 
                 if (response.isSuccessful) {
+                    // Update Couple scoring if active couple exists
+                    val activePair = _activeCouplePair.value
+                    if (isAwake && activePair != null) {
+                        try {
+                            val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+                            val yesterdayStr = getYesterdayStr()
+                            
+                            val isPartnerA = activePair.partnerA == uid
+                            val lastWakeSelf = if (isPartnerA) activePair.lastWakeA else activePair.lastWakeB
+                            
+                            if (lastWakeSelf != todayStr) {
+                                // 1. Calculate base points
+                                var ptsToAdd = 5 // Standard +5
+                                val activeAlarms = groupAlarms.value.filter { it.isEnabled }
+                                if (activeAlarms.isNotEmpty()) {
+                                    val now = java.util.Calendar.getInstance()
+                                    val nowHour = now.get(java.util.Calendar.HOUR_OF_DAY)
+                                    val nowMinute = now.get(java.util.Calendar.MINUTE)
+                                    
+                                    // Check if woke up before or within 5 mins of any enabled alarm
+                                    var beforeAlarm = false
+                                    var withinFive = false
+                                    for (alarm in activeAlarms) {
+                                        if (nowHour < alarm.hour || (nowHour == alarm.hour && nowMinute < alarm.minute)) {
+                                            beforeAlarm = true
+                                        } else if (nowHour == alarm.hour && nowMinute >= alarm.minute && nowMinute <= alarm.minute + 5) {
+                                            withinFive = true
+                                        }
+                                    }
+                                    if (beforeAlarm) {
+                                        ptsToAdd = 10
+                                    } else if (withinFive) {
+                                        ptsToAdd = 5
+                                    }
+                                }
+                                
+                                // 2. Determine Streak
+                                val currentStreak = if (isPartnerA) activePair.streakA else activePair.streakB
+                                val newStreak = when (lastWakeSelf) {
+                                    yesterdayStr -> currentStreak + 1
+                                    todayStr -> currentStreak // No change
+                                    else -> 1 // Reset to 1
+                                }
+                                
+                                // Reset Sync Bonus if it's a completely new day (neither partner had updated today yet)
+                                val systemNewDayReset = activePair.lastWakeA != todayStr && activePair.lastWakeB != todayStr
+                                var newSyncBonus = if (systemNewDayReset) false else activePair.syncBonusToday
+                                
+                                var bonusA = 0
+                                var bonusB = 0
+                                
+                                val otherUid = if (isPartnerA) activePair.partnerB else activePair.partnerA
+                                val otherStatus = _awakeStatuses.value.find { it.userId == otherUid }
+                                
+                                if (otherStatus != null && otherStatus.isAwake && !newSyncBonus) {
+                                    val timeDiff = Math.abs(System.currentTimeMillis() - otherStatus.timestamp)
+                                    if (timeDiff < 10 * 60 * 1000L) { // < 10 mins
+                                        newSyncBonus = true
+                                        bonusA = 15
+                                        bonusB = 15
+                                    }
+                                }
+                                
+                                // Update other partner's streak if they missed yesterday
+                                val lastWakeOther = if (isPartnerA) activePair.lastWakeB else activePair.lastWakeA
+                                val otherStreak = if (isPartnerA) activePair.streakB else activePair.streakA
+                                val newOtherStreak = if (lastWakeOther != yesterdayStr && lastWakeOther != todayStr) 0 else otherStreak
+                                
+                                // Build updated CouplePair
+                                val updatedPair = if (isPartnerA) {
+                                    activePair.copy(
+                                        scoreA = activePair.scoreA + ptsToAdd + bonusA,
+                                        scoreB = activePair.scoreB + bonusB,
+                                        streakA = newStreak,
+                                        streakB = newOtherStreak,
+                                        lastWakeA = todayStr,
+                                        syncBonusToday = newSyncBonus
+                                    )
+                                } else {
+                                    activePair.copy(
+                                        scoreB = activePair.scoreB + ptsToAdd + bonusB,
+                                        scoreA = activePair.scoreA + bonusA,
+                                        streakB = newStreak,
+                                        streakA = newOtherStreak,
+                                        lastWakeB = todayStr,
+                                        syncBonusToday = newSyncBonus
+                                    )
+                                }
+                                
+                                // Save to Firebase
+                                val pairUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "couple_pairs_${code}/${activePair.id}")
+                                val pairAdapter = moshiObj.adapter(com.example.data.model.CouplePair::class.java)
+                                val pairJson = pairAdapter.toJson(updatedPair)
+                                val pairBody = pairJson.toRequestBody("application/json".toMediaTypeOrNull())
+                                try {
+                                    val coupleResponse = NetworkClient.api.putValue(pairUrl, pairBody)
+                                    if (coupleResponse.isSuccessful) {
+                                        _activeCouplePair.value = updatedPair
+                                        sharedPrefs.edit().putString("active_couple_json", pairJson).apply()
+                                        com.example.widget.CoupleWidgetProvider.triggerUpdate(context)
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        } catch (eScore: Exception) {
+                            eScore.printStackTrace()
+                        }
+                    }
                     syncAwakeStatusesInternal(code)
                 }
                 onResult(response.isSuccessful)
@@ -1106,6 +1231,186 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
             } finally {
                 leaveGroup()
             }
+        }
+    }
+
+    private fun getYesterdayStr(): String {
+        val cal = java.util.Calendar.getInstance()
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        return java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(cal.time)
+    }
+
+    fun sendPairRequest(targetUserId: String, targetUserName: String, onResult: (Boolean) -> Unit) {
+        val code = _joinedGroupCode.value ?: return onResult(false)
+        if (_isOfflineGroup.value) return onResult(false)
+        
+        // Verify target lies within current group members
+        val memberExists = _groupMembers.value.any { it.userId == targetUserId }
+        if (!memberExists) {
+            return onResult(false)
+        }
+
+        val pairId = "couple_${_userId.value}_${targetUserId}"
+        val request = com.example.data.model.CouplePair(
+            id = pairId,
+            roomCode = code,
+            partnerA = _userId.value,
+            partnerB = targetUserId,
+            partnerAName = _userName.value,
+            partnerBName = targetUserName,
+            status = "pending"
+        )
+        viewModelScope.launch {
+            try {
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val adapter = moshiObj.adapter(com.example.data.model.CouplePair::class.java)
+                val json = adapter.toJson(request)
+                val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
+
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "couple_pairs_${code}/${pairId}")
+                val response = NetworkClient.api.putValue(url, requestBody)
+                
+                if (response.isSuccessful) {
+                    syncCouplePairsInternal(code)
+                }
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false)
+            }
+        }
+    }
+
+    fun acceptPairRequest(pair: com.example.data.model.CouplePair, onResult: (Boolean) -> Unit) {
+        val code = _joinedGroupCode.value ?: return onResult(false)
+        val updated = pair.copy(status = "active")
+        viewModelScope.launch {
+            try {
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val adapter = moshiObj.adapter(com.example.data.model.CouplePair::class.java)
+                val json = adapter.toJson(updated)
+                val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
+
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "couple_pairs_${code}/${pair.id}")
+                val response = NetworkClient.api.putValue(url, requestBody)
+                
+                if (response.isSuccessful) {
+                    syncCouplePairsInternal(code)
+                }
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false)
+            }
+        }
+    }
+
+    fun rejectOrCancelPairRequest(pair: com.example.data.model.CouplePair, onResult: (Boolean) -> Unit) {
+        val code = _joinedGroupCode.value ?: return onResult(false)
+        viewModelScope.launch {
+            try {
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "couple_pairs_${code}/${pair.id}")
+                val emptyBody = "null".toRequestBody("application/json".toMediaTypeOrNull())
+                val response = NetworkClient.api.putValue(url, emptyBody)
+                
+                if (response.isSuccessful) {
+                    syncCouplePairsInternal(code)
+                }
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false)
+            }
+        }
+    }
+
+    fun unpair(onResult: (Boolean) -> Unit) {
+        val pair = _activeCouplePair.value ?: return onResult(false)
+        val code = _joinedGroupCode.value ?: return onResult(false)
+        viewModelScope.launch {
+            try {
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "couple_pairs_${code}/${pair.id}")
+                val emptyBody = "null".toRequestBody("application/json".toMediaTypeOrNull())
+                val response = NetworkClient.api.putValue(url, emptyBody)
+                
+                if (response.isSuccessful) {
+                    _activeCouplePair.value = null
+                    sharedPrefs.edit().remove("active_couple_json").apply()
+                    com.example.widget.CoupleWidgetProvider.triggerUpdate(context)
+                    syncCouplePairsInternal(code)
+                }
+                onResult(response.isSuccessful)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult(false)
+            }
+        }
+    }
+
+    suspend fun syncCouplePairsInternal(code: String) {
+        if (_isOfflineGroup.value) return
+        try {
+            val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "couple_pairs_$code")
+            val response = NetworkClient.api.getValue(url)
+            if (response.isSuccessful) {
+                val bodyStr = response.body()?.string()
+                if (bodyStr != null && bodyStr.trim() != "null") {
+                    val moshiObj = com.squareup.moshi.Moshi.Builder()
+                        .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                        .build()
+                    val type = com.squareup.moshi.Types.newParameterizedType(
+                        Map::class.java,
+                        String::class.java,
+                        com.example.data.model.CouplePair::class.java
+                    )
+                    val mapAdapter: com.squareup.moshi.JsonAdapter<Map<String, com.example.data.model.CouplePair>> = moshiObj.adapter(type)
+                    val map = mapAdapter.fromJson(bodyStr)
+                    if (map != null) {
+                        val myUid = _userId.value
+                        
+                        // Find if we are part of an active pairing
+                        val activePair = map.values.find {
+                            it.status == "active" && (it.partnerA == myUid || it.partnerB == myUid)
+                        }
+                        
+                        // Find pending requests directed to us or sent by us
+                        val pending = map.values.filter {
+                            it.status == "pending" && (it.partnerA == myUid || it.partnerB == myUid)
+                        }
+                        
+                        _activeCouplePair.value = activePair
+                        _pendingCoupleRequests.value = pending
+                        
+                        // Persist active couple in shared preferences for widget access
+                        if (activePair != null) {
+                            val pairAdapter = moshiObj.adapter(com.example.data.model.CouplePair::class.java)
+                            val pairJson = pairAdapter.toJson(activePair)
+                            sharedPrefs.edit().putString("active_couple_json", pairJson).apply()
+                        } else {
+                            sharedPrefs.edit().remove("active_couple_json").apply()
+                        }
+                        
+                        // Notify widget to refresh
+                        com.example.widget.CoupleWidgetProvider.triggerUpdate(context)
+                    } else {
+                        _activeCouplePair.value = null
+                        _pendingCoupleRequests.value = emptyList()
+                        sharedPrefs.edit().remove("active_couple_json").apply()
+                        com.example.widget.CoupleWidgetProvider.triggerUpdate(context)
+                    }
+                } else {
+                    _activeCouplePair.value = null
+                    _pendingCoupleRequests.value = emptyList()
+                    sharedPrefs.edit().remove("active_couple_json").apply()
+                    com.example.widget.CoupleWidgetProvider.triggerUpdate(context)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 

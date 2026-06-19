@@ -3,8 +3,27 @@
 
 ---
 
-## 🚀 Versi Rilis Terbaru (Stabil): **v1.1.0**
-> **Arsitektur Rilis**: Lompat dari rilis debug `v1.0.28` langsung menuju rilis stabil komersial `v1.1.0` guna memperkenalkan fitur Mayor "Transfer & Berbagi Berkas".
+## 🚀 Versi Rilis Terbaru (Stabil): **v1.1.34**
+> **Arsitektur Rilis**: Lompat dari rilis debug `v1.0.28` langsung menuju rilis stabil komersial `v1.1.34` guna memperkenalkan fitur Mayor "Interaksi Pasangan (Couple Sync) & Berbagi Berkas".
+
+### **Apa yang Baru di Versi v1.1.34? (Copy-Paste untuk APKPure / Play Store)**
+Dashboard UI Couple Sync (MainActivity)
+Menambahkan komponen visual Couple Sync Mode yang elegan dengan aksen pink lembut dan visual status bangun real-time masing-masing pasangan.
+Menampilkan total akumulasi Poin dan rincian Streak 🔥 harian.
+Dilengkapi indikator cerdas ⚡ Sync Bonus Hari Ini Aktif! ketika kedua pasangan berhasil bangun pagi dengan selisih waktu di bawah 10 menit (+15 poin bonus).
+Menambahkan tombol aksi cepat "Putuskan Pasangan 💔" untuk melakukan unpair secara aman langsung dari dalam dashboard.
+Sistem Alur UX Pasangan yang Fleksibel & Opsional
+Di sebelah daftar nama member kamar, kini tersedia tombol indikator cerdas 💕 Pair untuk mengirim undangan pasangan tanpa merusak data dasar grup utama.
+Apabila ada undangan masuk dari anggota kamar, kartu undangan interaktif akan muncul secara instan untuk Terima 💕 atau Tolak ❌.
+Keamanan terjamin: Satu pengguna hanya dapat berpasangan aktif dengan maksimal 1 pasangan di dalam kamar yang sama pada satu waktu.
+Logika Penghitungan Poin & Streak Cerdas (AlarmViewModel)
+Tepat Waktu: +10 poin untuk bangun tepat sebelum alarm, +5 jika dalam selisih 5 menit dari alarm.
+Streak Beruntun: Streak harian bertambah jika pengguna bangun beruntun setiap hari, dan disetel ulang secara otomatis jika terlewatkan.
+Sinkronisasi Pasangan: +15 poin bonus ditambahkan secara otomatis jika pasangan bangun tidur dalam rentang selang 10 menit.
+Widget Home Screen Interaktif (CoupleWidgetProvider)
+Widget berdesain estetik dengan sudut membulat, membedakan kolom visual warna biru lembut untuk Anda dan pink lembut untuk pasangan Anda.
+Aksi Mandiri pada Widget: Dilengkapi tombol cerdas "SAYA SUDAH BANGUN ☀️" yang memungkinkan Anda memperbarui status bangun dan langsung memicu kalkulasi poin ke Firebase tanpa harus membuka aplikasi terlebih dahulu!
+Menggunakan mekanisme BroadcastReceiver dan sinkronisasi preferensi lokal untuk menjamin keaslian data secara real-time.
 
 ### **Apa yang Baru di Versi v1.1.0? (Copy-Paste untuk APKPure / Play Store)**
 * **📁 Fitur Transfer & Berbagi Berkas Asimetris**:
