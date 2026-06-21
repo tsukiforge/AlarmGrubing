@@ -4,6 +4,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
+import com.example.data.db.AppDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -13,6 +18,19 @@ class AlarmReceiver : BroadcastReceiver() {
         val isGroup = intent.getBooleanExtra("ALARM_IS_GROUP", false)
         val groupCode = intent.getStringExtra("ALARM_GROUP_CODE")
 
+        // 1. Acquire WakeLock to turn on CPU and screen
+        try {
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            val wakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "AlarmSync::AlarmReceiverWakeLock"
+            )
+            wakeLock.acquire(10000) // 10 seconds is plenty to start the service
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        // 2. Start Foreground Ringing Service
         val serviceIntent = Intent(context, AlarmRingingService::class.java).apply {
             putExtra("ALARM_ID", alarmId)
             putExtra("ALARM_TITLE", title)
@@ -25,6 +43,27 @@ class AlarmReceiver : BroadcastReceiver() {
             context.startForegroundService(serviceIntent)
         } else {
             context.startService(serviceIntent)
+        }
+
+        // 3. Reschedule repeat alarms or disable single alarm
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = AppDatabase.getDatabase(context)
+                val alarmDao = db.alarmDao()
+                val alarm = alarmDao.getAlarmById(alarmId)
+                if (alarm != null) {
+                    if (alarm.daysOfWeek.isBlank()) {
+                        // One-time alarm: disable it in Room
+                        val updated = alarm.copy(isEnabled = false)
+                        alarmDao.updateAlarm(updated)
+                    } else {
+                        // Repeating alarm: schedule next wake-up
+                        AlarmScheduler.schedule(context, alarm)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }

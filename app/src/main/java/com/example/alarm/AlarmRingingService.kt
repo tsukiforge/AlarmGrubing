@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
 import androidx.core.app.NotificationCompat
@@ -14,6 +15,7 @@ import com.example.audio.RingtonePlayer
 
 class AlarmRingingService : Service() {
     private var vibrator: Vibrator? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     companion object {
         const val CHANNEL_ID = "alarm_ringing_channel"
@@ -42,6 +44,23 @@ class AlarmRingingService : Service() {
         val tone = intent?.getStringExtra("ALARM_TONE") ?: "default"
         val isGroup = intent?.getBooleanExtra("ALARM_IS_GROUP", false) ?: false
         val groupCode = intent?.getStringExtra("ALARM_GROUP_CODE")
+
+        // 1. Acquire Partial WakeLock to prevent the CPU from sleeping in Doze Mode / Extreme Battery Saver
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (wakeLock == null) {
+            wakeLock = pm.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "AlarmSync::AlarmRingingServiceWakeLock"
+            ).apply {
+                setReferenceCounted(false)
+            }
+        }
+        try {
+            // Acquire wake lock with a 10-minute timeout as a safe guard against battery drainage if orphaned
+            wakeLock?.acquire(10 * 60 * 1000L)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         isRinging = true
         activeAlarmId = alarmId
@@ -139,6 +158,16 @@ class AlarmRingingService : Service() {
         try {
             vibrator?.cancel()
         } catch (e: Exception) {}
+
+        // Release Partial WakeLock safely
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        wakeLock = null
 
         val uiUpdateIntent = Intent("ALARM_RINGING_UPDATE").apply {
             putExtra("IS_RINGING", false)

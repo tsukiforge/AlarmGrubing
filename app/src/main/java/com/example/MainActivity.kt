@@ -325,6 +325,9 @@ fun MainScreenContent(
             try {
                 val info = GithubUpdateChecker.checkForUpdates()
                 updateInfoState = info
+                if (info != null && info.hasUpdate) {
+                    showUpdateDialog = true
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             } finally {
@@ -1351,6 +1354,7 @@ fun GroupDashboardScreen(
     var showExitChoiceDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     var showChatDialog by remember { mutableStateOf(false) }
+    var showCoupleSimulation by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -1969,6 +1973,170 @@ fun GroupDashboardScreen(
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold
                                     )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.5f))
+                        Spacer(modifier = Modifier.height(12.dp))
+                    } else {
+                        // SIMULATION CORNER FOR UNCOUPLED USERS
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFEFF7F8))
+                                .border(1.dp, Color(0xFFBEE1E6), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            if (!showCoupleSimulation) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "💕 Penasaran Fitur Couple Sync?",
+                                            color = Color(0xFF205E6A),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            text = "Membangunkan pasangan secara real-time & kumpulkan streak poin bersama!",
+                                            color = Color(0xFF438F9E),
+                                            fontSize = 11.sp,
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Button(
+                                        onClick = { showCoupleSimulation = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF205E6A)),
+                                        shape = RoundedCornerShape(8.dp),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                        modifier = Modifier.align(Alignment.CenterVertically)
+                                    ) {
+                                        Text("Simulasi ⚡", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            } else {
+                                // Simulation Is Active
+                                var simMeAwake by remember { mutableStateOf(false) }
+                                var simPartnerAwake by remember { mutableStateOf(false) }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text("💕", fontSize = 16.sp)
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Simulasi Couple Sync Mode",
+                                            color = Color(0xFF205E6A),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(Color(0xFF205E6A))
+                                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                                        ) {
+                                            Text("SIMULASI", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    IconButton(
+                                        onClick = { showCoupleSimulation = false },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Text("❌", fontSize = 13.sp)
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFEFF6FF))
+                                            .clickable { simMeAwake = !simMeAwake }
+                                            .padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(text = "Leon (Anda)", color = Color(0xFF1E3A8A), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = if (simMeAwake) "☀️ Bangun" else "💤 Tidur", color = Color(0xFF374151), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(text = "Poin: 105 | Streak: 7 🔥", color = Color(0xFF0284C7), fontSize = 9.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = "(Klik ubah status)", color = Color.Gray, fontSize = 8.sp)
+                                    }
+
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFFFF1F2))
+                                            .clickable { simPartnerAwake = !simPartnerAwake }
+                                            .padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(text = "Mia", color = Color(0xFF881337), fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = if (simPartnerAwake) "☀️ Bangun" else "💤 Tidur", color = Color(0xFF374151), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(text = "Poin: 90 | Streak: 5 🔥", color = Color(0xFFDB2777), fontSize = 9.sp)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(text = "(Klik ubah status)", color = Color.Gray, fontSize = 8.sp)
+                                    }
+                                }
+
+                                if (simMeAwake && simPartnerAwake) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(Color(0xFFFEF3C7))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "⚡ Sync Bonus Hari Ini Aktif! Kedua pasangan bangun selisih <10 m (+15 poin)!",
+                                            color = Color(0xFFB45309),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "💡 Kedua pasangan harus mengaktifkan Couple Sync di grup agar poin tersinkron secara real-time.",
+                                    color = Color(0xFF438F9E),
+                                    fontSize = 9.sp,
+                                    lineHeight = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Button(
+                                    onClick = { showCoupleSimulation = false },
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB14A5B)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    modifier = Modifier.fillMaxWidth().height(32.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Text("Sembunyikan Simulasi", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -4287,7 +4455,7 @@ fun RingingOverlay(
             }
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "ヾ(≧▽≦*)o BANGUNNYAA~! ✨",
+                text = "bangunn sayanggg Miaw~ ✨",
                 color = IndigoLight,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,

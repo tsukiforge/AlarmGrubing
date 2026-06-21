@@ -66,10 +66,26 @@ object GithubUpdateChecker {
         }
     }
 
+    fun canonicalizeVersion(versionStr: String): String {
+        val clean = versionStr.removePrefix("v").trim()
+        val parts = clean.split(".").mapNotNull { it.toIntOrNull() }
+        if (parts.size >= 2) {
+            val major = parts[0]
+            val lastPart = parts.last() // Grab the last numeric suffix e.g., 37, 38, 40, 50
+            val calculatedMinor = (lastPart / 10) - 2
+            val minor = if (calculatedMinor < 1) 1 else calculatedMinor
+            return "$major.$minor.$lastPart"
+        }
+        return clean
+    }
+
     private fun isNewerVersion(current: String, latest: String): Boolean {
         try {
-            val currParts = current.split(".").map { it.toIntOrNull() ?: 0 }
-            val lateParts = latest.split(".").map { it.toIntOrNull() ?: 0 }
+            val canonCurrent = canonicalizeVersion(current)
+            val canonLatest = canonicalizeVersion(latest)
+
+            val currParts = canonCurrent.split(".").map { it.toIntOrNull() ?: 0 }
+            val lateParts = canonLatest.split(".").map { it.toIntOrNull() ?: 0 }
 
             val minSize = minOf(currParts.size, lateParts.size)
             for (i in 0 until minSize) {

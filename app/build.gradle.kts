@@ -31,6 +31,15 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  splits {
+    abi {
+      isEnable = true
+      reset()
+      include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+      isUniversalApk = true
+    }
+  }
+
   val keystoreFile = file("${rootDir}/debug.keystore")
   val base64File = file("${rootDir}/debug.keystore.base64")
   val hasDebugKeystoreSource = keystoreFile.exists() || base64File.exists()

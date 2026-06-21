@@ -45,6 +45,33 @@ object AlarmScheduler {
             calendar.add(Calendar.DAY_OF_YEAR, 1)
         }
 
+        // Handle specific day of week repeat choices (if selected)
+        if (alarm.daysOfWeek.isNotBlank()) {
+            val appDays = alarm.daysOfWeek.split(",").mapNotNull { it.trim().toIntOrNull() }.toSet()
+            if (appDays.isNotEmpty()) {
+                var attempts = 0
+                // Keep adding 1 day until the day of week of our calendar matches one of the user's selected days
+                while (attempts < 14) {
+                    val calDay = calendar.get(Calendar.DAY_OF_WEEK)
+                    val appDay = when (calDay) {
+                        Calendar.MONDAY -> 1
+                        Calendar.TUESDAY -> 2
+                        Calendar.WEDNESDAY -> 3
+                        Calendar.THURSDAY -> 4
+                        Calendar.FRIDAY -> 5
+                        Calendar.SATURDAY -> 6
+                        Calendar.SUNDAY -> 7
+                        else -> 1
+                    }
+                    if (appDays.contains(appDay)) {
+                        break
+                    }
+                    calendar.add(Calendar.DAY_OF_YEAR, 1)
+                    attempts++
+                }
+            }
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
