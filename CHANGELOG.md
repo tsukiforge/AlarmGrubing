@@ -18,6 +18,7 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 ### 🛠️ Perbaikan Bug
 * **Sistem Update Otomatis**: Memperbaiki algoritma perbandingan versi mikro tak-simetris melalui fungsi `canonicalizeVersion` di dalam `GithubUpdateChecker` guna kelancaran deteksi update rilis.
 * **Responsivitas Landing Page**: Melengkapi landing page (`index.html`) dengan helper skrip kalkulasi versi pemasaran otomatis berdasarkan patch aktif.
+* **Kompabilitas Skrip CI/CD (Restore standard APK filenames)**: Menambahkan kustom task Gradle `CopyApkTask` yang ramah *Configuration Cache* untuk secara otomatis menggandakan dan menyediakan file `app-debug.apk` dan `app-release.apk` dari build universal, sehingga skrip Runner/Publishing tidak mengalami error pencarian file.
 
 ---
 

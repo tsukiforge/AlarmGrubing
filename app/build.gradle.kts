@@ -166,3 +166,53 @@ dependencies {
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
 }
+
+// CI/CD Compatibility Task:
+// When ABI splits are enabled, standard filenames like app-debug.apk are replaced with app-universal-debug.apk etc.
+// This task clones the universal/compiled APK back to app-debug.apk & app-release.apk to keep CI/CD scripts fully functional.
+abstract class CopyApkTask : DefaultTask() {
+  @get:InputDirectory
+  abstract val sourceDir: DirectoryProperty
+
+  @get:OutputFile
+  abstract val targetFile: RegularFileProperty
+
+  @get:Input
+  abstract val filterKeyword: Property<String>
+
+  @TaskAction
+  fun run() {
+    val dir = sourceDir.get().asFile
+    if (dir.exists()) {
+      val allFiles = dir.listFiles()?.filter { it.name.endsWith(".apk") && it.name != targetFile.get().asFile.name } ?: emptyList()
+      if (allFiles.isNotEmpty()) {
+        val sourceFile = allFiles.find { it.name.contains(filterKeyword.get()) } ?: allFiles.first()
+        sourceFile.copyTo(targetFile.get().asFile, overwrite = true)
+        println("CI/CD Helper Task: Copied ${sourceFile.name} -> ${targetFile.get().asFile.name}")
+      }
+    }
+  }
+}
+
+val copyDebugApk = tasks.register<CopyApkTask>("copyDebugApk") {
+  sourceDir.set(layout.buildDirectory.dir("outputs/apk/debug"))
+  targetFile.set(layout.buildDirectory.file("outputs/apk/debug/app-debug.apk"))
+  filterKeyword.set("universal")
+}
+
+val copyReleaseApk = tasks.register<CopyApkTask>("copyReleaseApk") {
+  sourceDir.set(layout.buildDirectory.dir("outputs/apk/release"))
+  targetFile.set(layout.buildDirectory.file("outputs/apk/release/app-release.apk"))
+  filterKeyword.set("universal")
+}
+
+tasks.configureEach {
+  if (name == "assembleDebug") {
+    finalizedBy(copyDebugApk)
+  }
+  if (name == "assembleRelease") {
+    finalizedBy(copyReleaseApk)
+  }
+}
+
+
