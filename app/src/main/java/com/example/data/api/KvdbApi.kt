@@ -22,4 +22,9 @@ interface KvdbApi {
         @Url url: String,
         @Body value: RequestBody
     ): Response<ResponseBody>
+
+    @DELETE
+    suspend fun deleteValue(
+        @Url url: String
+    ): Response<ResponseBody>
 }

@@ -8,6 +8,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.media.AudioManager
 import androidx.core.app.NotificationCompat
 import com.example.MainActivity
 import com.example.audio.AudioSynthesizer
@@ -124,6 +125,26 @@ class AlarmRingingService : Service() {
         }
 
         // Play Tone
+        val sharedPrefs = getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE)
+
+        val forceFullVolume = sharedPrefs.getBoolean("force_full_volume", false)
+        if (forceFullVolume) {
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val originalVolume = am.getStreamVolume(AudioManager.STREAM_ALARM)
+            sharedPrefs.edit().putInt("original_alarm_volume", originalVolume).apply()
+            am.setStreamVolume(AudioManager.STREAM_ALARM, 
+                am.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0)
+        }
+
+        val autoSpeaker = sharedPrefs.getBoolean("auto_speaker_headset", false)
+        if (autoSpeaker) {
+            val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            if (am.isWiredHeadsetOn || am.isBluetoothA2dpOn) {
+                am.isSpeakerphoneOn = true
+                am.mode = AudioManager.MODE_IN_COMMUNICATION
+            }
+        }
+
         if (tone.startsWith("custom_")) {
             AudioSynthesizer.play(tone)
         } else if (tone.startsWith("local_file:")) {
@@ -158,6 +179,23 @@ class AlarmRingingService : Service() {
         try {
             vibrator?.cancel()
         } catch (e: Exception) {}
+
+        val sharedPrefs = getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE)
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        
+        if (sharedPrefs.contains("original_alarm_volume")) {
+            val originalVolume = sharedPrefs.getInt("original_alarm_volume", -1)
+            if (originalVolume != -1) {
+                am.setStreamVolume(AudioManager.STREAM_ALARM, originalVolume, 0)
+            }
+            sharedPrefs.edit().remove("original_alarm_volume").apply()
+        }
+
+        val autoSpeaker = sharedPrefs.getBoolean("auto_speaker_headset", false)
+        if (autoSpeaker) {
+            am.isSpeakerphoneOn = false
+            am.mode = AudioManager.MODE_NORMAL
+        }
 
         // Release Partial WakeLock safely
         try {

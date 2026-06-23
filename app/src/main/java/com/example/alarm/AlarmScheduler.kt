@@ -101,6 +101,8 @@ object AlarmScheduler {
         } else {
             alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
         }
+        
+        android.util.Log.d("AlarmScheduler", "Alarm ${alarm.id} (title=${alarm.title}) scheduled for timeInMillis: ${calendar.timeInMillis} vs current: ${System.currentTimeMillis()}")
     }
 
     fun cancel(context: Context, alarm: Alarm) {

@@ -12,6 +12,22 @@ import kotlinx.coroutines.launch
 
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (Intent.ACTION_BOOT_COMPLETED == intent.action) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    val alarmDao = db.alarmDao()
+                    val enabledAlarms = alarmDao.getEnabledAlarmsSync()
+                    enabledAlarms.forEach { alarm ->
+                        AlarmScheduler.schedule(context, alarm)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            return
+        }
+
         val alarmId = intent.getStringExtra("ALARM_ID") ?: return
         val title = intent.getStringExtra("ALARM_TITLE") ?: "Alarm"
         val tone = intent.getStringExtra("ALARM_TONE") ?: "default"
@@ -59,6 +75,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     } else {
                         // Repeating alarm: schedule next wake-up
                         AlarmScheduler.schedule(context, alarm)
+                        android.util.Log.d("AlarmReceiver", "Successfully rescheduled repeating alarm: ${alarm.id}")
                     }
                 }
             } catch (e: Exception) {

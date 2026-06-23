@@ -65,6 +65,9 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     private val _groupMembers = MutableStateFlow<List<com.example.data.model.MemberData>>(emptyList())
     val groupMembers: StateFlow<List<com.example.data.model.MemberData>> = _groupMembers.asStateFlow()
 
+    private val _wakeCooldowns = MutableStateFlow<Map<String, com.example.data.model.WakeCooldown>>(emptyMap())
+    val wakeCooldowns: StateFlow<Map<String, com.example.data.model.WakeCooldown>> = _wakeCooldowns.asStateFlow()
+
     // Awake status state
     private val _awakeStatuses = MutableStateFlow<List<com.example.data.model.AwakeStatus>>(emptyList())
     val awakeStatuses: StateFlow<List<com.example.data.model.AwakeStatus>> = _awakeStatuses.asStateFlow()
@@ -97,6 +100,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private var pollJob: Job? = null
+    private var lastSeenAlarmIds: Set<String> = emptySet()
 
     init {
         // Load details or seed
@@ -126,6 +130,41 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         loadNotes()
         loadLocalFiles()
         checkSurveyPrompt()
+
+        // Auto-sync database changes directly into AlarmManager
+        viewModelScope.launch {
+            repository.getAllAlarms().collect { alarmList ->
+                try {
+                    val currentIds = alarmList.map { it.id }.toSet()
+                    val deletedIds = lastSeenAlarmIds - currentIds
+                    deletedIds.forEach { deletedId ->
+                        val dummyAlarm = Alarm(
+                            id = deletedId,
+                            title = "",
+                            hour = 0,
+                            minute = 0,
+                            isGroup = false,
+                            groupCode = null,
+                            isEnabled = false,
+                            ringtoneUri = null,
+                            daysOfWeek = ""
+                        )
+                        AlarmScheduler.cancel(context, dummyAlarm)
+                    }
+                    lastSeenAlarmIds = currentIds
+
+                    alarmList.forEach { alarm ->
+                        if (alarm.isEnabled) {
+                            AlarmScheduler.schedule(context, alarm)
+                        } else {
+                            AlarmScheduler.cancel(context, alarm)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
     }
 
     fun updateUserName(name: String) {
@@ -569,8 +608,17 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 var base64: String? = null
                 if (hasCustom) {
                     try {
-                        val bytes = file.readBytes()
-                        base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                        val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                        if (bmp != null) {
+                            val maxDim = 200f
+                            val scale = Math.min(maxDim / bmp.width, maxDim / bmp.height)
+                            val resized = if (scale < 1f) {
+                                android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true)
+                            } else bmp
+                            val stream = java.io.ByteArrayOutputStream()
+                            resized.compress(android.graphics.Bitmap.CompressFormat.JPEG, 60, stream)
+                            base64 = android.util.Base64.encodeToString(stream.toByteArray(), android.util.Base64.NO_WRAP)
+                        }
                     } catch (e: Exception) {
                         e.printStackTrace()
                     }
@@ -651,7 +699,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                                 if (membersMap != null) {
                                     val now = System.currentTimeMillis()
                                     val activeMembersList = membersMap.values.filter {
-                                        (now - (it.lastActive ?: 0L)) < 600_000L // 10 minutes timeout
+                                        (now - (it.lastActive ?: 0L)) < 1_800_000L // 30 minutes timeout
                                     }
                                     _groupMembers.value = activeMembersList
                                 }
@@ -659,6 +707,32 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     } catch (e2: Exception) {
                         e2.printStackTrace()
+                    }
+
+                    // Sync wake cooldowns
+                    try {
+                        val cooldownUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_cooldown_${code}")
+                        val response = NetworkClient.api.getValue(cooldownUrl)
+                        if (response.isSuccessful) {
+                            val rBodyString = response.body()?.string()
+                            if (rBodyString != null && rBodyString.trim() != "null") {
+                                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                                    .build()
+                                val type = com.squareup.moshi.Types.newParameterizedType(
+                                    Map::class.java,
+                                    String::class.java,
+                                    com.example.data.model.WakeCooldown::class.java
+                                )
+                                val adapter: com.squareup.moshi.JsonAdapter<Map<String, com.example.data.model.WakeCooldown>> = moshiObj.adapter(type)
+                                val parsed = adapter.fromJson(rBodyString)
+                                if (parsed != null) {
+                                    _wakeCooldowns.value = parsed
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
 
                     // Check wake triggers for ourselves
@@ -844,24 +918,83 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun checkWakeCooldown(targetUserId: String): Pair<Boolean, String> {
+        val cdKey = "${_userId.value}_${targetUserId}"
+        val cd = _wakeCooldowns.value[cdKey]
+        if (cd != null) {
+            val now = System.currentTimeMillis()
+            if (cd.cooldownUntil > now) {
+                val remMins = (cd.cooldownUntil - now) / 60000
+                val remSecs = ((cd.cooldownUntil - now) % 60000) / 1000
+                return Pair(false, String.format("Bisa bangunkan lagi dalam %d:%02d", remMins, remSecs))
+            }
+            val todayStart = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+            }.timeInMillis
+            if (cd.lastSentAt > todayStart && cd.count >= 3) {
+                return Pair(false, "Sudah maksimal membangunkan hari ini 😅")
+            }
+        }
+        return Pair(true, "")
+    }
+
     fun wakeUpMember(targetUserId: String, onResult: (Boolean) -> Unit) {
+        val (allowed, _) = checkWakeCooldown(targetUserId)
+        if (!allowed) {
+            onResult(false)
+            return
+        }
         val code = _joinedGroupCode.value ?: return
         if (_isOfflineGroup.value) return
+        val uid = _userId.value
         viewModelScope.launch {
             try {
-                val trigger = com.example.data.model.WakeTrigger(
-                    senderName = _userName.value,
-                    timestamp = System.currentTimeMillis()
-                )
                 val moshiObj = com.squareup.moshi.Moshi.Builder()
                     .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
                     .build()
+                
+                val cdKey = "${uid}_${targetUserId}"
+                val cd = _wakeCooldowns.value[cdKey]
+                val todayStart = java.util.Calendar.getInstance().apply { set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0) }.timeInMillis
+                val newCount = if (cd != null && cd.lastSentAt > todayStart) cd.count + 1 else 1
+                val now = System.currentTimeMillis()
+                val newCd = com.example.data.model.WakeCooldown(
+                    lastSentAt = now,
+                    count = newCount,
+                    cooldownUntil = now + (5 * 60 * 1000L) // 5 minutes
+                )
+                val cdAdapter = moshiObj.adapter(com.example.data.model.WakeCooldown::class.java)
+                val cdJson = cdAdapter.toJson(newCd)
+                val cdBody = cdJson.toRequestBody("application/json".toMediaTypeOrNull())
+                val cdUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_cooldown_${code}/$cdKey")
+                NetworkClient.api.putValue(cdUrl, cdBody)
+
+                val trigger = com.example.data.model.WakeTrigger(
+                    senderName = _userName.value,
+                    senderId = uid,
+                    timestamp = System.currentTimeMillis()
+                )
                 val adapter = moshiObj.adapter(com.example.data.model.WakeTrigger::class.java)
                 val json = adapter.toJson(trigger)
                 val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
                 val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_triggers_${code}/$targetUserId")
                 val response = NetworkClient.api.putValue(url, requestBody)
                 onResult(response.isSuccessful)
+
+                val cooldownUrlResp = NetworkClient.api.getValue(NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_cooldown_${code}"))
+                if (cooldownUrlResp.isSuccessful) {
+                    val rBodyString = cooldownUrlResp.body()?.string()
+                    if (rBodyString != null && rBodyString.trim() != "null") {
+                        val type = com.squareup.moshi.Types.newParameterizedType(Map::class.java, String::class.java, com.example.data.model.WakeCooldown::class.java)
+                        val mAdapter: com.squareup.moshi.JsonAdapter<Map<String, com.example.data.model.WakeCooldown>> = moshiObj.adapter(type)
+                        val parsed = mAdapter.fromJson(rBodyString)
+                        if (parsed != null) {
+                            _wakeCooldowns.value = parsed
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
                 onResult(false)
@@ -893,6 +1026,34 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 val response = NetworkClient.api.putValue(url, requestBody)
                 
                 if (response.isSuccessful) {
+                    if (isAwake) {
+                        try {
+                            val triggerUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_triggers_${code}/${uid}")
+                            val trResp = NetworkClient.api.getValue(triggerUrl)
+                            if (trResp.isSuccessful) {
+                                val bodyStr = trResp.body()?.string()
+                                if (bodyStr != null && bodyStr.trim() != "null") {
+                                    val trAdapter = moshiObj.adapter(com.example.data.model.WakeTrigger::class.java)
+                                    val trigger = trAdapter.fromJson(bodyStr)
+                                    if (trigger != null && trigger.senderId != null && (System.currentTimeMillis() - trigger.timestamp < 5 * 60 * 1000L)) {
+                                        val confTrigger = com.example.data.model.WakeTrigger(
+                                            senderName = "✅ ${nickname} sudah bangun!",
+                                            senderId = uid,
+                                            timestamp = System.currentTimeMillis()
+                                        )
+                                        val cJson = trAdapter.toJson(confTrigger)
+                                        val mUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_triggers_${code}/${trigger.senderId}")
+                                        NetworkClient.api.putValue(
+                                            mUrl,
+                                            cJson.toRequestBody("application/json".toMediaTypeOrNull())
+                                        )
+                                        NetworkClient.api.deleteValue(triggerUrl)
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) { e.printStackTrace() }
+                    }
+
                     // Update Couple scoring if active couple exists
                     val activePair = _activeCouplePair.value
                     if (isAwake && activePair != null) {

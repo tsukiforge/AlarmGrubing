@@ -27,8 +27,35 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug
+      - name: Initialize Environment Variables
+        run: |
+          if [ -f .env.example ]; then
+            cp .env.example .env
+          else
+            touch .env
+          fi
+          echo "BUILD_ENV=ci" >> .env
+
+      - name: Fix Corrupt PNG Assets
+        run: |
+          sudo apt-get install -y imagemagick 2>/dev/null
+          DRAWABLE_DIR="app/src/main/res/drawable"
+          if [ -d "$DRAWABLE_DIR" ]; then
+            for f in "$DRAWABLE_DIR"/*.png; do
+              if [ -f "$f" ]; then
+                FILETYPE=$(file --mime-type -b "$f")
+                if [ "$FILETYPE" != "image/png" ]; then
+                  echo "⚠️  Fixing: $f (detected: $FILETYPE)"
+                  convert "$f" /tmp/fixed.png && mv /tmp/fixed.png "$f"
+                  echo "✅ Fixed: $f"
+                fi
+              fi
+            done
+          fi
+          echo "PNG check complete."
+
+      - name: Build Release & Debug APK
+        run: ./gradlew assembleRelease assembleDebug
 
       - name: Generate Release Notes
         id: changelog
@@ -88,7 +115,10 @@ jobs:
       - name: Create Release and Upload APK
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          fail_on_unmatched_files: false
           name: Release ${{ github.ref_name }}
           body: |
             ## Pembaruan (Changelog):

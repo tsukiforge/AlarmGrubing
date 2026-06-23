@@ -192,8 +192,8 @@ jobs:
         with:
           name: alarmgrup-android-apk
           path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release.apk
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
           if-no-files-found: warn
 
       - name: Create GitHub Release
@@ -203,15 +203,24 @@ jobs:
         run: |
           TAG_NAME="v1.1.${{ github.run_number }}"
           RELEASE_TITLE="Update Version v1.1.${{ github.run_number }}"
-          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
-          if [ -f "app/build/outputs/apk/release/app-release.apk" ]; then
-            APK_PATH="app/build/outputs/apk/release/app-release.apk"
-            echo "✅ Release APK found."
-          else
-            echo "⚠️  Release APK not found. Using Debug APK."
+          
+          # Safely collect all existing APKs under debug and release directories
+          FILES_TO_UPLOAD=()
+          for f in app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk; do
+            if [ -f "$f" ]; then
+              FILES_TO_UPLOAD+=("$f")
+            fi
+          done
+
+          if [ ${#FILES_TO_UPLOAD[@]} -eq 0 ]; then
+            echo "❌ Error: Release failed. No APK files found in output directories."
+            exit 1
           fi
+
+          echo "🚀 Found APK files to upload: ${FILES_TO_UPLOAD[*]}"
+
           gh release create "$TAG_NAME" \
-            "$APK_PATH" \
+            "${FILES_TO_UPLOAD[@]}" \
             --title "$RELEASE_TITLE" \
             --notes "Automated release v1.1.${{ github.run_number }} (build: ${{ github.run_number }}). Commit: ${{ github.sha }}." \
             --target ${{ github.sha }}

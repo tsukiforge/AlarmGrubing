@@ -64,6 +64,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -1337,6 +1338,47 @@ fun GroupOnboardingScreen(
 }
 
 @Composable
+fun MemberAvatar(
+    member: com.example.data.model.MemberData,
+    fallbackText: String,
+    modifier: Modifier = Modifier,
+    fontSize: TextUnit = 12.sp
+) {
+    Box(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(Color(android.graphics.Color.parseColor(member.colorHex ?: "#FFB7B2"))),
+        contentAlignment = Alignment.Center
+    ) {
+        val pBitmap = remember(member.profileImageBase64) {
+            if (member.profileImageBase64 != null) {
+                try {
+                    val bytes = android.util.Base64.decode(member.profileImageBase64, android.util.Base64.DEFAULT)
+                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                } catch (e: Exception) {
+                    null
+                }
+            } else null
+        }
+        if (pBitmap != null) {
+            Image(
+                bitmap = pBitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Text(
+                text = fallbackText.take(2).uppercase(),
+                color = Color.White,
+                fontSize = fontSize,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
 fun GroupDashboardScreen(
     viewModel: AlarmViewModel,
     code: String,
@@ -1350,14 +1392,21 @@ fun GroupDashboardScreen(
 ) {
     val members by viewModel.groupMembers.collectAsState()
     val myUid by viewModel.userId.collectAsState()
+    val awakeStatuses by viewModel.awakeStatuses.collectAsState()
     var showMemberWakeDialog by remember { mutableStateOf(false) }
     var showExitChoiceDialog by remember { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
     var showChatDialog by remember { mutableStateOf(false) }
     var showCoupleSimulation by remember { mutableStateOf(false) }
+    var pendingAcceptRequest by remember { mutableStateOf<com.example.data.model.CouplePair?>(null) }
+    var pendingAcceptPartnerName by remember { mutableStateOf("") }
+
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
+            state = listState,
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(bottom = 80.dp)
@@ -1392,19 +1441,12 @@ fun GroupDashboardScreen(
         }
 
         item {
-            Spacer(modifier = Modifier.height(10.dp))
-            AwakeStatusControlCard(viewModel = viewModel, code = code)
-        }
-
-
-
-        item {
             Spacer(modifier = Modifier.height(16.dp))
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 6.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3EDF7)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -1460,47 +1502,14 @@ fun GroupDashboardScreen(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         members.take(14).forEach { member ->
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(28.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(android.graphics.Color.parseColor(member.colorHex ?: "#FFB7B2")))
-                                                    .border(1.5.dp, Color.White, CircleShape),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                if (member.profileImageBase64 != null) {
-                                                    val pBitmap = remember(member.profileImageBase64) {
-                                                        try {
-                                                            val bytes = android.util.Base64.decode(member.profileImageBase64, android.util.Base64.DEFAULT)
-                                                            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                                        } catch (e: Exception) {
-                                                            null
-                                                        }
-                                                    }
-                                                    if (pBitmap != null) {
-                                                        Image(
-                                                            bitmap = pBitmap.asImageBitmap(),
-                                                            contentDescription = null,
-                                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                    } else {
-                                                        Text(
-                                                            text = member.userId.take(1).uppercase(),
-                                                            color = Color.White,
-                                                            fontSize = 11.sp,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                } else {
-                                                    Text(
-                                                        text = member.userId.take(1).uppercase(),
-                                                        color = Color.White,
-                                                        fontSize = 11.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                }
-                                            }
+                                            val status = awakeStatuses.find { it.userId == member.userId }
+                                            val fallback = status?.nickname ?: member.userId
+                                            MemberAvatar(
+                                                member = member,
+                                                fallbackText = fallback,
+                                                modifier = Modifier.size(28.dp).border(1.5.dp, Color.White, CircleShape),
+                                                fontSize = 11.sp
+                                            )
                                         }
                                         if (members.size > 14) {
                                             Spacer(modifier = Modifier.width(10.dp))
@@ -1733,6 +1742,8 @@ fun GroupDashboardScreen(
             }
         }
 
+
+
         item {
             Spacer(modifier = Modifier.height(10.dp))
             val awakeStatuses by viewModel.awakeStatuses.collectAsState()
@@ -1754,7 +1765,7 @@ fun GroupDashboardScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF3EDF7)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -1774,12 +1785,12 @@ fun GroupDashboardScreen(
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF6750A4).copy(alpha = 0.15f))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
                                     .padding(horizontal = 6.dp, vertical = 2.dp)
                             ) {
                                 Text(
                                     text = "ROOM ${code}",
-                                    color = Color(0xFF6750A4),
+                                    color = MaterialTheme.colorScheme.primary,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -1807,9 +1818,9 @@ fun GroupDashboardScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = TextLight,
                             unfocusedTextColor = TextLight,
-                            focusedBorderColor = Color(0xFF6750A4),
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = Color.Gray.copy(alpha = 0.3f),
-                            focusedLabelColor = Color(0xFF6750A4),
+                            focusedLabelColor = MaterialTheme.colorScheme.primary,
                             unfocusedLabelColor = TextMuted
                         ),
                         singleLine = true,
@@ -1855,7 +1866,7 @@ fun GroupDashboardScreen(
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isMeAwake) Color.Gray else Color(0xFF2E7D32)
+                                containerColor = if (isMeAwake) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
                             ),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
@@ -2175,7 +2186,10 @@ fun GroupDashboardScreen(
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Button(
-                                        onClick = { viewModel.acceptPairRequest(req) {} },
+                                        onClick = {
+                                            pendingAcceptRequest = req
+                                            pendingAcceptPartnerName = req.partnerAName
+                                        },
                                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
                                         modifier = Modifier.weight(1f),
                                         shape = RoundedCornerShape(8.dp),
@@ -2259,8 +2273,11 @@ fun GroupDashboardScreen(
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            awakeStatuses.forEach { status ->
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.weight(1f, fill = false)
+                        ) {
+                            items(awakeStatuses, key = { it.userId }) { status ->
                                 val isMe = status.userId == myUid
                                 Row(
                                     modifier = Modifier
@@ -2339,7 +2356,8 @@ fun GroupDashboardScreen(
                                                         .clickable {
                                                             val req = pendingCoupleRequests.find { it.partnerB == myUid && it.partnerA == status.userId }
                                                             if (req != null) {
-                                                                viewModel.acceptPairRequest(req) {}
+                                                                pendingAcceptRequest = req
+                                                                pendingAcceptPartnerName = status.nickname
                                                             }
                                                         }
                                                         .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -2383,7 +2401,41 @@ fun GroupDashboardScreen(
                     }
                 }
             }
+
         }
+        item {
+            Spacer(modifier = Modifier.height(10.dp))
+            AwakeStatusControlCard(viewModel = viewModel, code = code)
+        }
+    }
+
+    if (pendingAcceptRequest != null) {
+        AlertDialog(
+            onDismissRequest = { pendingAcceptRequest = null },
+            title = { Text("Konfirmasi Pasangan Sekamar", fontWeight = FontWeight.Bold, color = TextLight) },
+            text = { Text("Apakah Anda yakin ingin berpasangan dengan $pendingAcceptPartnerName? Mode pasangan akan menyinkronkan alarm kamar secara real-time.", color = TextLight) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val reqToAccept = pendingAcceptRequest
+                        if (reqToAccept != null) {
+                            viewModel.acceptPairRequest(reqToAccept) {}
+                        }
+                        pendingAcceptRequest = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                ) {
+                    Text("Terima", color = Color.White)
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { pendingAcceptRequest = null }
+                ) {
+                    Text("Batal", color = TextMuted)
+                }
+            }
+        )
     }
 
     if (showExitChoiceDialog) {
@@ -2493,47 +2545,15 @@ fun GroupDashboardScreen(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
+                                        val status = awakeStatuses.find { it.userId == member.userId }
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(32.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(android.graphics.Color.parseColor(member.colorHex ?: "#FFB7B2"))),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                if (member.profileImageBase64 != null) {
-                                                    val pBitmap = remember(member.profileImageBase64) {
-                                                        try {
-                                                            val bytes = android.util.Base64.decode(member.profileImageBase64, android.util.Base64.DEFAULT)
-                                                            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-                                                        } catch (e: Exception) {
-                                                            null
-                                                        }
-                                                    }
-                                                    if (pBitmap != null) {
-                                                        Image(
-                                                            bitmap = pBitmap.asImageBitmap(),
-                                                            contentDescription = null,
-                                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                                            contentScale = ContentScale.Crop
-                                                        )
-                                                    } else {
-                                                        Text(
-                                                            text = member.userId.take(2).uppercase(),
-                                                            color = Color.White,
-                                                            fontSize = 12.sp,
-                                                            fontWeight = FontWeight.Bold
-                                                        )
-                                                    }
-                                                } else {
-                                                    Text(
-                                                        text = member.userId.take(2).uppercase(),
-                                                        color = Color.White,
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.Bold
-                                                    )
-                                                }
-                                            }
+                                            val fallback = status?.nickname ?: member.userId
+                                            MemberAvatar(
+                                                member = member,
+                                                fallbackText = fallback,
+                                                modifier = Modifier.size(32.dp),
+                                                fontSize = 12.sp
+                                            )
                                             Spacer(modifier = Modifier.width(10.dp))
                                             Column {
                                                 Text(
@@ -2550,42 +2570,48 @@ fun GroupDashboardScreen(
                                             }
                                         }
 
-                                        if (!isMe) {
+                                        if (!isMe && status?.isAwake != true) {
                                             var isWaking by remember { mutableStateOf(false) }
-                                            Button(
-                                                onClick = {
-                                                    isWaking = true
-                                                    viewModel.wakeUpMember(member.userId) { success ->
-                                                        isWaking = false
-                                                        if (success) {
-                                                            android.widget.Toast.makeText(
-                                                                context,
-                                                                "Berhasil mengirim alarm sinyal ke ${member.userId}!",
-                                                                android.widget.Toast.LENGTH_SHORT
-                                                            ).show()
-                                                        } else {
-                                                            android.widget.Toast.makeText(
-                                                                context,
-                                                                "Gagal mengirim sinyal bangun, periksa jaringan.",
-                                                                android.widget.Toast.LENGTH_SHORT
-                                                            ).show()
+                                            val (allowed, msg) = viewModel.checkWakeCooldown(member.userId)
+                                            Column(horizontalAlignment = Alignment.End) {
+                                                Button(
+                                                    onClick = {
+                                                        isWaking = true
+                                                        viewModel.wakeUpMember(member.userId) { success ->
+                                                            isWaking = false
+                                                            if (success) {
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    "Berhasil mengirim alarm sinyal ke ${member.userId}!",
+                                                                    android.widget.Toast.LENGTH_SHORT
+                                                                ).show()
+                                                            } else {
+                                                                android.widget.Toast.makeText(
+                                                                    context,
+                                                                    "Gagal, sedang cooldown atau masalah jaringan.",
+                                                                    android.widget.Toast.LENGTH_SHORT
+                                                                ).show()
+                                                            }
                                                         }
+                                                    },
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = if (allowed) IndigoPrimary else Color.Gray),
+                                                    shape = RoundedCornerShape(20.dp),
+                                                    modifier = Modifier.height(30.dp),
+                                                    enabled = !isWaking && allowed
+                                                ) {
+                                                    if (isWaking) {
+                                                        CircularProgressIndicator(
+                                                            color = Color.White,
+                                                            modifier = Modifier.size(14.dp),
+                                                            strokeWidth = 2.dp
+                                                        )
+                                                    } else {
+                                                        Text("Bangunkan 🔔", fontSize = 11.sp, color = Color.White)
                                                     }
-                                                },
-                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
-                                                colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary),
-                                                shape = RoundedCornerShape(20.dp),
-                                                modifier = Modifier.height(30.dp),
-                                                enabled = !isWaking
-                                            ) {
-                                                if (isWaking) {
-                                                    CircularProgressIndicator(
-                                                        color = Color.White,
-                                                        modifier = Modifier.size(14.dp),
-                                                        strokeWidth = 2.dp
-                                                    )
-                                                } else {
-                                                    Text("Bangunkan 🔔", fontSize = 11.sp, color = Color.White)
+                                                }
+                                                if (!allowed && msg.isNotEmpty()) {
+                                                    Text(text = msg, fontSize = 9.sp, color = TextMuted, modifier = Modifier.padding(top = 2.dp))
                                                 }
                                             }
                                         }
@@ -2642,7 +2668,20 @@ fun GroupDashboardScreen(
     }
 
     if (showChatDialog) {
-        GroupChatDialog(viewModel = viewModel, onDismiss = { showChatDialog = false })
+        GroupChatDialog(
+            viewModel = viewModel,
+            onDismiss = { showChatDialog = false },
+            onNavigateToCouple = {
+                showChatDialog = false
+                scope.launch {
+                    try {
+                        listState.animateScrollToItem(4)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -2654,16 +2693,7 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
 
     val myStatus = awakeStatuses.find { it.userId == myUid }
     val myIsAwake = myStatus?.isAwake ?: false
-
-    // Maintain a local mutable state for the custom anonymous nickname or pseudonym.
-    var customNickname by remember { mutableStateOf("") }
-    
-    // Initialize nickname
-    LaunchedEffect(myStatus, currentUserName) {
-        if (customNickname.isEmpty()) {
-            customNickname = myStatus?.nickname ?: currentUserName
-        }
-    }
+    val currentNickname = myStatus?.nickname ?: currentUserName
 
     Card(
         modifier = Modifier
@@ -2673,7 +2703,7 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
         shape = RoundedCornerShape(24.dp),
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             // Header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -2694,36 +2724,15 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
                 )
             }
             
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Input custom pseudonym/nickname - Modern & Compact Input
-            OutlinedTextField(
-                value = customNickname,
-                onValueChange = { customNickname = it },
-                placeholder = { Text("Nama Samaran / Nickname (Opsional anonim)", fontSize = 11.sp, color = TextMuted) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                textStyle = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp, color = TextLight),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = TextLight,
-                    unfocusedTextColor = TextLight,
-                    focusedBorderColor = IndigoPrimary,
-                    unfocusedBorderColor = TextMuted.copy(alpha = 0.3f),
-                    focusedLabelColor = IndigoPrimary,
-                    unfocusedLabelColor = TextMuted
-                )
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Modern Segmented Toggles
+            // Compact Segmented Toggles
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(Color.Black.copy(alpha = 0.15f))
-                    .padding(4.dp),
+                    .padding(3.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 val context = LocalContext.current
@@ -2732,17 +2741,17 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(if (myIsAwake) Color(0xFF2E7D32) else Color.Transparent)
                         .clickable {
-                            val finalNick = customNickname.ifBlank { "Anonim" }
+                            val finalNick = currentNickname.ifBlank { "Anonim" }
                             viewModel.updateMyAwakeStatus(isAwake = true, nickname = finalNick) { success ->
                                 if (success) {
                                     android.widget.Toast.makeText(context, "Status diperbarui: Sudah Bangun! ☀️", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
-                        .padding(vertical = 10.dp),
+                        .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -2764,17 +2773,17 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(if (!myIsAwake && myStatus != null) Color(0xFFBA1A1A) else Color.Transparent)
                         .clickable {
-                            val finalNick = customNickname.ifBlank { "Anonim" }
+                            val finalNick = currentNickname.ifBlank { "Anonim" }
                             viewModel.updateMyAwakeStatus(isAwake = false, nickname = finalNick) { success ->
                                 if (success) {
                                     android.widget.Toast.makeText(context, "Status diperbarui: Masih Tidur 💤", android.widget.Toast.LENGTH_SHORT).show()
                                 }
                             }
                         }
-                        .padding(vertical = 10.dp),
+                        .padding(vertical = 6.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -2796,12 +2805,12 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
             val otherStatuses = awakeStatuses.filter { it.userId != myUid }
             
             if (awakeStatuses.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(14.dp))
-                HorizontalDivider(color = TextMuted.copy(alpha = 0.12f))
                 Spacer(modifier = Modifier.height(10.dp))
+                HorizontalDivider(color = TextMuted.copy(alpha = 0.12f))
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -2837,7 +2846,7 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
                             AwakeMemberStatusRow(status = myStatus, isMe = true)
                         }
                     }
-                    items(otherStatuses) { status ->
+                    items(otherStatuses, key = { it.userId }) { status ->
                         AwakeMemberStatusRow(status = status, isMe = false)
                     }
                 }
@@ -2849,7 +2858,8 @@ fun AwakeStatusControlCard(viewModel: com.example.ui.AlarmViewModel, code: Strin
 @Composable
 fun GroupChatDialog(
     viewModel: com.example.ui.AlarmViewModel,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onNavigateToCouple: () -> Unit
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context as? android.app.Activity }
@@ -2928,6 +2938,51 @@ fun GroupChatDialog(
                 Spacer(modifier = Modifier.height(12.dp))
                 HorizontalDivider(color = TextMuted.copy(alpha = 0.15f))
                 Spacer(modifier = Modifier.height(10.dp))
+
+                // Prominent banner for Couple Sync Mode
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 10.dp)
+                        .clickable {
+                            onNavigateToCouple()
+                        },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF1F2)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("💕", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Hubungkan Pasangan (Couple Sync)",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF9F1239)
+                                )
+                                Text(
+                                    text = "Sinkronisasi bel alarm real-time berdua sekamar",
+                                    fontSize = 10.sp,
+                                    color = Color(0xFFBE123C)
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = "Atur",
+                            tint = Color(0xFF9F1239),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
 
                 // Chat Messages Container (Nested bounded scroll)
                 val scrollState = rememberScrollState()
@@ -3026,7 +3081,9 @@ fun GroupChatDialog(
                                             text = msg.messageText,
                                             color = textColor,
                                             fontSize = 12.sp,
-                                            lineHeight = 15.sp
+                                            lineHeight = 15.sp,
+                                            maxLines = 8,
+                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                         )
                                     }
                                 }
@@ -3044,8 +3101,21 @@ fun GroupChatDialog(
                 ) {
                     OutlinedTextField(
                         value = messageText,
-                        onValueChange = { messageText = it },
+                        onValueChange = { 
+                            if (it.length <= 150) {
+                                messageText = it 
+                            }
+                        },
                         placeholder = { Text("Ketik pesan...", fontSize = 12.sp) },
+                        supportingText = {
+                            Text(
+                                text = "${messageText.length}/150",
+                                fontSize = 10.sp,
+                                color = TextMuted,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        },
                         modifier = Modifier
                             .weight(1f)
                             .padding(end = 6.dp),
@@ -4242,24 +4312,27 @@ fun AddAlarmDialog(
                     var toneMenuExpanded by remember { mutableStateOf(false) }
 
                     val musicPickerLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.GetContent()
-                    ) { uri: Uri? ->
-                        if (uri != null) {
-                            try {
-                                val timeMillis = System.currentTimeMillis()
-                                val destDir = File(context.filesDir, "custom_sounds")
-                                if (!destDir.exists()) destDir.mkdirs()
-                                val localFileName = "custom_music_${timeMillis}.mp3"
-                                context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                                    File(destDir, localFileName).outputStream().use { outputStream ->
-                                        inputStream.copyTo(outputStream)
+                        contract = ActivityResultContracts.StartActivityForResult()
+                    ) { result ->
+                        if (result.resultCode == android.app.Activity.RESULT_OK) {
+                            val uri = result.data?.data
+                            if (uri != null) {
+                                try {
+                                    val timeMillis = System.currentTimeMillis()
+                                    val destDir = File(context.filesDir, "custom_sounds")
+                                    if (!destDir.exists()) destDir.mkdirs()
+                                    val localFileName = "custom_music_${timeMillis}.mp3"
+                                    context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                                        File(destDir, localFileName).outputStream().use { outputStream ->
+                                            inputStream.copyTo(outputStream)
+                                        }
                                     }
+                                    selectedTone = "local_file:$localFileName"
+                                    android.widget.Toast.makeText(context, "Berhasil mengimpor musik HP! 📁", android.widget.Toast.LENGTH_SHORT).show()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                    android.widget.Toast.makeText(context, "Gagal mengimpor file musik", android.widget.Toast.LENGTH_SHORT).show()
                                 }
-                                selectedTone = "local_file:$localFileName"
-                                android.widget.Toast.makeText(context, "Berhasil mengimpor musik HP! 📁", android.widget.Toast.LENGTH_SHORT).show()
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                                android.widget.Toast.makeText(context, "Gagal mengimpor file musik", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     }
@@ -4366,7 +4439,18 @@ fun AddAlarmDialog(
                                 },
                                 onClick = {
                                     toneMenuExpanded = false
-                                    musicPickerLauncher.launch("audio/*")
+                                    android.widget.Toast.makeText(context, "Pilih Nada Custom via Dokumen", android.widget.Toast.LENGTH_SHORT).show()
+                                    val intent = if (android.os.Build.VERSION.SDK_INT >= 19) {
+                                         android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).apply {
+                                             addCategory(android.content.Intent.CATEGORY_OPENABLE)
+                                             type = "audio/*"
+                                         }
+                                    } else {
+                                         android.content.Intent(android.content.Intent.ACTION_GET_CONTENT).apply {
+                                             type = "audio/*"
+                                         }
+                                    }
+                                    musicPickerLauncher.launch(intent)
                                 }
                             )
                         }
@@ -5099,6 +5183,67 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+
+            var forceFullVolume by remember { mutableStateOf(prefs.getBoolean("force_full_volume", false)) }
+            var autoSpeakerHeadset by remember { mutableStateOf(prefs.getBoolean("auto_speaker_headset", false)) }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "⚙️ Pengaturan Alarm",
+                        color = IndigoPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Paksa Volume Alarm Full", color = TextLight, fontSize = 13.sp)
+                        Switch(
+                            checked = forceFullVolume,
+                            onCheckedChange = {
+                                forceFullVolume = it
+                                prefs.edit().putBoolean("force_full_volume", it).apply()
+                            }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Auto Pindah Speaker saat Headset", color = TextLight, fontSize = 13.sp)
+                            Text(
+                                text = "Alarm akan berbunyi dari speaker meskipun headset terpasang",
+                                color = TextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = autoSpeakerHeadset,
+                            onCheckedChange = {
+                                autoSpeakerHeadset = it
+                                prefs.edit().putBoolean("auto_speaker_headset", it).apply()
+                            }
+                        )
                     }
                 }
             }
