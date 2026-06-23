@@ -479,10 +479,19 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun leaveGroup() {
-        stopPolling()
         val code = _joinedGroupCode.value
+        val uid = _userId.value
+        stopPolling()
         viewModelScope.launch {
             if (code != null) {
+                // Delete cloud member data immediately
+                try {
+                    val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_${code}/$uid")
+                    NetworkClient.api.deleteValue(url)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+
                 // Cancel active alarms in this group
                 val localAlarms = repository.getGroupAlarms(code).first()
                 localAlarms.forEach {
@@ -699,7 +708,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                                 if (membersMap != null) {
                                     val now = System.currentTimeMillis()
                                     val activeMembersList = membersMap.values.filter {
-                                        (now - (it.lastActive ?: 0L)) < 1_800_000L // 30 minutes timeout
+                                        (now - (it.lastActive ?: 0L)) < 45_000L // 45 seconds timeout (very rapid)
                                     }
                                     _groupMembers.value = activeMembersList
                                 }
@@ -785,7 +794,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                     e.printStackTrace()
                     _syncState.value = SyncStatus.Error("Koneksi ke backend terputus")
                 }
-                delay(5000) // Poll every 5 seconds
+                delay(2500) // Poll every 2.5 seconds (high responsiveness)
             }
         }
     }
@@ -1572,6 +1581,101 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    fun exportBackup(context: android.content.Context, destUri: android.net.Uri, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val alarms = repository.getAllAlarms().first()
+                
+                val prefs = context.getSharedPreferences("alarm_grup_prefs", android.content.Context.MODE_PRIVATE)
+                val allPrefs = prefs.all
+
+                val stringPrefs = mutableMapOf<String, String>()
+                val booleanPrefs = mutableMapOf<String, Boolean>()
+                val intPrefs = mutableMapOf<String, Int>()
+
+                for ((key, value) in allPrefs) {
+                    when (value) {
+                        is String -> stringPrefs[key] = value
+                        is Boolean -> booleanPrefs[key] = value
+                        is Int -> intPrefs[key] = value
+                    }
+                }
+
+                val notesPrefs = context.getSharedPreferences("notes_prefs", android.content.Context.MODE_PRIVATE)
+                    .getString("all_notes", null)
+
+                val backupData = com.example.data.model.BackupData(
+                    alarms = alarms,
+                    stringPrefs = stringPrefs,
+                    booleanPrefs = booleanPrefs,
+                    intPrefs = intPrefs,
+                    notesPrefs = notesPrefs
+                )
+
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val adapter = moshiObj.adapter(com.example.data.model.BackupData::class.java)
+                val json = adapter.toJson(backupData)
+
+                context.contentResolver.openOutputStream(destUri)?.use { out ->
+                    out.write(json.toByteArray())
+                }
+
+                launch(kotlinx.coroutines.Dispatchers.Main) { onResult(true, "Backup berhasil disimpan!") }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                launch(kotlinx.coroutines.Dispatchers.Main) { onResult(false, e.message ?: "Gagal membuat backup") }
+            }
+        }
+    }
+
+    fun importBackup(context: android.content.Context, srcUri: android.net.Uri, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val json = context.contentResolver.openInputStream(srcUri)?.use { input ->
+                    input.bufferedReader().use { it.readText() }
+                } ?: throw Exception("File gagal dibaca")
+
+                val moshiObj = com.squareup.moshi.Moshi.Builder()
+                    .addLast(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val adapter = moshiObj.adapter(com.example.data.model.BackupData::class.java)
+                val backupData = adapter.fromJson(json) ?: throw Exception("Data tidak valid")
+
+                // Restore Alarms
+                for (a in backupData.alarms) {
+                    repository.insertAlarm(a)
+                }
+
+                // Restore main prefs
+                val prefs = context.getSharedPreferences("alarm_grup_prefs", android.content.Context.MODE_PRIVATE).edit()
+                for ((k, v) in backupData.stringPrefs) prefs.putString(k, v)
+                for ((k, v) in backupData.booleanPrefs) prefs.putBoolean(k, v)
+                for ((k, v) in backupData.intPrefs) prefs.putInt(k, v)
+                prefs.apply()
+
+                // Restore notes
+                if (backupData.notesPrefs != null) {
+                    context.getSharedPreferences("notes_prefs", android.content.Context.MODE_PRIVATE)
+                        .edit().putString("all_notes", backupData.notesPrefs).apply()
+                }
+
+                // Reload states
+                _userName.value = backupData.stringPrefs["user_name"] ?: _userName.value
+                val isGrp = backupData.booleanPrefs["is_offline_group"] ?: false
+                _isOfflineGroup.value = isGrp
+                _joinedGroupCode.value = backupData.stringPrefs["joined_group_code"]
+                _joinedGroupName.value = backupData.stringPrefs["joined_group_name"] ?: ""
+                
+                launch(kotlinx.coroutines.Dispatchers.Main) { onResult(true, "Restore berhasil! Beberapa perubahan mungkin perlu restart aplikasi.") }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                launch(kotlinx.coroutines.Dispatchers.Main) { onResult(false, e.message ?: "Gagal memulihkan backup") }
+            }
         }
     }
 

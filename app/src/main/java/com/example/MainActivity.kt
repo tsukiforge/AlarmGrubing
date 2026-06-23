@@ -1547,7 +1547,7 @@ fun GroupDashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Keluar Grup",
-                                tint = Color(0xFFBA1A1A)
+                                tint = Color(0xFFFF5252) // Bright red for better visibility
                             )
                         }
                     }
@@ -2257,17 +2257,9 @@ fun GroupDashboardScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    Text(
-                        text = "Matrix Status Bangun Anggota Room (${awakeStatuses.size} Orang):",
-                        color = TextLight,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
                     if (awakeStatuses.isEmpty()) {
                         Text(
-                            text = "Belum ada status bangun. Jadilah yang pertama bangun hari ini! ☀️",
+                            text = "Belum ada yang bangun hari ini! ☀️",
                             color = TextMuted,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(vertical = 8.dp)
@@ -3598,23 +3590,16 @@ fun EmptyStatePlaceholder(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_cat_sleeping),
-            contentDescription = "Mascot",
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
             modifier = Modifier
-                .size(110.dp)
-                .clip(RoundedCornerShape(20.dp))
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f))
-                .padding(2.dp),
-            contentScale = ContentScale.Fit
+                .size(64.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.25f), CircleShape)
+                .padding(12.dp),
+            tint = IndigoPrimary.copy(alpha = 0.85f)
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "(=ↀωↀ=) Purr... Zzz",
-            fontSize = 24.sp,
-            color = IndigoPrimary.copy(alpha = 0.85f),
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = title,
             color = TextLight,
@@ -4968,6 +4953,26 @@ fun SettingsScreen(
         )
     }
 
+    val createDocLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportBackup(context, uri) { success, msg ->
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    val openDocLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importBackup(context, uri) { success, msg ->
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
     val profileImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -5356,6 +5361,53 @@ fun SettingsScreen(
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold
                         )
+                    }
+                }
+            }
+
+            // Backup and Restore Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "💾 BACKUP & RESTORE",
+                        color = IndigoPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "Amankan alarm, catatan, dan pengaturan ke perangkat as file JSON, atau pulihkan jika berganti HP. Aman dan tidak memerlukan cloud. 🌸",
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { openDocLauncher.launch(arrayOf("application/json", "*/*")) },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)
+                        ) {
+                            Text("Restorasi", color = TextLight, fontSize = 11.sp)
+                        }
+                        Button(
+                            onClick = {
+                                val df = java.text.SimpleDateFormat("yyyyMMdd_HHmm", java.util.Locale.getDefault())
+                                createDocLauncher.launch("Sakura_Backup_${df.format(java.util.Date())}.json")
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
+                        ) {
+                            Text("Backup Data", color = Color.White, fontSize = 11.sp)
+                        }
                     }
                 }
             }
