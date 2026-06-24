@@ -1406,6 +1406,7 @@ fun GroupDashboardScreen(
 
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -1492,19 +1493,129 @@ fun GroupDashboardScreen(
                             }
                         }
 
-                        IconButton(
-                            onClick = {
-                                if (isCreator && !isOfflineGroup) {
-                                    showExitChoiceDialog = true
-                                } else {
-                                    viewModel.leaveGroup()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (!isOfflineGroup) {
+                                var isSyncingByHand by remember { mutableStateOf(false) }
+                                IconButton(
+                                    onClick = {
+                                        isSyncingByHand = true
+                                        viewModel.forceSyncGroupAndCouple()
+                                        android.widget.Toast.makeText(context, "Menyinkronkan data grup & anggota...", android.widget.Toast.LENGTH_SHORT).show()
+                                        scope.launch {
+                                            kotlinx.coroutines.delay(1000)
+                                            isSyncingByHand = false
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Sync,
+                                        contentDescription = "Sinkronkan Instan",
+                                        tint = CyanAccent
+                                    )
                                 }
                             }
+                            IconButton(
+                                onClick = {
+                                    if (isCreator && !isOfflineGroup) {
+                                        showExitChoiceDialog = true
+                                    } else {
+                                        viewModel.leaveGroup()
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Keluar Grup",
+                                    tint = Color(0xFFFF5252) // Bright red for better visibility
+                                )
+                            }
+                        }
+                    }
+
+                    if (members.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(IndigoPrimary.copy(alpha = 0.1f))
+                                .clickable { showMemberWakeDialog = true }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy((-6).dp)
+                            ) {
+                                members.take(10).forEach { member ->
+                                    val status = awakeStatuses.find { it.userId == member.userId }
+                                    val fallback = status?.nickname ?: member.userId
+                                    MemberAvatar(
+                                        member = member,
+                                        fallbackText = fallback,
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .border(1.5.dp, MaterialTheme.colorScheme.surfaceVariant, CircleShape),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                if (members.size > 10) {
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Text(
+                                        text = "+${members.size - 10}",
+                                        color = CyanAccent,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                }
+                                Text(
+                                    text = "${members.size} Anggota Kamar",
+                                    color = TextLight,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Bangunkan 🔔",
+                                    color = CyanAccent,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = "Detail Anggota",
+                                    tint = CyanAccent,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        // Display a beautiful helper text for inviting other members
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(SurfaceDark.copy(alpha = 0.3f))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Keluar Grup",
-                                tint = Color(0xFFFF5252) // Bright red for better visibility
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Info",
+                                tint = CyanAccent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Menunggu anggota lain bergabung dengan kode: $code...",
+                                color = TextMuted,
+                                fontSize = 11.sp
                             )
                         }
                     }
