@@ -603,6 +603,20 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         return repository.pushGroupAlarmsToCloud(code, _joinedGroupName.value, localList)
     }
 
+    fun forceSyncGroupAndCouple() {
+        val code = _joinedGroupCode.value ?: return
+        if (_isOfflineGroup.value) return
+        viewModelScope.launch {
+            try {
+                repository.syncGroupAlarmsLocal(code, context)
+                syncAwakeStatusesInternal(code)
+                syncCouplePairsInternal(code)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     // --- Polling Realtime Background ---
 
     fun uploadMyMemberProfile() {
@@ -706,11 +720,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                                 val mapAdapter: com.squareup.moshi.JsonAdapter<Map<String, com.example.data.model.MemberData>> = moshiObj.adapter(type)
                                 val membersMap = mapAdapter.fromJson(rBodyString)
                                 if (membersMap != null) {
-                                    val now = System.currentTimeMillis()
-                                    val activeMembersList = membersMap.values.filter {
-                                        (now - (it.lastActive ?: 0L)) < 45_000L // 45 seconds timeout (very rapid)
-                                    }
-                                    _groupMembers.value = activeMembersList
+                                    _groupMembers.value = membersMap.values.toList()
                                 }
                             }
                         }
@@ -1578,6 +1588,11 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                     sharedPrefs.edit().remove("active_couple_json").apply()
                     com.example.widget.CoupleWidgetProvider.triggerUpdate(context)
                 }
+            } else {
+                _activeCouplePair.value = null
+                _pendingCoupleRequests.value = emptyList()
+                sharedPrefs.edit().remove("active_couple_json").apply()
+                com.example.widget.CoupleWidgetProvider.triggerUpdate(context)
             }
         } catch (e: Exception) {
             e.printStackTrace()

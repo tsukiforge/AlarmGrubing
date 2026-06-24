@@ -74,12 +74,6 @@ class AlarmRepository(private val alarmDao: AlarmDao) {
             // Fetch current local group alarms to cancel deleted ones
             val localAlarms = alarmDao.getGroupAlarms(code).first()
             val incomingIds = cloudGroup.alarms.map { it.id }.toSet()
-            
-            localAlarms.forEach { localAlarm ->
-                if (!incomingIds.contains(localAlarm.id)) {
-                    AlarmScheduler.cancel(context, localAlarm)
-                }
-            }
 
             val alarms = cloudGroup.alarms.map { cloudAlarm ->
                 Alarm(
@@ -95,9 +89,34 @@ class AlarmRepository(private val alarmDao: AlarmDao) {
                     creatorName = cloudAlarm.creatorName
                 )
             }
-            // Overwrite locally
-            alarmDao.deleteGroupAlarms(code)
-            alarmDao.insertAlarms(alarms)
+
+            // Optimize check: compare sorted lists by id to skip write & UI flash entirely
+            val localSorted = localAlarms.sortedBy { it.id }
+            val incomingSorted = alarms.sortedBy { it.id }
+            val isIdentical = localSorted.size == incomingSorted.size && localSorted.zip(incomingSorted).all { (local, incoming) ->
+                local.id == incoming.id &&
+                local.title == incoming.title &&
+                local.hour == incoming.hour &&
+                local.minute == incoming.minute &&
+                local.isEnabled == incoming.isEnabled &&
+                local.daysOfWeek == incoming.daysOfWeek &&
+                local.ringtoneUri == incoming.ringtoneUri &&
+                local.creatorName == incoming.creatorName
+            }
+
+            if (isIdentical) {
+                return cloudGroup
+            }
+
+            // Cancel deleted alarms
+            localAlarms.forEach { localAlarm ->
+                if (!incomingIds.contains(localAlarm.id)) {
+                    AlarmScheduler.cancel(context, localAlarm)
+                }
+            }
+
+            // Overwrite locally using transaction to prevent temporary empty-state emission
+            alarmDao.updateGroupAlarms(code, alarms)
 
             // Reschedule active ones
             alarms.forEach { alarm ->

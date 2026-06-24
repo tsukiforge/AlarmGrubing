@@ -38,4 +38,18 @@ interface AlarmDao {
 
     @Query("DELETE FROM alarms WHERE isGroup = 1 AND groupCode = :groupCode")
     suspend fun deleteGroupAlarms(groupCode: String)
+
+    @Query("SELECT * FROM alarms WHERE isGroup = 1 AND groupCode = :groupCode")
+    suspend fun getGroupAlarmsSync(groupCode: String): List<Alarm>
+
+    @Transaction
+    suspend fun updateGroupAlarms(groupCode: String, alarms: List<com.example.data.model.Alarm>) {
+        val currentAlarms = getGroupAlarmsSync(groupCode)
+        val incomingIds = alarms.map { it.id }.toSet()
+        
+        val toDelete = currentAlarms.filter { !incomingIds.contains(it.id) }
+        toDelete.forEach { deleteAlarm(it) }
+        
+        insertAlarms(alarms)
+    }
 }

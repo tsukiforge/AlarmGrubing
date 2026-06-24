@@ -650,9 +650,9 @@ fun MainScreenContent(
                     horizontalArrangement = Arrangement.End
                 ) {
                     val catMascotRes = when {
-                        !isConnected -> R.drawable.ic_cat_sleeping
-                        activeTab == 0 -> R.drawable.ic_cat_yawn
-                        else -> R.drawable.ic_cat_happy
+                        !isConnected -> R.drawable.img_cat_sleeping_1782296435114
+                        activeTab == 0 -> R.drawable.img_cat_yawn_1782296451744
+                        else -> R.drawable.img_cat_happy_1782296418426
                     }
                     Image(
                         painter = painterResource(id = catMascotRes),
@@ -829,7 +829,10 @@ fun MainScreenContent(
             TabButton(
                 title = "👥 Grup",
                 isActive = activeTab == 1,
-                onClick = { activeTab = 1 },
+                onClick = { 
+                    activeTab = 1 
+                    viewModel.forceSyncGroupAndCouple()
+                },
                 modifier = Modifier.weight(1f)
             )
             TabButton(
@@ -1486,52 +1489,6 @@ fun GroupDashboardScreen(
                                     color = TextMuted,
                                     fontSize = 11.sp
                                 )
-                            }
-                            if (members.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { showMemberWakeDialog = true }
-                                        .padding(vertical = 4.dp),
-                                    horizontalArrangement = Arrangement.Start,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy((-8).dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        members.take(14).forEach { member ->
-                                            val status = awakeStatuses.find { it.userId == member.userId }
-                                            val fallback = status?.nickname ?: member.userId
-                                            MemberAvatar(
-                                                member = member,
-                                                fallbackText = fallback,
-                                                modifier = Modifier.size(28.dp).border(1.5.dp, Color.White, CircleShape),
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                        if (members.size > 14) {
-                                            Spacer(modifier = Modifier.width(10.dp))
-                                            Text(
-                                                text = "+${members.size - 14}",
-                                                color = TextMuted,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = "Bangunkan 🔔",
-                                        color = Color(0xFF6750A4),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .background(Color(0xFF6750A4).copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                }
                             }
                         }
 
