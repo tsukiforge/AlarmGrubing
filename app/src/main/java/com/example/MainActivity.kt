@@ -1395,6 +1395,7 @@ fun GroupDashboardScreen(
 ) {
     val members by viewModel.groupMembers.collectAsState()
     val myUid by viewModel.userId.collectAsState()
+    val myName by viewModel.userName.collectAsState()
     val awakeStatuses by viewModel.awakeStatuses.collectAsState()
     var showMemberWakeDialog by remember { mutableStateOf(false) }
     var showExitChoiceDialog by remember { mutableStateOf(false) }
@@ -2325,134 +2326,135 @@ fun GroupDashboardScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
-                    if (awakeStatuses.isEmpty()) {
+                    val displayMembers = if (isOfflineGroup && members.isEmpty()) {
+                        listOf(
+                            com.example.data.model.MemberData(userId = myUid, colorHex = "#FFFFFF", lastActive = System.currentTimeMillis(), profileImageBase64 = null),
+                            com.example.data.model.MemberData(userId = "offline_partner", colorHex = "#FFDAC1", lastActive = System.currentTimeMillis(), profileImageBase64 = null)
+                        )
+                    } else {
+                        members
+                    }
+                    val displayStatuses = if (isOfflineGroup && awakeStatuses.isEmpty()) {
+                        listOf(
+                            com.example.data.model.AwakeStatus(userId = myUid, isAwake = false, timestamp = System.currentTimeMillis(), nickname = myName),
+                            com.example.data.model.AwakeStatus(userId = "offline_partner", isAwake = false, timestamp = System.currentTimeMillis(), nickname = "Pasangan Offline")
+                        )
+                    } else {
+                        awakeStatuses
+                    }
+
+                    if (displayMembers.isEmpty()) {
                         Text(
-                            text = "Belum ada yang bangun hari ini! ☀️",
+                            text = "Belum ada anggota di grup ini.",
                             color = TextMuted,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     } else {
-                        LazyColumn(
+                        Column(
                             verticalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            items(awakeStatuses, key = { it.userId }) { status ->
-                                val isMe = status.userId == myUid
-                                Row(
+                            displayMembers.forEach { member ->
+                                val status = displayStatuses.find { it.userId == member.userId }
+                                val isAwake = status?.isAwake == true
+                                val nickname = status?.nickname ?: "Anggota"
+                                val isMe = member.userId == myUid
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .background(
                                             if (isMe) Color.White.copy(alpha = 0.4f) else Color.Transparent,
                                             RoundedCornerShape(8.dp)
                                         )
-                                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
+                                        .padding(horizontal = 8.dp, vertical = 6.dp)
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f, fill = false)) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(8.dp)
-                                                .clip(CircleShape)
-                                                .background(if (status.isAwake) Color(0xFF2E7D32) else Color(0xFFC62828))
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Column {
-                                            Text(
-                                                text = "${status.nickname}${if (isMe) " (Anda)" else ""}",
-                                                color = TextLight,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 13.sp
-                                            )
-                                            val timeDiff = System.currentTimeMillis() - status.timestamp
-                                            val minutes = timeDiff / 1000 / 60
-                                            val timeStr = when {
-                                                minutes < 1 -> "Baru saja aktif"
-                                                minutes < 60 -> "$minutes menit lalu"
-                                                else -> "${minutes / 60} jam lalu"
-                                            }
-                                            Text(
-                                                text = "Terakhir aktif: $timeStr",
-                                                color = TextMuted,
-                                                fontSize = 10.sp
-                                            )
-                                        }
-                                    }
-
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        modifier = Modifier.fillMaxWidth()
                                     ) {
-                                        val hasActiveC = activeCouple != null
-                                        val reqSent = pendingCoupleRequests.any { it.partnerA == myUid && it.partnerB == status.userId }
-                                        val reqRecv = pendingCoupleRequests.any { it.partnerB == myUid && it.partnerA == status.userId }
-                                        val isMyP = activeCouple != null && (activeCouple!!.partnerA == status.userId || activeCouple!!.partnerB == status.userId)
+                                        Text(
+                                            text = "${nickname}${if (isMe) " (Anda)" else ""}",
+                                            color = TextLight,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
 
                                         if (!isMe) {
-                                            if (isMyP) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(Color(0xFFFFF1F2))
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text("💕 Pasangan", color = Color(0xFFE11D48), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                                }
-                                            } else if (reqSent) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(Color(0xFFF1F5F9))
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text("💕 Dipinta", color = Color(0xFF475569), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                                }
-                                            } else if (reqRecv) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(Color(0xFFFEF9C3))
-                                                        .clickable {
-                                                            val req = pendingCoupleRequests.find { it.partnerB == myUid && it.partnerA == status.userId }
-                                                            if (req != null) {
-                                                                pendingAcceptRequest = req
-                                                                pendingAcceptPartnerName = status.nickname
+                                            Row(
+                                                horizontalArrangement = Arrangement.End,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val hasActiveC = activeCouple != null
+                                                val reqSent = pendingCoupleRequests.any { it.partnerA == myUid && it.partnerB == member.userId }
+                                                val reqRecv = pendingCoupleRequests.any { it.partnerB == myUid && it.partnerA == member.userId }
+                                                val isMyP = activeCouple != null && (activeCouple!!.partnerA == member.userId || activeCouple!!.partnerB == member.userId)
+
+                                                if (isCreator) {
+                                                    // Kick button for owner
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color(0xFFFFEBEE))
+                                                            .clickable {
+                                                                viewModel.kickMember(member.userId) {}
                                                             }
-                                                        }
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text("💕 Terima?", color = Color(0xFF854D0E), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                    ) {
+                                                        Text("Out ❌", color = Color(0xFFC62828), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                    Spacer(modifier = Modifier.width(8.dp))
                                                 }
-                                            } else if (!hasActiveC) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(6.dp))
-                                                        .background(Color(0xFFECEFF1))
-                                                        .clickable {
-                                                            viewModel.sendPairRequest(status.userId, status.nickname) {}
-                                                        }
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text("💕 Pair", color = Color(0xFF607D8B), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                
+                                                if (isMyP) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color(0xFFFFF1F2))
+                                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                    ) {
+                                                        Text("💕 Pasangan", color = Color(0xFFE11D48), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                } else if (reqSent) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color(0xFFF1F5F9))
+                                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                    ) {
+                                                        Text("💕 Dipinta", color = Color(0xFF475569), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                } else if (reqRecv) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color(0xFFFEF9C3))
+                                                            .clickable {
+                                                                val req = pendingCoupleRequests.find { it.partnerB == myUid && it.partnerA == member.userId }
+                                                                if (req != null) {
+                                                                    pendingAcceptRequest = req
+                                                                    pendingAcceptPartnerName = nickname
+                                                                }
+                                                            }
+                                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                    ) {
+                                                        Text("💕 Terima?", color = Color(0xFF854D0E), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
+                                                } else if (!hasActiveC && isAwake) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(Color(0xFFECEFF1))
+                                                            .clickable {
+                                                                viewModel.sendPairRequest(member.userId, nickname) {}
+                                                            }
+                                                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                                                    ) {
+                                                        Text("💕 Pair", color = Color(0xFF607D8B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                    }
                                                 }
                                             }
-                                        }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(
-                                                    if (status.isAwake) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
-                                                )
-                                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = if (status.isAwake) "SUDAH BANGUN ☀️" else "BELUM BANGUN 💤",
-                                                color = if (status.isAwake) Color(0xFF2E7D32) else Color(0xFFC62828),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
                                         }
                                     }
                                 }
@@ -2630,7 +2632,7 @@ fun GroupDashboardScreen(
                                             }
                                         }
 
-                                        if (!isMe && status?.isAwake != true) {
+                                        if (!isMe) {
                                             var isWaking by remember { mutableStateOf(false) }
                                             val (allowed, msg) = viewModel.checkWakeCooldown(member.userId)
                                             Column(horizontalAlignment = Alignment.End) {

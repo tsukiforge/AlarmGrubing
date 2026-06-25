@@ -16,6 +16,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import java.io.File
 import java.util.UUID
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -350,6 +352,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 _isOfflineGroup.value = false
                 _syncState.value = SyncStatus.Success("Grup dibuat: $code")
 
+                uploadMyMemberProfileInternal(code)
                 startPolling(code)
                 onResult(true, code)
             } else {
@@ -399,6 +402,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 repository.syncGroupAlarmsLocal(code, context)
 
                 _syncState.value = SyncStatus.Success("Berhasil bergabung dengan grup ${cloudGroup.name}")
+                uploadMyMemberProfileInternal(code)
                 startPolling(code)
                 onResult(true, null)
             } else {
@@ -469,11 +473,37 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 repository.syncGroupAlarmsLocal(code, context)
 
                 _syncState.value = SyncStatus.Success("Berhasil bergabung dengan grup ${cloudGroup.name}")
+                uploadMyMemberProfileInternal(code)
                 startPolling(code)
                 onResult(true, null)
             } else {
                 _syncState.value = SyncStatus.Error("Kamar alarm tidak aktif atau tidak ditemukan di server cloud")
                 onResult(false, "Kamar alarm tidak aktif atau tidak ditemukan di server cloud")
+            }
+        }
+    }
+
+    fun kickMember(targetUid: String, onComplete: () -> Unit = {}) {
+        val code = _joinedGroupCode.value ?: return
+        if (!_isCreator.value) return // Only creator can kick
+        
+        viewModelScope.launch {
+            try {
+                // Delete cloud member data
+                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_${code}/$targetUid")
+                NetworkClient.api.deleteValue(url)
+                
+                // Delete awake status
+                val awakeUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "awake_statuses_${code}/$targetUid")
+                NetworkClient.api.deleteValue(awakeUrl)
+                
+                // Delete wake triggers
+                val triggerUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_triggers_${code}/$targetUid")
+                NetworkClient.api.deleteValue(triggerUrl)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                onComplete()
             }
         }
     }
@@ -488,6 +518,12 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_${code}/$uid")
                     NetworkClient.api.deleteValue(url)
+                    
+                    val awakeUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "awake_statuses_${code}/$uid")
+                    NetworkClient.api.deleteValue(awakeUrl)
+                    
+                    val triggerUrl = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "wake_triggers_${code}/$uid")
+                    NetworkClient.api.deleteValue(triggerUrl)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -622,11 +658,16 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     fun uploadMyMemberProfile() {
         val code = _joinedGroupCode.value ?: return
         if (_isOfflineGroup.value) return
-        val uid = _userId.value
         viewModelScope.launch {
-            try {
-                // Read profile image if any
-                val file = File(context.filesDir, "profile_pic.png")
+            uploadMyMemberProfileInternal(code)
+        }
+    }
+
+    suspend fun uploadMyMemberProfileInternal(code: String) {
+        val uid = _userId.value
+        try {
+            // Read profile image if any
+            val file = File(context.filesDir, "profile_pic.png")
                 val hasCustom = sharedPrefs.getBoolean("has_custom_profile_pic", false) && file.exists()
                 var base64: String? = null
                 if (hasCustom) {
@@ -666,11 +707,10 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 val json = mAdapter.toJson(memberData)
                 val requestBody = json.toRequestBody("application/json".toMediaTypeOrNull())
                 
-                val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_${code}/$uid")
-                NetworkClient.api.putValue(url, requestBody)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_${code}/$uid")
+            NetworkClient.api.putValue(url, requestBody)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -678,16 +718,10 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         if (_isOfflineGroup.value) return
         pollJob?.cancel()
         pollJob = viewModelScope.launch {
-            // Check-in initially
-            uploadMyMemberProfile()
-            
             while (true) {
                 try {
                     repository.syncGroupAlarmsLocal(code, context)
                     
-                    // Also maintain check-in and active status
-                    uploadMyMemberProfile()
-
                     // Sync awake statuses
                     try {
                         syncAwakeStatusesInternal(code)
@@ -721,8 +755,22 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                                 val membersMap = mapAdapter.fromJson(rBodyString)
                                 if (membersMap != null) {
                                     _groupMembers.value = membersMap.values.toList()
+                                    if (!_isCreator.value && !membersMap.containsKey(_userId.value)) {
+                                        withContext(Dispatchers.Main) { leaveGroup() }
+                                        return@launch
+                                    } else {
+                                        uploadMyMemberProfileInternal(code)
+                                    }
+                                }
+                            } else {
+                                if (!_isCreator.value) {
+                                    withContext(Dispatchers.Main) { leaveGroup() }
+                                    return@launch
                                 }
                             }
+                        } else if (response.code() == 404 && !_isCreator.value) {
+                            withContext(Dispatchers.Main) { leaveGroup() }
+                            return@launch
                         }
                     } catch (e2: Exception) {
                         e2.printStackTrace()
@@ -938,7 +986,23 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun checkWakeCooldown(targetUserId: String): Pair<Boolean, String> {
-        val cdKey = "${_userId.value}_${targetUserId}"
+        val uid = _userId.value
+        val todayStart = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+        }.timeInMillis
+        
+        // Cek limit global per hari (maksimal 2x bangunin siapapun)
+        val totalSentToday = _wakeCooldowns.value.entries
+            .filter { it.key.startsWith("${uid}_") && it.value.lastSentAt > todayStart }
+            .sumOf { it.value.count }
+            
+        if (totalSentToday >= 2) {
+            return Pair(false, "Sudah maksimal membangunkan orang hari ini (2x)")
+        }
+
+        val cdKey = "${uid}_${targetUserId}"
         val cd = _wakeCooldowns.value[cdKey]
         if (cd != null) {
             val now = System.currentTimeMillis()
@@ -946,14 +1010,6 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 val remMins = (cd.cooldownUntil - now) / 60000
                 val remSecs = ((cd.cooldownUntil - now) % 60000) / 1000
                 return Pair(false, String.format("Bisa bangunkan lagi dalam %d:%02d", remMins, remSecs))
-            }
-            val todayStart = java.util.Calendar.getInstance().apply {
-                set(java.util.Calendar.HOUR_OF_DAY, 0)
-                set(java.util.Calendar.MINUTE, 0)
-                set(java.util.Calendar.SECOND, 0)
-            }.timeInMillis
-            if (cd.lastSentAt > todayStart && cd.count >= 3) {
-                return Pair(false, "Sudah maksimal membangunkan hari ini 😅")
             }
         }
         return Pair(true, "")
@@ -966,7 +1022,6 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         val code = _joinedGroupCode.value ?: return
-        if (_isOfflineGroup.value) return
         val uid = _userId.value
         viewModelScope.launch {
             try {
@@ -1023,7 +1078,6 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
 
     fun updateMyAwakeStatus(isAwake: Boolean, nickname: String, onResult: (Boolean) -> Unit = {}) {
         val code = _joinedGroupCode.value ?: return
-        if (_isOfflineGroup.value) return
         val uid = _userId.value
         viewModelScope.launch {
             try {
@@ -1422,12 +1476,28 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
 
     fun sendPairRequest(targetUserId: String, targetUserName: String, onResult: (Boolean) -> Unit) {
         val code = _joinedGroupCode.value ?: return onResult(false)
-        if (_isOfflineGroup.value) return onResult(false)
         
         // Verify target lies within current group members
-        val memberExists = _groupMembers.value.any { it.userId == targetUserId }
+        val memberExists = _groupMembers.value.any { it.userId == targetUserId } || targetUserId == "offline_partner"
         if (!memberExists) {
             return onResult(false)
+        }
+
+        // Allow offline pairing mock
+        if (targetUserId == "offline_partner" || _isOfflineGroup.value) {
+            val pairId = "couple_${_userId.value}_${targetUserId}"
+            val request = com.example.data.model.CouplePair(
+                id = pairId,
+                roomCode = code,
+                partnerA = _userId.value,
+                partnerB = targetUserId,
+                partnerAName = _userName.value,
+                partnerBName = targetUserName,
+                status = "pending"
+            )
+            _pendingCoupleRequests.value = _pendingCoupleRequests.value + request
+            onResult(true)
+            return
         }
 
         val pairId = "couple_${_userId.value}_${targetUserId}"

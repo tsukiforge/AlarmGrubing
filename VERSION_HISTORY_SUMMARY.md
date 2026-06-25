@@ -4,7 +4,8 @@ Peta jalan sejarah versi aplikasi **Alarm Grup** dikurasi untuk pelacakan perfor
 
 ---
 
-### 🟢 v1.1.50 (Produksi Stabil Terbaru - 2026-06-21)
+### 🟢 v1.1.50 (Produksi Stabil Terbaru - 2026-06-24)
+* **Member Wakeup & UI**: Tombol Bangunkan menampilkan semua anggota kamar dengan limitasi getar maksimal 2x sehari serta penyederhanaan indikator status dialog kamar.
 * **Background Engine**: Integrasi partial WakeLock dengan batas perlindungan otomatis 10 menit.
 * **Interactive Simulation**: Panel simulasi Couple Sync ("Leon & Mia") pada beranda utama.
 * **Micro-Architectures Support (ARM CPU Splits)**: Dukungan pemisahan otomatis berkas instalasi untuk chipset **ARM64-v8a** dan **ARMEABI-v7a** guna mengoptimalkan ukuran unduhan ponsel pengguna.

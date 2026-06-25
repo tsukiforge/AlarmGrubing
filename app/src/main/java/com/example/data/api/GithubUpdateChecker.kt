@@ -67,16 +67,7 @@ object GithubUpdateChecker {
     }
 
     fun canonicalizeVersion(versionStr: String): String {
-        val clean = versionStr.removePrefix("v").trim()
-        val parts = clean.split(".").mapNotNull { it.toIntOrNull() }
-        if (parts.size >= 2) {
-            val major = parts[0]
-            val lastPart = parts.last() // Grab the last numeric suffix e.g., 37, 38, 40, 50
-            val calculatedMinor = (lastPart / 10) - 2
-            val minor = if (calculatedMinor < 1) 1 else calculatedMinor
-            return "$major.$minor.$lastPart"
-        }
-        return clean
+        return versionStr.removePrefix("v").trim()
     }
 
     private fun isNewerVersion(current: String, latest: String): Boolean {

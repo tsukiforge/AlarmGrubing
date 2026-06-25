@@ -4,9 +4,11 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 
 ---
 
-## [1.1.50] - 2026-06-21
+## [1.1.50] - 2026-06-24
 
 ### 🚀 Fitur Baru & Peningkatan
+* **Fitur Bangunkan Anggota & Limitasi Getar**: Tombol "Bangunkan 🔔" kini memunculkan seluruh daftar anggota kamar grup, dilengkapi sistem pembatasan (*cooldown*) global maksimal mengirim alarm sinyal getar 2 kali sehari per pengguna.
+* **Penyederhanaan UI Kamar Grup**: Menyederhanakan UI dialog "Kelola & Bangunkan Kamar" dengan menghapus indikator status merah/hijau (SUDAH BANGUN/BELUM BANGUN) pada anggota yang belum pairing agar tampilan lebih ringkas dan praktis.
 * **Keandalan Latar Belakang (Doze Mode Bypass)**: Mengintegrasikan `PowerManager.PARTIAL_WAKE_LOCK` dengan pelepasan otomatis untuk menjamin alarm tetap berbunyi presisi dan tepat waktu saat perangkat dalam masa tidur nyenyak (*Doze Mode*) atau mode penghemat daya ekstrim.
 * **Simulasi Couple Sync Interaktif**: Menyediakan panel kontrol simulasi mandiri di tab kamar alarm grup untuk menguji dinamika tidur/bangun karakter "Leon" dan "Mia" serta perhitungan bonus poin (+15 poin).
 * **Personalisasi Nada Dering**: Memperbarui teks sambutan layar penuh alarm dengan sapaan hangat: `"bangunn sayanggg Miaw~ ✨"`.
@@ -15,8 +17,8 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
   * `armeabi-v7a`: Kompatibilitas optimal untuk ponsel Android 32-bit.
   * `universal`: Paket gabungan all-in-one untuk seluruh arsitektur.
 
-### 🛠️ Perbaikan Bug
-* **Sistem Update Otomatis**: Memperbaiki algoritma perbandingan versi mikro tak-simetris melalui fungsi `canonicalizeVersion` di dalam `GithubUpdateChecker` guna kelancaran deteksi update rilis.
+### 🛠️ Perbaikan Bug & Sistem
+* **Sistem Update Otomatis**: Memperbaiki logika perbandingan versi pada `GithubUpdateChecker` (`canonicalizeVersion`) menggunakan standar Semantic Versioning agar pembaruan rilis OTA terdeteksi dengan akurat.
 * **Responsivitas Landing Page**: Melengkapi landing page (`index.html`) dengan helper skrip kalkulasi versi pemasaran otomatis berdasarkan patch aktif.
 * **Kompabilitas Skrip CI/CD (Restore standard APK filenames)**: Menambahkan kustom task Gradle `CopyApkTask` yang ramah *Configuration Cache* untuk secara otomatis menggandakan dan menyediakan file `app-debug.apk` dan `app-release.apk` dari build universal, sehingga skrip Runner/Publishing tidak mengalami error pencarian file.
 

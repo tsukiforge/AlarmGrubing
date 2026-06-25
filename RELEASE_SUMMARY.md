@@ -14,6 +14,9 @@ Dokumen resmi peninjauan rilis produk dan kronologi siklus hidup paket distribus
 ## 🌟 Sorotan Riwayat Fitur Berdasarkan Kronologi Versi
 
 ### 🟢 Versi v1.1.50 (Rilis Stabil Terbaru)
+* **Fitur Bangunkan Anggota**: Tombol "Bangunkan 🔔" memunculkan seluruh anggota kamar grup dengan pembatasan (*cooldown*) global maksimal mengirim sinyal getar 2 kali sehari per pengguna.
+* **Penyederhanaan UI Kamar Grup**: Tampilan kelola grup menjadi lebih bersih dan ringkas tanpa indikator warna status yang tidak perlu untuk anggota yang belum terhubung.
+* **Stabilitas Versioning (CI/CD)**: Validasi pembaruan rilis OTA pada `GithubUpdateChecker` kini menggunakan standar Semantic Versioning yang akurat.
 * **Background Keep-Alive**: Implementasi mekanisme `Partial WakeLock` untuk mengatasi pembatasan latar belakang OS (*Doze Mode*) guna menjamin alarm berdering tepat waktu.
 * **Demonstrasi Interaktif**: Panel simulasi perilaku grup Couple Sync "Leon & Mia" pada beranda kawan tunggal.
 * **Smart APK Sizing**: Integrasi ABI Splits yang memperkecil ukuran unduhan rilis APK hingga 40% berdasarkan jenis prosesor HP pengguna.
