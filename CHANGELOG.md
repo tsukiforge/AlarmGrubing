@@ -4,6 +4,15 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 
 ---
 
+## [1.1.51] - 2026-06-27
+
+### 🚀 Fitur Baru & Peningkatan
+* **Widget Layar Utama (Home Screen)**: Menambahkan Widget Cuaca (`WeatherWidgetProvider`) yang menyesuaikan background berdasarkan kondisi aktual, serta Widget Motivasi (`MotivationWidgetProvider`) untuk menampilkan kutipan harian langsung di layar utama perangkat.
+* **Pelacakan Baterai Pasangan (Couple Widget)**: Menambahkan fitur sinkronisasi dan pelacakan sisa persentase baterai pasangan (`batteryLevel`) yang ditampilkan secara real-time dan dinamis (indikator 🔋/🪫) langsung di Couple Widget.
+* **Integrasi Lokasi Akurat**: Memperbarui izin sistem (`ACCESS_COARSE_LOCATION` & `ACCESS_FINE_LOCATION`) agar sinkronisasi suhu dan cuaca di Widget Cuaca dan aplikasi menjadi lebih presisi secara lokal.
+* **Aset Cuaca Estetik**: Menambahkan aset grafis visual cuaca (Cerah, Berawan, Hujan) bergaya estetika anime pagi hari untuk mendukung UI Widget Cuaca.
+* **Penyederhanaan Dashboard**: Memindahkan fitur motivasi sepenuhnya ke Widget Home Screen agar tampilan Dashboard utama lebih bersih dan fungsional.
+
 ## [1.1.50] - 2026-06-24
 
 ### 🚀 Fitur Baru & Peningkatan
