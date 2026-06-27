@@ -7,5 +7,6 @@ data class MemberData(
     val userId: String,
     val profileImageBase64: String?,
     val colorHex: String?,
-    val lastActive: Long
+    val lastActive: Long,
+    val batteryLevel: Int? = null
 )

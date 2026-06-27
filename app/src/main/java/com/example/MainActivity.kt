@@ -59,6 +59,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -598,6 +599,9 @@ fun MainScreenContent(
                 containerColor = SurfaceDark
             )
         }
+
+        // --- DASHBOARD WIDGETS ---
+        com.example.ui.MorningWeatherWidget()
 
         // --- 🌸 KAWAII ANIME COMPANION WIDGET 🌸 ---
         Card(
@@ -1328,8 +1332,9 @@ fun GroupOnboardingScreen(
         }) {
             Text(
                 text = if (isJoining) "Klik di sini untuk membuat kode grup baru" else "Batal buat baru, gabung kode grup teman",
-                color = IndigoLight,
-                fontSize = 13.sp
+                color = IndigoPrimary,
+                fontSize = 13.sp,
+                textDecoration = TextDecoration.Underline
             )
         }
 
@@ -1514,14 +1519,11 @@ fun GroupDashboardScreen(
                                         tint = CyanAccent
                                     )
                                 }
+                                Spacer(modifier = Modifier.width(8.dp))
                             }
                             IconButton(
                                 onClick = {
-                                    if (isCreator && !isOfflineGroup) {
-                                        showExitChoiceDialog = true
-                                    } else {
-                                        viewModel.leaveGroup()
-                                    }
+                                    showExitChoiceDialog = true
                                 }
                             ) {
                                 Icon(
@@ -2501,55 +2503,78 @@ fun GroupDashboardScreen(
     }
 
     if (showExitChoiceDialog) {
+        val showFullOptions = isCreator && !isOfflineGroup
         AlertDialog(
             onDismissRequest = { showExitChoiceDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.Settings,
+                        imageVector = if (showFullOptions) Icons.Default.Settings else Icons.Default.ExitToApp,
                         contentDescription = null,
                         tint = Color(0xFFBA1A1A),
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Keluar atau Tutup Kamar?", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextLight)
+                    Text(if (showFullOptions) "Keluar atau Tutup Kamar?" else "Keluar dari Kamar?", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = TextLight)
                 }
             },
             text = {
-                Text(
-                    text = "Anda adalah pembuat kamar alarm ini. Anda dapat memilih:\n\n" +
-                            "1. ⚠️ TUTUP KAMAR & HAPUS CHAT: Menghapus seluruh data kamar alarm, seluruh member, dan semua riwayat obrolan secara permanen dan aman dari server cloud.\n\n" +
-                            "2. 🚶 KELUAR KAMAR SAJA: Keluar dari kamar tanpa menghapus data server cloud.",
-                    color = TextMuted,
-                    fontSize = 12.sp,
-                    lineHeight = 16.sp
-                )
+                if (showFullOptions) {
+                    Text(
+                        text = "Anda adalah pembuat kamar alarm ini. Anda dapat memilih:\n\n" +
+                                "1. ⚠️ TUTUP KAMAR & HAPUS CHAT: Menghapus seluruh data kamar alarm, seluruh member, dan semua riwayat obrolan secara permanen dan aman dari server cloud.\n\n" +
+                                "2. 🚶 KELUAR KAMAR SAJA: Keluar dari kamar tanpa menghapus data server cloud.",
+                        color = TextMuted,
+                        fontSize = 12.sp,
+                        lineHeight = 16.sp
+                    )
+                } else {
+                    Text(
+                        text = "Apakah Anda yakin ingin keluar dari kamar alarm ini? Anda tidak akan menerima alarm grup lagi.",
+                        color = TextMuted,
+                        fontSize = 12.sp
+                    )
+                }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        showExitChoiceDialog = false
-                        viewModel.closeGroupAndCleanChat()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A))
-                ) {
-                    Text("Tutup Kamar & Hapus Chat 🔒", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                if (showFullOptions) {
+                    Button(
+                        onClick = {
+                            showExitChoiceDialog = false
+                            viewModel.closeGroupAndCleanChat()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A))
+                    ) {
+                        Text("Tutup Kamar & Hapus Chat 🔒", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            showExitChoiceDialog = false
+                            viewModel.leaveGroup()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBA1A1A))
+                    ) {
+                        Text("Keluar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             },
             dismissButton = {
                 Row {
-                    TextButton(
-                        onClick = {
-                            showExitChoiceDialog = false
-                            viewModel.leaveGroup()
+                    if (showFullOptions) {
+                        TextButton(
+                            onClick = {
+                                showExitChoiceDialog = false
+                                viewModel.leaveGroup()
+                            }
+                        ) {
+                            Text("Keluar Kamar Saja", fontSize = 11.sp)
                         }
-                    ) {
-                        Text("Keluar Kamar Saja", fontSize = 11.sp)
                     }
                     TextButton(
                         onClick = { showExitChoiceDialog = false }
                     ) {
-                        Text("Batal", fontSize = 11.sp, color = TextMuted)
+                        Text("Batal", fontSize = if (showFullOptions) 11.sp else 12.sp, color = TextMuted)
                     }
                 }
             },
@@ -2624,9 +2649,25 @@ fun GroupDashboardScreen(
                                                     fontSize = 14.sp,
                                                     fontWeight = FontWeight.SemiBold
                                                 )
+                                                val nowMs = System.currentTimeMillis()
+                                                val daysInactive = if (member.lastActive > 0) (nowMs - member.lastActive) / (1000 * 60 * 60 * 24) else 0L
+                                                var activeText = if (isMe) "Kamu (Aktif)" else {
+                                                    when {
+                                                        member.lastActive == 0L -> "Status tidak diketahui"
+                                                        daysInactive >= 30 -> "Mungkin uninstalled (>30 hari)"
+                                                        daysInactive >= 7 -> "Mungkin uninstalled (>7 hari)"
+                                                        daysInactive >= 1 -> "Tidak aktif $daysInactive hari"
+                                                        else -> "Aktif baru saja"
+                                                    }
+                                                }
+                                                if (member.batteryLevel != null) {
+                                                    val batteryIcon = if (member.batteryLevel > 20) "🔋" else "🪫"
+                                                    activeText += " • $batteryIcon ${member.batteryLevel}%"
+                                                }
+                                                val activeColor = if (isMe) IndigoPrimary else if (daysInactive >= 7) Color.Red else TextMuted
                                                 Text(
-                                                    text = if (isMe) "Kamu (Aktif)" else "Aktif baru saja",
-                                                    color = if (isMe) IndigoPrimary else TextMuted,
+                                                    text = activeText,
+                                                    color = activeColor,
                                                     fontSize = 11.sp
                                                 )
                                             }

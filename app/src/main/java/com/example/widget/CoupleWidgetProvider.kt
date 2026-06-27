@@ -193,6 +193,10 @@ class CoupleWidgetProvider : AppWidgetProvider() {
                         views.setTextViewText(R.id.partner_a_stats, "Poin: ${activePair.scoreA} | Streak: ${activePair.streakA} 🔥")
                         views.setTextViewText(R.id.partner_b_stats, "Poin: ${activePair.scoreB} | Streak: ${activePair.streakB} 🔥")
 
+                        // Default battery status
+                        views.setTextViewText(R.id.partner_a_battery, "🔋 ?%")
+                        views.setTextViewText(R.id.partner_b_battery, "🔋 ?%")
+
                         // Sync bonus indicator
                         if (activePair.syncBonusToday) {
                             views.setViewVisibility(R.id.sync_bonus_indicator, View.VISIBLE)
@@ -240,6 +244,53 @@ class CoupleWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.widget_toggle_awake, pendingToggle)
 
             appWidgetManager.updateAppWidget(appWidgetId, views)
+
+            if (coupleJson != null) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val code = sharedPrefs.getString("joined_group_code", null) ?: return@launch
+                        val url = NetworkClient.getFullUrl(NetworkClient.BUCKET_ID, "members_$code")
+                        val response = NetworkClient.api.getValue(url)
+                        if (response.isSuccessful) {
+                            val membersJson = response.body()?.string()
+                            if (membersJson != null) {
+                                val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+                                val mapType = com.squareup.moshi.Types.newParameterizedType(Map::class.java, String::class.java, com.example.data.model.MemberData::class.java)
+                                val adapter = moshi.adapter<Map<String, com.example.data.model.MemberData>>(mapType)
+                                val members = adapter.fromJson(membersJson)
+
+                                if (members != null) {
+                                    val pairAdapter = moshi.adapter(CouplePair::class.java)
+                                    val activePair = pairAdapter.fromJson(coupleJson)
+                                    if (activePair != null) {
+                                        val memberA = members[activePair.partnerA]
+                                        val memberB = members[activePair.partnerB]
+
+                                        val updatedViews = RemoteViews(context.packageName, R.layout.couple_widget)
+                                        
+                                        val batA = memberA?.batteryLevel
+                                        val batTextA = if (batA != null) {
+                                            if (batA > 20) "🔋 $batA%" else "🪫 $batA%"
+                                        } else "🔋 ?%"
+                                        updatedViews.setTextViewText(R.id.partner_a_battery, batTextA)
+
+                                        val batB = memberB?.batteryLevel
+                                        val batTextB = if (batB != null) {
+                                            if (batB > 20) "🔋 $batB%" else "🪫 $batB%"
+                                        } else "🔋 ?%"
+                                        updatedViews.setTextViewText(R.id.partner_b_battery, batTextB)
+                                        
+                                        // Ensure other parts of the view remain up to date
+                                        appWidgetManager.partiallyUpdateAppWidget(appWidgetId, updatedViews)
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
         }
     }
 }

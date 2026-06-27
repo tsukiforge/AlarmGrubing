@@ -89,6 +89,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
     val chatMessages: StateFlow<List<com.example.data.model.ChatMessage>> = _chatMessages.asStateFlow()
 
     private var lastSentTime = 0L
+    private var lastJoinTimestamp = 0L
 
     // Alarms lists
     val personalAlarms: StateFlow<List<Alarm>> = repository.getPersonalAlarms()
@@ -352,6 +353,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 _isOfflineGroup.value = false
                 _syncState.value = SyncStatus.Success("Grup dibuat: $code")
 
+                lastJoinTimestamp = System.currentTimeMillis()
                 uploadMyMemberProfileInternal(code)
                 startPolling(code)
                 onResult(true, code)
@@ -402,26 +404,13 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 repository.syncGroupAlarmsLocal(code, context)
 
                 _syncState.value = SyncStatus.Success("Berhasil bergabung dengan grup ${cloudGroup.name}")
+                lastJoinTimestamp = System.currentTimeMillis()
                 uploadMyMemberProfileInternal(code)
                 startPolling(code)
                 onResult(true, null)
             } else {
-                // Fallback to offline join mode so they are not blocked!
-                val offlineName = "Grup Offline $code"
-                sharedPrefs.edit()
-                    .putString("joined_group_code", code)
-                    .putString("joined_group_name", offlineName)
-                    .putBoolean("is_creator", false)
-                    .putBoolean("is_offline_group", true)
-                    .apply()
-
-                _joinedGroupCode.value = code
-                _joinedGroupName.value = offlineName
-                _isCreator.value = false
-                _isOfflineGroup.value = true
-
-                _syncState.value = SyncStatus.Success("Bergabung offline (Grup: $code)")
-                onResult(true, null)
+                _syncState.value = SyncStatus.Error("Gagal menemukan grup atau koneksi bermasalah")
+                onResult(false, "Kode grup tidak ditemukan atau koneksi internet bermasalah.")
             }
         }
     }
@@ -473,6 +462,7 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 repository.syncGroupAlarmsLocal(code, context)
 
                 _syncState.value = SyncStatus.Success("Berhasil bergabung dengan grup ${cloudGroup.name}")
+                lastJoinTimestamp = System.currentTimeMillis()
                 uploadMyMemberProfileInternal(code)
                 startPolling(code)
                 onResult(true, null)
@@ -616,6 +606,8 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                         _isOfflineGroup.value = false
                         _joinedGroupName.value = currentName
                         _syncState.value = SyncStatus.Success("Berhasil menghubungkan grup ke Cloud!")
+                        lastJoinTimestamp = System.currentTimeMillis()
+                        uploadMyMemberProfileInternal(code)
                         startPolling(code)
                         onResult(true, null)
                     } else {
@@ -693,11 +685,23 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 val idx = Math.abs(uid.hashCode()) % colors.size
                 val uColor = colors[idx]
 
+                // Get battery level
+                val batteryStatus: android.content.Intent? = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED).let { ifilter ->
+                    context.registerReceiver(null, ifilter)
+                }
+                val batteryPct: Float? = batteryStatus?.let { intent ->
+                    val level: Int = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+                    val scale: Int = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
+                    level * 100 / scale.toFloat()
+                }
+                val batteryLvl = batteryPct?.toInt()
+
                 val memberData = com.example.data.model.MemberData(
                     userId = uid,
                     profileImageBase64 = base64,
                     colorHex = uColor,
-                    lastActive = System.currentTimeMillis()
+                    lastActive = System.currentTimeMillis(),
+                    batteryLevel = batteryLvl
                 )
                 
                 val moshiObj = com.squareup.moshi.Moshi.Builder()
@@ -756,21 +760,33 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                                 if (membersMap != null) {
                                     _groupMembers.value = membersMap.values.toList()
                                     if (!_isCreator.value && !membersMap.containsKey(_userId.value)) {
-                                        withContext(Dispatchers.Main) { leaveGroup() }
-                                        return@launch
+                                        if (System.currentTimeMillis() - lastJoinTimestamp > 25_000L) {
+                                            withContext(Dispatchers.Main) { leaveGroup() }
+                                            return@launch
+                                        } else {
+                                            uploadMyMemberProfileInternal(code)
+                                        }
                                     } else {
                                         uploadMyMemberProfileInternal(code)
                                     }
                                 }
                             } else {
                                 if (!_isCreator.value) {
-                                    withContext(Dispatchers.Main) { leaveGroup() }
-                                    return@launch
+                                    if (System.currentTimeMillis() - lastJoinTimestamp > 25_000L) {
+                                        withContext(Dispatchers.Main) { leaveGroup() }
+                                        return@launch
+                                    } else {
+                                        uploadMyMemberProfileInternal(code)
+                                    }
                                 }
                             }
                         } else if (response.code() == 404 && !_isCreator.value) {
-                            withContext(Dispatchers.Main) { leaveGroup() }
-                            return@launch
+                            if (System.currentTimeMillis() - lastJoinTimestamp > 25_000L) {
+                                withContext(Dispatchers.Main) { leaveGroup() }
+                                return@launch
+                            } else {
+                                uploadMyMemberProfileInternal(code)
+                            }
                         }
                     } catch (e2: Exception) {
                         e2.printStackTrace()

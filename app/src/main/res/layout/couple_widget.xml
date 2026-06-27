@@ -111,6 +111,15 @@
                     android:layout_marginTop="2dp" />
 
                 <TextView
+                    android:id="@+id/partner_a_battery"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔋 100%"
+                    android:textColor="#37474f"
+                    android:textSize="10sp"
+                    android:layout_marginTop="1dp" />
+
+                <TextView
                     android:id="@+id/partner_a_stats"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -150,6 +159,15 @@
                     android:textColor="#37474f"
                     android:textSize="11sp"
                     android:layout_marginTop="2dp" />
+
+                <TextView
+                    android:id="@+id/partner_b_battery"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🔋 100%"
+                    android:textColor="#37474f"
+                    android:textSize="10sp"
+                    android:layout_marginTop="1dp" />
 
                 <TextView
                     android:id="@+id/partner_b_stats"

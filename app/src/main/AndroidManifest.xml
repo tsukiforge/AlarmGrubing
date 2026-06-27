@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -79,6 +81,30 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/couple_widget_info" />
+        </receiver>
+
+        <!-- Motivation Widget -->
+        <receiver
+            android:name=".widget.MotivationWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/motivation_widget_info" />
+        </receiver>
+
+        <!-- Weather Widget -->
+        <receiver
+            android:name=".widget.WeatherWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weather_widget_info" />
         </receiver>
 
         <service android:name=".alarm.AlarmRingingService"
