@@ -3,6 +3,9 @@ package com.example.ui
 import android.Manifest
 import android.content.pm.PackageManager
 import android.location.Location
+import android.annotation.SuppressLint
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -72,6 +75,9 @@ fun MotivationalQuoteWidget() {
     }
 }
 
+// Fix imports
+
+@SuppressLint("MissingPermission")
 @Composable
 fun MorningWeatherWidget() {
     val context = LocalContext.current
@@ -84,7 +90,7 @@ fun MorningWeatherWidget() {
     var isCloudy by remember { mutableStateOf(false) }
     var isSunny by remember { mutableStateOf(true) }
     var hasPermission by remember { 
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) 
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) 
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -102,11 +108,12 @@ fun MorningWeatherWidget() {
             locationName = "Lokasi Anda"
             try {
                 val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-                fusedLocationClient.lastLocation.addOnSuccessListener { loc: Location? ->
-                    if (loc != null) {
+                fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token)
+                    .addOnSuccessListener { loc: Location? ->
                         scope.launch {
-                            val lat = loc.latitude
-                            val lon = loc.longitude
+                            val lat = loc?.latitude ?: -6.2088 // Default to Jakarta if null
+                            val lon = loc?.longitude ?: 106.8456
+                            if (loc == null) locationName = "Jakarta (Default)"
                             try {
                                 val weatherInfo = fetchWeather(lat, lon)
                                 temperature = "${weatherInfo.first}°C"
@@ -136,10 +143,16 @@ fun MorningWeatherWidget() {
                                 weatherDesc = "Gagal memuat cuaca"
                             }
                         }
-                    } else {
-                        weatherDesc = "Lokasi tidak ditemukan"
                     }
-                }
+                    .addOnFailureListener {
+                        weatherDesc = "Lokasi gagal, pakai default"
+                        scope.launch {
+                            try {
+                                val weatherInfo = fetchWeather(-6.2088, 106.8456)
+                                temperature = "${weatherInfo.first}°C"
+                            } catch (e: Exception) {}
+                        }
+                    }
             } catch (e: SecurityException) {
                 weatherDesc = "Akses lokasi ditolak"
             }
@@ -153,7 +166,7 @@ fun MorningWeatherWidget() {
         shape = RoundedCornerShape(16.dp),
         onClick = {
             if (!hasPermission) {
-                permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+                permissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
             }
         }
     ) {

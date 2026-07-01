@@ -20,10 +20,10 @@ android {
     // Inject dynamic Version Code and Version Name from properties or CI/CD env
     val paramVersionCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
       ?: System.getenv("VERSION_CODE")?.toIntOrNull()
-      ?: 1
+      ?: 51
     val paramVersionName = project.findProperty("versionName")?.toString()
       ?: System.getenv("VERSION_NAME")
-      ?: "1.0"
+      ?: "5.1.0"
 
     versionCode = paramVersionCode
     versionName = paramVersionName
@@ -141,7 +141,7 @@ dependencies {
   // implementation(libs.androidx.navigation.compose)
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
-  // implementation(libs.coil.compose)
+  implementation(libs.coil.compose)
   implementation(libs.converter.moshi)
   // implementation(libs.firebase.ai)
   implementation(libs.kotlinx.coroutines.android)

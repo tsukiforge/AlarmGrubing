@@ -1,11 +1,11 @@
 # 📌 Ringkasan Rilis (Release Summary) - Alarm Grup
 
-Dokumen resmi peninjauan rilis produk dan kronologi siklus hidup paket distribusi **Alarm Grup** untuk rilis stabil **v1.1.50**.
+Dokumen resmi peninjauan rilis produk dan kronologi siklus hidup paket distribusi **Alarm Grup** untuk rilis stabil **v5.1.0**.
 
 ---
 
 ## 📦 Informasi Metadata Distribusi
-* **Versi Produksi Aktif**: `v1.1.50`
+* **Versi Produksi Aktif**: `v5.1.0`
 * **Arsitektur Rilis**: Kompilasi multi-arsitektur CPU (ARM64-v8a, ARMEABI-v7a, Universal).
 * **Lingkungan Target**: Kompatibel dari Android 8.0 (API Level 26) hingga Android 14+ (API Level 34+).
 
@@ -13,7 +13,14 @@ Dokumen resmi peninjauan rilis produk dan kronologi siklus hidup paket distribus
 
 ## 🌟 Sorotan Riwayat Fitur Berdasarkan Kronologi Versi
 
-### 🟢 Versi v1.1.50 (Rilis Stabil Terbaru)
+### 🟣 Versi v5.1.0 (Rilis Stabil Terbaru)
+* **Always-On Display (AOD) Otomatis**: Integrasi `AodService` berbasis `BroadcastReceiver` yang mendeteksi matinya layar HP (`ACTION_SCREEN_OFF`) untuk meluncurkan layar standby AOD secara otomatis dan andal. Lengkap dengan pintasan Switch On/Off di halaman Pengaturan & Profil utama.
+* **Fitur Anti-Burn-In**: Mekanisme pergeseran koordinat jam & tanggal otomatis secara periodik untuk mencegah kerusakan layar.
+* **Galeri Wallpaper Kustom & Motivasi**: Mendukung pengisian gambar wallpaper kustom dari galeri pengguna serta visualisasi teks kutipan motivasi harian.
+* **Widget Quick Share**: Pemindahan penuh fitur Quick Share ke dalam bentuk Widget Home Screen murni untuk membersihkan tatanan UI aplikasi utama.
+* **Penyelarasan Rilis Versi**: Pembaharuan major version menjadi v5.1.0 secara presisi sesuai dengan status rilis repositori utama.
+
+### 🟢 Versi v1.1.51
 * **Fitur Bangunkan Anggota**: Tombol "Bangunkan 🔔" memunculkan seluruh anggota kamar grup dengan pembatasan (*cooldown*) global maksimal mengirim sinyal getar 2 kali sehari per pengguna.
 * **Penyederhanaan UI Kamar Grup**: Tampilan kelola grup menjadi lebih bersih dan ringkas tanpa indikator warna status yang tidak perlu untuk anggota yang belum terhubung.
 * **Stabilitas Versioning (CI/CD)**: Validasi pembaruan rilis OTA pada `GithubUpdateChecker` kini menggunakan standar Semantic Versioning yang akurat.

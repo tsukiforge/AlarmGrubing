@@ -4,6 +4,20 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 
 ---
 
+## [5.1.0] - 2026-06-30
+
+### 🚀 Fitur Baru & Peningkatan
+* **Always-On Display (AOD) Otomatis**: Layar standby AOD sekarang aktif secara otomatis saat layar HP dimatikan (dikunci) menggunakan `AodService` berbasis `BroadcastReceiver` (`ACTION_SCREEN_OFF`), menghadirkan pengalaman AOD yang seamless dan native tanpa repot.
+* **Desain Anti-Burn-In & Perlindungan Layar**: Jam dan tanggal berganti posisi setiap 60 detik secara cerdas untuk mencegah penumpukan piksel (burn-in) dan menjaga keawetan layar HP.
+* **Wallpaper Kustom & Template Estetik**: Menambahkan dukungan penuh untuk wallpaper kustom yang dipilih langsung dari Galeri HP pribadi (*Custom Wallpaper*) serta 5 pilihan template bawaan yang cantik.
+* **Widget Kata Motivasi**: Menambahkan kata-kata motivasi harian yang berganti secara berkala di layar standby AOD dengan opsi nyala/mati.
+* **Pengaturan AOD yang Ramping**: Antarmuka konfigurasi diperbarui dengan tata letak vertikal scrollable yang praktis, menghapus teks/tombol yang menghalangi, serta digantikan dengan sakelar (Switch) ramping untuk kendali intuitif. Juga ditambahkan pintasan sakelar (Switch) On/Off AOD di halaman Pengaturan & Profil utama untuk kenyamanan ekstra.
+* **Quick Share Widget**: Tombol Quick Share dipindahkan dari menu Pengaturan utama dan ditransformasikan menjadi Widget Home Screen interaktif yang murni untuk efisiensi ruang navigasi.
+* **Penyempurnaan Navigasi**: Navigasi bawah diperbarui agar tidak terlalu padat dengan penambahan spasi (*padding*) horizontal dan fitur scroll horizontal (*LazyRow* style).
+* **Pembaruan Versi**: Penyesuaian skema versi menjadi 5.1.0 untuk sinkronisasi akurat dengan rilis repositori utama.
+
+---
+
 ## [1.1.51] - 2026-06-27
 
 ### 🚀 Fitur Baru & Peningkatan

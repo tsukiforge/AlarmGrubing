@@ -22,6 +22,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -126,6 +127,19 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        com.example.alarm.MotivationScheduler.scheduleDailyMotivation(this)
+
+        // Start AOD service if enabled
+        val aodPrefs = getSharedPreferences("aod_prefs", Context.MODE_PRIVATE)
+        if (aodPrefs.getBoolean("aod_enabled", false)) {
+            val serviceIntent = Intent(this, com.example.alarm.AodService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        }
 
         // Configure system flags to show on lock screen / wake up layout
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -791,10 +805,12 @@ fun MainScreenContent(
                     onUpdateNote = { note, t, c, col -> viewModel.updateNote(note, t, c, col) },
                     onDeleteNote = { id -> viewModel.deleteNote(id) }
                 )
-            } else {
+            } else if (activeTab == 3) {
                 FileSharingScreenContent(
                     viewModel = viewModel
                 )
+            } else {
+                com.example.ui.AodSettingsScreen(context = context)
             }
 
             if (activeTab == 0 || (activeTab == 1 && joinedGroupCode != null)) {
@@ -822,13 +838,14 @@ fun MainScreenContent(
                 .padding(bottom = 12.dp, top = 8.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
-                .padding(4.dp)
+                .padding(6.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             TabButton(
                 title = "⏰ Pribadi",
                 isActive = activeTab == 0,
-                onClick = { activeTab = 0 },
-                modifier = Modifier.weight(1f)
+                onClick = { activeTab = 0 }
             )
             TabButton(
                 title = "👥 Grup",
@@ -836,20 +853,22 @@ fun MainScreenContent(
                 onClick = { 
                     activeTab = 1 
                     viewModel.forceSyncGroupAndCouple()
-                },
-                modifier = Modifier.weight(1f)
+                }
             )
             TabButton(
                 title = "📝 Catatan",
                 isActive = activeTab == 2,
-                onClick = { activeTab = 2 },
-                modifier = Modifier.weight(1f)
+                onClick = { activeTab = 2 }
             )
             TabButton(
                 title = "📁 Berbagi",
                 isActive = activeTab == 3,
-                onClick = { activeTab = 3 },
-                modifier = Modifier.weight(1f)
+                onClick = { activeTab = 3 }
+            )
+            TabButton(
+                title = "📱 AOD",
+                isActive = activeTab == 4,
+                onClick = { activeTab = 4 }
             )
         }
     }
@@ -916,7 +935,7 @@ fun TabButton(
             .clip(RoundedCornerShape(10.dp))
             .background(backgroundColor)
             .clickable { onClick() }
-            .padding(vertical = 10.dp),
+            .padding(vertical = 10.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -4694,17 +4713,17 @@ fun RingingOverlay(
         Button(
             onClick = onDismiss,
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-            shape = RoundedCornerShape(24.dp),
+            shape = RoundedCornerShape(36.dp),
             modifier = Modifier
-                .width(220.dp)
-                .height(48.dp)
+                .fillMaxWidth(0.85f)
+                .height(72.dp)
         ) {
             Text(
                 text = "MATIKAN SEKARANG 🌸",
                 color = Color(0xFF311B92),
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
-                fontSize = 12.sp
+                fontSize = 16.sp
             )
         }
     }
@@ -5303,6 +5322,62 @@ fun SettingsScreen(
                 }
             }
 
+            val aodPrefs = remember { context.getSharedPreferences("aod_prefs", Context.MODE_PRIVATE) }
+            var aodEnabled by remember { mutableStateOf(aodPrefs.getBoolean("aod_enabled", false)) }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "📱 Always-On Display (AOD)",
+                        color = IndigoPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = "Aktifkan Standby AOD", color = TextLight, fontSize = 13.sp)
+                            Text(
+                                text = "AOD otomatis aktif saat layar HP dimatikan (kunci ponsel)",
+                                color = TextMuted,
+                                fontSize = 11.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Switch(
+                            checked = aodEnabled,
+                            onCheckedChange = { isEnabled ->
+                                aodEnabled = isEnabled
+                                aodPrefs.edit().putBoolean("aod_enabled", isEnabled).apply()
+                                val serviceIntent = Intent(context, com.example.alarm.AodService::class.java)
+                                if (isEnabled) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        context.startForegroundService(serviceIntent)
+                                    } else {
+                                        context.startService(serviceIntent)
+                                    }
+                                } else {
+                                    context.stopService(serviceIntent)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
             var forceFullVolume by remember { mutableStateOf(prefs.getBoolean("force_full_volume", false)) }
             var autoSpeakerHeadset by remember { mutableStateOf(prefs.getBoolean("auto_speaker_headset", false)) }
 
@@ -5361,6 +5436,7 @@ fun SettingsScreen(
                             }
                         )
                     }
+                    
                 }
             }
 

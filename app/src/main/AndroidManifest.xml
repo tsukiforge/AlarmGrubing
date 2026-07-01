@@ -86,7 +86,8 @@
         <!-- Motivation Widget -->
         <receiver
             android:name=".widget.MotivationWidgetProvider"
-            android:exported="true">
+            android:exported="true"
+            android:label="Motivasi Harian ☀️">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -98,7 +99,8 @@
         <!-- Weather Widget -->
         <receiver
             android:name=".widget.WeatherWidgetProvider"
-            android:exported="true">
+            android:exported="true"
+            android:label="Cuaca Terkini 🌦️">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
@@ -106,6 +108,28 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/weather_widget_info" />
         </receiver>
+
+        <!-- Quick Share Widget -->
+        <receiver
+            android:name=".widget.QuickShareWidgetProvider"
+            android:exported="true"
+            android:label="Quick Share 🚀">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_share_widget_info" />
+        </receiver>
+
+        <activity android:name=".ui.QuickShareActivity" android:theme="@style/Theme.MyApplication.Transparent" android:exported="false" />
+        <activity android:name=".ui.AodActivity" android:theme="@style/Theme.MyApplication" android:exported="false" />
+
+        <receiver android:name=".alarm.MotivationNotificationReceiver" android:exported="false" />
+
+        <service android:name=".alarm.AodService"
+            android:enabled="true"
+            android:exported="false" />
 
         <service android:name=".alarm.AlarmRingingService"
             android:foregroundServiceType="mediaPlayback"
