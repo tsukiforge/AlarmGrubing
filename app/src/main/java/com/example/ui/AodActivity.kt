@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.content.Context
 import android.os.Bundle
+import android.os.Build
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -32,6 +33,12 @@ import kotlin.random.Random
 class AodActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Show on top of keyguard / lock screen and turn screen on
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
         
         // Setup Window for AOD
         window.addFlags(
@@ -85,6 +92,10 @@ fun AodScreen(
         R.drawable.aod_template_1_1782867396832,
         R.drawable.aod_template_2_1782867409346,
         R.drawable.aod_template_3_1782867422789,
+        R.drawable.img_aod_miku_ripped_1782906384401,
+        R.drawable.img_aod_yandere_cleaver_1782906410094,
+        R.drawable.img_aod_miku_blue_1782906427863,
+        R.drawable.img_aod_purple_eye_1782906447488,
         R.drawable.img_cat_sleeping_1782296435114,
         R.drawable.img_cat_yawn_1782296451744
     )
@@ -157,34 +168,34 @@ fun AodScreen(
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 100.dp)
+                .padding(top = 60.dp)
                 .offset(x = animatedOffsetX.dp, y = animatedOffsetY.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = timeText,
                 color = Color.White.copy(alpha = 0.95f),
-                fontSize = 80.sp,
-                fontWeight = FontWeight.ExtraLight,
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Light,
                 letterSpacing = 2.sp
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = dateText,
-                color = Color.White.copy(alpha = 0.8f),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Medium
+                color = Color.White.copy(alpha = 0.75f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Normal
             )
             
             if (showMotivation) {
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = motivationText,
                     color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 32.dp)
+                    modifier = Modifier.padding(horizontal = 48.dp)
                 )
             }
         }

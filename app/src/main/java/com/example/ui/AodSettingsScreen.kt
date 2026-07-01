@@ -43,6 +43,10 @@ fun AodSettingsScreen(context: Context) {
         R.drawable.aod_template_1_1782867396832,
         R.drawable.aod_template_2_1782867409346,
         R.drawable.aod_template_3_1782867422789,
+        R.drawable.img_aod_miku_ripped_1782906384401,
+        R.drawable.img_aod_yandere_cleaver_1782906410094,
+        R.drawable.img_aod_miku_blue_1782906427863,
+        R.drawable.img_aod_purple_eye_1782906447488,
         R.drawable.img_cat_sleeping_1782296435114,
         R.drawable.img_cat_yawn_1782296451744
     )
@@ -95,31 +99,6 @@ fun AodSettingsScreen(context: Context) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 12.dp)
         )
-
-        // Elegant Information Card (Clean Instruction)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "🔒 Cara Mengaktifkan:",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Text(
-                    text = "Aktifkan sakelar di bawah ini, lalu cukup matikan layar HP Anda (kunci ponsel). Always-On Display (AOD) otomatis aktif menampilkan jam, tanggal, dan motivasi tanpa meleset.",
-                    color = Color.LightGray,
-                    fontSize = 12.sp,
-                    lineHeight = 18.sp
-                )
-            }
-        }
 
         // Switch to enable/disable Always-on Display
         Card(

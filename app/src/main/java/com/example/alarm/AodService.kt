@@ -10,9 +10,14 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.example.R
 import com.example.ui.AodActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class AodService : Service() {
 
@@ -22,12 +27,76 @@ class AodService : Service() {
                 val prefs = context.getSharedPreferences("aod_prefs", Context.MODE_PRIVATE)
                 val aodEnabled = prefs.getBoolean("aod_enabled", false)
                 if (aodEnabled) {
-                    val aodIntent = Intent(context, AodActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or
-                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                Intent.FLAG_ACTIVITY_SINGLE_TOP
+                    val pendingResult = goAsync()
+                    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                    
+                    CoroutineScope(Dispatchers.Main).launch {
+                        try {
+                            delay(100)
+                            
+                            // Acquire wake lock to wake screen and keep CPU active
+                            val wakeLock = powerManager.newWakeLock(
+                                PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+                                "AlarmGrup:AodWakeLock"
+                            )
+                            wakeLock.acquire(1500)
+                            
+                            val aodIntent = Intent(context, AodActivity::class.java).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_CLEAR_TOP or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
+                            }
+                            
+                            // Prepare Full Screen Intent via Notification to bypass background start restrictions
+                            val fullScreenPendingIntent = android.app.PendingIntent.getActivity(
+                                context,
+                                9999,
+                                aodIntent,
+                                android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+                            )
+                            
+                            // Try starting activity directly first
+                            context.startActivity(aodIntent)
+                            
+                            // Trigger high-priority silent notification with fullScreenIntent to force immediate lockscreen display
+                            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                            val activeChannelId = "aod_active_channel"
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                val activeChannel = NotificationChannel(
+                                    activeChannelId,
+                                    "AOD Active Screen Channel",
+                                    NotificationManager.IMPORTANCE_HIGH
+                                ).apply {
+                                    setSound(null, null)
+                                    enableVibration(false)
+                                    setShowBadge(false)
+                                }
+                                notificationManager.createNotificationChannel(activeChannel)
+                            }
+                            
+                            val activeNotification = NotificationCompat.Builder(context, activeChannelId)
+                                .setContentTitle("AOD Aktif")
+                                .setContentText("Layar AOD sedang berjalan.")
+                                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                                .setPriority(NotificationCompat.PRIORITY_MAX)
+                                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                                .setFullScreenIntent(fullScreenPendingIntent, true)
+                                .setSilent(true)
+                                .setAutoCancel(true)
+                                .build()
+                                
+                            notificationManager.notify(1001, activeNotification)
+                            
+                            // Automatically remove the notification after a brief delay
+                            delay(1200)
+                            notificationManager.cancel(1001)
+                            
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        } finally {
+                            pendingResult.finish()
+                        }
                     }
-                    context.startActivity(aodIntent)
                 }
             }
         }

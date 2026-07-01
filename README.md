@@ -81,8 +81,9 @@ Proyek ini terwujud berkat dedikasi kolaboratif pengembang berbakat berikut:
 
 ## 🎨 Apresiasi Karya Seni (Art Credits)
 
-Ilustrasi maskot kucing imut di dalam aplikasi ini terinspirasi dari karya seni berikut:
+Ilustrasi maskot kucing imut dan wallpaper AOD di dalam aplikasi ini terinspirasi dari karya seni berikut:
 - **Doodle Kucing Imut**: Terinspirasi dari/merujuk pada karya pembuat asli di [Pinterest Pin 912682680754112540](https://id.pinterest.com/pin/912682680754112540/), direpresentasikan kembali demi visualisasi estetik di dalam aplikasi.
+- **AOD Aesthetic Wallpapers**: Terinspirasi dari karya kreatif luar biasa yang dibagikan oleh [The_Honored1 di Pinterest](https://www.pinterest.com/The_Honored1/), direpresentasikan secara digital sebagai template background Always-On Display (AOD) estetik.
 
 ---
 
