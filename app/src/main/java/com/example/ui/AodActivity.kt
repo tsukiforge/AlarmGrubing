@@ -17,12 +17,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.net.Uri
+import android.widget.VideoView
 import coil.compose.AsyncImage
 import com.example.R
 import kotlinx.coroutines.delay
@@ -58,6 +63,8 @@ class AodActivity : ComponentActivity() {
         val useCustomImage = prefs.getBoolean("use_custom_image", false)
         val customImageUri = prefs.getString("custom_image_uri", null)
         val showMotivation = prefs.getBoolean("show_motivation", true)
+        val useAnimatedAod = prefs.getBoolean("use_animated_aod", false)
+        val selectedAnimationIndex = prefs.getInt("selected_animation", 0)
 
         setContent {
             AodScreen(
@@ -65,6 +72,8 @@ class AodActivity : ComponentActivity() {
                 useCustomImage = useCustomImage,
                 customImageUri = customImageUri,
                 showMotivation = showMotivation,
+                useAnimatedAod = useAnimatedAod,
+                animationIndex = selectedAnimationIndex,
                 onExit = { finish() }
             )
         }
@@ -86,19 +95,25 @@ fun AodScreen(
     useCustomImage: Boolean,
     customImageUri: String?,
     showMotivation: Boolean,
+    useAnimatedAod: Boolean,
+    animationIndex: Int,
     onExit: () -> Unit
 ) {
+    // Template bawaan aplikasi (static)
     val templates = listOf(
         R.drawable.aod_template_1_1782867396832,
         R.drawable.aod_template_2_1782867409346,
-        R.drawable.aod_template_3_1782867422789,
-        R.drawable.img_aod_miku_ripped_1782906384401,
-        R.drawable.img_aod_yandere_cleaver_1782906410094,
-        R.drawable.img_aod_miku_blue_1782906427863,
-        R.drawable.img_aod_purple_eye_1782906447488,
-        R.drawable.img_cat_sleeping_1782296435114,
-        R.drawable.img_cat_yawn_1782296451744
+        R.drawable.aod_template_3_1782867422789
     )
+    
+    // Animasi AOD (video bergerak)
+    val animationResources = listOf(
+        R.raw.aod_anim_1,
+        R.raw.aod_anim_2,
+        R.raw.aod_anim_3,
+        R.raw.aod_anim_4
+    )
+    
     val template = templates.getOrNull(templateIndex) ?: templates[0]
     
     var timeText by remember { mutableStateOf("") }
@@ -147,7 +162,26 @@ fun AodScreen(
                 )
             }
     ) {
-        if (useCustomImage && customImageUri != null) {
+        if (useAnimatedAod && animationIndex in animationResources.indices) {
+            // AOD dengan video animasi bergerak
+            val videoResId = animationResources[animationIndex]
+            AndroidView(
+                factory = { ctx ->
+                    VideoView(ctx).apply {
+                        val uri = Uri.parse("android.resource://${ctx.packageName}/${videoResId}")
+                        setVideoURI(uri)
+                        setOnPreparedListener { mp ->
+                            mp.isLooping = true
+                            mp.setVolume(0f, 0f) // Senyap
+                            start()
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(0.25f)
+            )
+        } else if (useCustomImage && customImageUri != null) {
             AsyncImage(
                 model = customImageUri,
                 contentDescription = "Custom AOD Background",

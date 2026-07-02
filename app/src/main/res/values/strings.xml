@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">Alarm Sync</string>
+    <string name="app_name">Alarm Sync — Alarm Grup</string>
+    <string name="app_name_short">Alarm Sync</string>
 </resources>

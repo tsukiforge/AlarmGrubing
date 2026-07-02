@@ -38,17 +38,20 @@ fun AodSettingsScreen(context: Context) {
     var useCustomImage by remember { mutableStateOf(prefs.getBoolean("use_custom_image", false)) }
     var aodEnabled by remember { mutableStateOf(prefs.getBoolean("aod_enabled", false)) }
     var showMotivation by remember { mutableStateOf(prefs.getBoolean("show_motivation", true)) }
+    var useAnimatedAod by remember { mutableStateOf(prefs.getBoolean("use_animated_aod", false)) }
+    var selectedAnimationIndex by remember { mutableStateOf(prefs.getInt("selected_animation", 0)) }
 
     val templates = listOf(
         R.drawable.aod_template_1_1782867396832,
         R.drawable.aod_template_2_1782867409346,
-        R.drawable.aod_template_3_1782867422789,
-        R.drawable.img_aod_miku_ripped_1782906384401,
-        R.drawable.img_aod_yandere_cleaver_1782906410094,
-        R.drawable.img_aod_miku_blue_1782906427863,
-        R.drawable.img_aod_purple_eye_1782906447488,
-        R.drawable.img_cat_sleeping_1782296435114,
-        R.drawable.img_cat_yawn_1782296451744
+        R.drawable.aod_template_3_1782867422789
+    )
+    
+    val animationTemplates = listOf(
+        R.raw.aod_anim_1,
+        R.raw.aod_anim_2,
+        R.raw.aod_anim_3,
+        R.raw.aod_anim_4
     )
     
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -61,9 +64,11 @@ fun AodSettingsScreen(context: Context) {
             } catch (e: Exception) {}
             customImageUri = uri.toString()
             useCustomImage = true
+            useAnimatedAod = false
             prefs.edit()
                 .putString("custom_image_uri", customImageUri)
                 .putBoolean("use_custom_image", true)
+                .putBoolean("use_animated_aod", false)
                 .apply()
         }
     }
@@ -187,9 +192,9 @@ fun AodSettingsScreen(context: Context) {
             Text("Pilih Wallpaper dari Galeri HP 🖼️", color = Color.White, fontSize = 13.sp)
         }
 
-        // Template gallery title
+        // Static templates section
         Text(
-            text = "Pilih Wallpaper & Desain AOD",
+            text = "Wallpaper Statis (Bawaan)",
             color = Color.LightGray,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
@@ -203,7 +208,7 @@ fun AodSettingsScreen(context: Context) {
         
         if (customImageUri != null) {
             allItems.add {
-                val isSelected = useCustomImage
+                val isSelected = useCustomImage && !useAnimatedAod
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -216,7 +221,11 @@ fun AodSettingsScreen(context: Context) {
                         )
                         .clickable {
                             useCustomImage = true
-                            prefs.edit().putBoolean("use_custom_image", true).apply()
+                            useAnimatedAod = false
+                            prefs.edit()
+                                .putBoolean("use_custom_image", true)
+                                .putBoolean("use_animated_aod", false)
+                                .apply()
                         }
                 ) {
                     AsyncImage(
@@ -245,7 +254,7 @@ fun AodSettingsScreen(context: Context) {
 
         templates.forEachIndexed { index, resId ->
             allItems.add {
-                val isSelected = !useCustomImage && selectedTemplateIndex == index
+                val isSelected = !useCustomImage && !useAnimatedAod && selectedTemplateIndex == index
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -258,8 +267,13 @@ fun AodSettingsScreen(context: Context) {
                         )
                         .clickable {
                             useCustomImage = false
+                            useAnimatedAod = false
                             selectedTemplateIndex = index
-                            prefs.edit().putInt("selected_template", index).putBoolean("use_custom_image", false).apply()
+                            prefs.edit()
+                                .putInt("selected_template", index)
+                                .putBoolean("use_custom_image", false)
+                                .putBoolean("use_animated_aod", false)
+                                .apply()
                         }
                 ) {
                     Image(
@@ -279,6 +293,73 @@ fun AodSettingsScreen(context: Context) {
                                 .align(Alignment.BottomCenter)
                                 .padding(bottom = 6.dp)
                                 .background(Color(0xFFE91E63), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Animated templates section
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Wallpaper Animasi (AOD Bergerak)",
+            color = Color.LightGray,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(bottom = 12.dp)
+        )
+
+        animationTemplates.forEachIndexed { index, _ ->
+            allItems.add {
+                val isSelected = useAnimatedAod && selectedAnimationIndex == index
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(9f / 16f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .border(
+                            width = if (isSelected) 3.dp else 1.dp,
+                            color = if (isSelected) Color(0xFF4CAF50) else Color.White.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+                        .clickable {
+                            useAnimatedAod = true
+                            useCustomImage = false
+                            selectedAnimationIndex = index
+                            prefs.edit()
+                                .putBoolean("use_animated_aod", true)
+                                .putBoolean("use_custom_image", false)
+                                .putInt("selected_animation", index)
+                                .apply()
+                        }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF1A1A2E)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "▶ AOD ${index + 1}",
+                            color = Color.White.copy(alpha = 0.6f),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (isSelected) {
+                        Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+                        Text(
+                            text = "Animasi ${index + 1}",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp)
+                                .background(Color(0xFF4CAF50), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         )
                     }

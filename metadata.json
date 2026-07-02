@@ -1,6 +1,24 @@
 {
-  "name": "Alarm Sync",
-  "description": "Aplikasi alarm grup real-time & alarm pribadi dengan tema Kucing (Cat Theme) yang elegan, modern, dan maskot meow interaktif.",
+  "name": "Alarm Sync — Alarm Grup",
+  "shortName": "Alarm Sync",
+  "applicationId": "com.kukkistudio.alarmgrup",
+  "version": "5.1.0",
+  "description": "Aplikasi alarm grup real-time & alarm pribadi dengan tema kucing (Cat Theme) yang elegan, modern, dan maskot meow interaktif. Fitur: alarm pribadi, kamar grup, couple sync, AOD, widget cuaca/motivasi/catatan/pasangan, dan berbagi file.",
+  "shortDescription": "Aplikasi alarm grup real-time & alarm pribadi dengan tema kucing imut.",
+  "category": "Productivity",
+  "tags": ["alarm", "alarm grup", "alarm kelompok", "bangun tidur", "pengingat", "couple alarm", "alarm real-time", "widget cuaca"],
+  "price": "Free",
+  "containsAds": false,
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"],
+  "storeListing": {
+    "googlePlay": {
+      "shortDescription": "Aplikasi alarm grup real-time & alarm pribadi dengan tema kucing imut.",
+      "fullDescription": "Alarm Sync adalah aplikasi alarm pintar yang memungkinkan Anda membuat alarm pribadi DAN alarm kelompok yang tersinkronisasi secara real-time dengan teman, keluarga, atau pasangan!\n\nFITUR UTAMA:\n\n⏰ Alarm Pribadi — Atur alarm dengan nada dering kustom dari musik HP, jadwal berulang, tampilan dering layar penuh.\n\n👥 Kamar Alarm Grup — Buat kamar grup dengan kode unik, bagikan via QR Code, sinkronisasi real-time, fitur Bangunkan Anggota.\n\n💕 Mode Pasangan — Pairing dengan pasangan, sistem poin & streak, bonus sinkronisasi, widget pasangan.\n\n🖥️ Always-On Display — AOD otomatis, template statis & animasi, wallpaper kustom dari galeri, kata motivasi, anti burn-in.\n\n📱 Widget — Cuaca, motivasi, catatan, pasangan, quick share.\n\n📁 Berbagi File & Catatan — Upload/download file, ZIP otomatis, catatan warna kustom.\n\n🎨 Desain estetik tema kucing, Material Design 3, mode terang/gelap.\n\n🔒 Privasi: foto profil lokal, data terenkripsi, backup & restore, tanpa iklan."
+    },
+    "apkpure": {
+      "title": "Alarm Sync: Alarm Grup & Pengingat",
+      "description": "Alarm Sync — aplikasi alarm grup real-time yang memungkinkan Anda membuat alarm pribadi dan alarm kelompok yang tersinkronisasi dengan teman, keluarga, atau pasangan.\n\nFitur unggulan:\n✅ Alarm pribadi dengan nada dering kustom\n✅ Kamar grup dengan kode unik & QR Code\n✅ Sinkronisasi alarm real-time\n✅ Mode pasangan dengan sistem poin\n✅ Always-On Display (AOD) estetik\n✅ Widget cuaca, motivasi, catatan\n✅ Berbagi file antar anggota grup\n✅ Tema kucing imut & Material Design 3\n✅ 100% gratis, tanpa iklan"
+    }
+  }
 }
