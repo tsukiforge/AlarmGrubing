@@ -39,6 +39,7 @@ roborazzi = "1.59.0"
 firebaseBom = "34.12.0"
 secretsGradlePlugin = "2.0.1"
 zxing = "3.5.3"
+media3ExoPlayer = "1.5.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -90,6 +91,8 @@ roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "robora
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3ExoPlayer" }
+androidx-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3ExoPlayer" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

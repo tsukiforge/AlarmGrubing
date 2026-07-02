@@ -115,29 +115,14 @@ fun MorningWeatherWidget() {
                             val lon = loc?.longitude ?: 106.8456
                             if (loc == null) locationName = "Jakarta (Default)"
                             try {
-                                val weatherInfo = fetchWeather(lat, lon)
-                                temperature = "${weatherInfo.first}°C"
-                                val code = weatherInfo.second
-                                // Simple WMO code mapping
-                                when {
-                                    code in 50..69 || code in 80..82 || code in 95..99 -> {
-                                        isRaining = true
-                                        isSunny = false
-                                        isCloudy = false
-                                        weatherDesc = "Hujan"
-                                    }
-                                    code in 1..3 || code in 45..48 -> {
-                                        isCloudy = true
-                                        isSunny = false
-                                        isRaining = false
-                                        weatherDesc = if (code in 45..48) "Berkabut" else "Berawan"
-                                    }
-                                    else -> {
-                                        isSunny = true
-                                        isCloudy = false
-                                        isRaining = false
-                                        weatherDesc = "Cerah"
-                                    }
+                                // FIX BUG 3: Gunakan WeatherRepository — data sama dengan widget
+                                val weather = com.example.data.repository.WeatherRepository.getWeather(context, lat, lon)
+                                temperature = "${weather.temperatureCelsius}°C"
+                                when (com.example.data.repository.WeatherRepository.weatherCodeToDescription(weather.weatherCode)) {
+                                    "Hujan" -> { isRaining = true; isSunny = false; isCloudy = false; weatherDesc = "Hujan" }
+                                    "Berkabut" -> { isCloudy = true; isSunny = false; isRaining = false; weatherDesc = "Berkabut" }
+                                    "Berawan" -> { isCloudy = true; isSunny = false; isRaining = false; weatherDesc = "Berawan" }
+                                    else -> { isSunny = true; isCloudy = false; isRaining = false; weatherDesc = "Cerah" }
                                 }
                             } catch (e: Exception) {
                                 weatherDesc = "Gagal memuat cuaca"
@@ -148,8 +133,8 @@ fun MorningWeatherWidget() {
                         weatherDesc = "Lokasi gagal, pakai default"
                         scope.launch {
                             try {
-                                val weatherInfo = fetchWeather(-6.2088, 106.8456)
-                                temperature = "${weatherInfo.first}°C"
+                                val weather = com.example.data.repository.WeatherRepository.getWeather(context, -6.2088, 106.8456)
+                                temperature = "${weather.temperatureCelsius}°C"
                             } catch (e: Exception) {}
                         }
                     }

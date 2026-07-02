@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    FIX BUG 2: Root cause — layout_height="wrap_content" menyebabkan area kosong
+    transparan terlihat di bawah widget (background "bocor" ke home screen).
+    Fix: gunakan match_parent untuk height dan background rounded yang proper.
+    Ukuran diperkecil sesuai targetCellWidth=2 x targetCellHeight=1.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="10dp"
     android:gravity="center">
 
     <TextView
@@ -13,8 +19,8 @@
         android:text="Quick Share 🚀"
         android:textColor="#FFFFFF"
         android:textStyle="bold"
-        android:textSize="16sp"
-        android:layout_marginBottom="8dp" />
+        android:textSize="13sp"
+        android:layout_marginBottom="6dp" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -25,21 +31,23 @@
         <Button
             android:id="@+id/btn_quick_send"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
             android:backgroundTint="#4CAF50"
             android:textColor="#FFFFFF"
+            android:textSize="11sp"
             android:text="Kirim" />
 
         <Button
             android:id="@+id/btn_quick_receive"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:layout_marginStart="4dp"
             android:backgroundTint="#2196F3"
             android:textColor="#FFFFFF"
+            android:textSize="11sp"
             android:text="Terima" />
     </LinearLayout>
 </LinearLayout>

@@ -20,6 +20,8 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Diperlukan untuk fitur Set as Wallpaper (gambar statis via WallpaperManager) -->
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -130,6 +132,21 @@
         <service android:name=".alarm.AodService"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- Live Wallpaper Video Service — harus pakai permission BIND_WALLPAPER -->
+        <service
+            android:name=".ui.VideoLiveWallpaperService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_WALLPAPER">
+            <intent-filter>
+                <action android:name="android.service.wallpaper.WallpaperService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.wallpaper"
+                android:resource="@xml/video_live_wallpaper" />
+        </service>
 
         <service android:name=".alarm.AlarmRingingService"
             android:foregroundServiceType="mediaPlayback"

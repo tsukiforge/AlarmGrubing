@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    FIX BUG 3: Layout diperkecil — height dikurangi agar proporsional di grid 2x1 cell.
+    Padding dikurangi dari 16dp ke 10dp, font suhu diperkecil dari 32sp ke 24sp.
+-->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -18,7 +22,7 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:padding="16dp">
+        android:padding="10dp">
 
         <TextView
             android:id="@+id/widget_weather_location"
@@ -28,7 +32,7 @@
             android:layout_alignParentTop="true"
             android:text="Lokasi Anda"
             android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+            android:textSize="10sp" />
 
         <TextView
             android:id="@+id/widget_weather_desc"
@@ -36,10 +40,10 @@
             android:layout_height="wrap_content"
             android:layout_below="@id/widget_weather_location"
             android:layout_alignParentStart="true"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="2dp"
             android:text="Memuat..."
             android:textColor="#FFFFFF"
-            android:textSize="16sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
@@ -50,7 +54,7 @@
             android:layout_centerVertical="true"
             android:text="--°C"
             android:textColor="#FFFFFF"
-            android:textSize="32sp"
+            android:textSize="24sp"
             android:textStyle="bold" />
     </RelativeLayout>
 </FrameLayout>

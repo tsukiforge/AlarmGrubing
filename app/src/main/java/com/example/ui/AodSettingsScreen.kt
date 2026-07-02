@@ -73,6 +73,24 @@ fun AodSettingsScreen(context: Context) {
         }
     }
 
+    // Launcher untuk memilih video (live wallpaper)
+    val videoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (e: Exception) {}
+            val wallpaperPrefs = context.getSharedPreferences("wallpaper_prefs", Context.MODE_PRIVATE)
+            wallpaperPrefs.edit().putString("video_uri", uri.toString()).apply()
+            WallpaperHelper.openVideoLiveWallpaperPicker(context)
+        }
+    }
+
+    // State untuk bottom sheet "Set as Wallpaper"
+    var wallpaperSheetImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showWallpaperSheet by remember { mutableStateOf(false) }
+
     // Function to start or stop service
     val toggleAodService = { enabled: Boolean ->
         aodEnabled = enabled
@@ -389,6 +407,84 @@ fun AodSettingsScreen(context: Context) {
                 }
             }
         }
+
+        // ── Seksi: Set as Wallpaper ──────────────────────────────────────────────
+        Spacer(modifier = Modifier.height(8.dp))
+        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Set sebagai Wallpaper HP",
+            color = Color.LightGray,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .align(Alignment.Start)
+                .padding(bottom = 10.dp)
+        )
+
+        // Tombol set wallpaper gambar — aktif jika ada custom image URI
+        Button(
+            onClick = {
+                val uriStr = customImageUri
+                if (uriStr != null) {
+                    wallpaperSheetImageUri = android.net.Uri.parse(uriStr)
+                    showWallpaperSheet = true
+                }
+            },
+            enabled = customImageUri != null,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .padding(bottom = 2.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF4CAF50),
+                disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+            ),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = "🖼️  Set Gambar Kustom sebagai Wallpaper",
+                color = Color.White,
+                fontSize = 13.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Tombol set live wallpaper video
+        Button(
+            onClick = { videoPickerLauncher.launch("video/*") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Text(
+                text = "🎬  Pilih Video untuk Live Wallpaper",
+                color = Color.White,
+                fontSize = 13.sp
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Video akan di-loop terus-menerus. Otomatis pause saat baterai ≤ 15%.",
+            color = Color.Gray,
+            fontSize = 10.sp,
+            modifier = Modifier.align(Alignment.Start)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    // Bottom sheet untuk konfirmasi & set wallpaper gambar
+    if (showWallpaperSheet) {
+        SetWallpaperBottomSheet(
+            context = context,
+            imageUri = wallpaperSheetImageUri,
+            videoUri = null,
+            onDismiss = { showWallpaperSheet = false }
+        )
     }
 }
 

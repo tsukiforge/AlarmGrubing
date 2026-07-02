@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">Alarm Sync — Alarm Grup</string>
     <string name="app_name_short">Alarm Sync</string>
+    <string name="live_wallpaper_description">Wallpaper video bergerak dari Alarm Sync. Pilih video dari galeri untuk dijadikan live wallpaper.</string>
 </resources>
