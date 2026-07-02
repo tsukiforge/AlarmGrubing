@@ -160,6 +160,12 @@ jobs:
           fi
           echo "PNG check complete."
 
+      - name: Assemble Debug APK
+        run: gradle :app:assembleDebug
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
+
       # ✅ FIX KEYSTORE — decode ke app/ folder (bukan root)
       - name: Reconstruct Release Keystore
         env:
@@ -173,7 +179,7 @@ jobs:
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           VERSION_CODE: ${{ github.run_number }}
-          VERSION_NAME: 5.2.${{ github.run_number }}
+          VERSION_NAME: 1.1.${{ github.run_number }}
           KEYSTORE_PATH: my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
@@ -181,11 +187,12 @@ jobs:
         if: ${{ env.RELEASE_KEYSTORE_BASE64 != '' }}
         run: gradle :app:assembleRelease
 
-      - name: Upload Release APK Artifact
+      - name: Upload APK Artifact
         uses: actions/upload-artifact@v4.6.2  # ✅ Node 24 compatible
         with:
-          name: alarmgrup-release-apk
+          name: alarmgrup-android-apk
           path: |
+            app/build/outputs/apk/debug/*.apk
             app/build/outputs/apk/release/*.apk
           if-no-files-found: warn
 
@@ -194,12 +201,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="v5.2.${{ github.run_number }}"
-          RELEASE_TITLE="Release v5.2.${{ github.run_number }}"
+          TAG_NAME="v1.1.${{ github.run_number }}"
+          RELEASE_TITLE="Update Version v1.1.${{ github.run_number }}"
           
-          # Collect only release APKs
+          # Safely collect all existing APKs under debug and release directories
           FILES_TO_UPLOAD=()
-          for f in app/build/outputs/apk/release/*.apk; do
+          for f in app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk; do
             if [ -f "$f" ]; then
               FILES_TO_UPLOAD+=("$f")
             fi
@@ -215,5 +222,5 @@ jobs:
           gh release create "$TAG_NAME" \
             "${FILES_TO_UPLOAD[@]}" \
             --title "$RELEASE_TITLE" \
-            --notes "Automated release v5.2.${{ github.run_number }} (build: ${{ github.run_number }}). Commit: ${{ github.sha }}." \
+            --notes "Automated release v1.1.${{ github.run_number }} (build: ${{ github.run_number }}). Commit: ${{ github.sha }}." \
             --target ${{ github.sha }}

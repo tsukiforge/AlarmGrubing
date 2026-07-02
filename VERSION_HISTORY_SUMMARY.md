@@ -4,13 +4,7 @@ Peta jalan sejarah versi aplikasi **Alarm Grup** dikurasi untuk pelacakan perfor
 
 ---
 
-### 🟣 v5.2.0 (Produksi Stabil Terbaru - 2026-07-02)
-* **AOD Animasi Bergerak**: Wallpaper AOD video animasi via VideoView, template statis dirampingkan jadi 3 bawaan, integrasi .mp4 ke `res/raw/`.
-* **Pembersihan Aset Besar-besaran**: Hapus 7 file template ekstra + 3 file drawable tidak terpakai. Folder `drawable/Aod/` dibersihkan.
-* **Persiapan Store**: `STORE_METADATA.md`, `metadata.json` diperbarui, screenshot test otomatis dengan Roborazzi untuk Play Store & APKPure.
-* **Nama Aplikasi**: Diperbarui menjadi "Alarm Sync — Alarm Grup".
-
-### 🟡 v5.1.0 (2026-06-30)
+### 🟣 v5.1.0 (Produksi Stabil Terbaru - 2026-06-30)
 * **Always-On Display (AOD)**: Implementasi background `AodService` untuk mendeteksi screen lock/off dan meluncurkan layar standby AOD secara instan (lengkap dengan pintasan Switch On/Off di halaman Pengaturan & Profil).
 * **Fitur Cerdas**: Perlindungan Anti Burn-in (posisi jam dinamis), kata motivasi berganti berkala, dan penambahan wallpaper kustom galeri.
 * **Widget Quick Share**: Penyusutan menu utama dengan memindahkan fungsionalitas Quick Share menjadi Widget Android murni.

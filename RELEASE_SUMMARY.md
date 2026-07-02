@@ -1,27 +1,19 @@
 # 📌 Ringkasan Rilis (Release Summary) - Alarm Grup
 
-Dokumen resmi peninjauan rilis produk dan kronologi siklus hidup paket distribusi **Alarm Grup** untuk rilis stabil **v5.2.0**.
+Dokumen resmi peninjauan rilis produk dan kronologi siklus hidup paket distribusi **Alarm Grup** untuk rilis stabil **v5.1.0**.
 
 ---
 
 ## 📦 Informasi Metadata Distribusi
-* **Versi Produksi Aktif**: `v5.2.0`
-* **Tanggal Rilis**: 2 Juli 2026
+* **Versi Produksi Aktif**: `v5.1.0`
 * **Arsitektur Rilis**: Kompilasi multi-arsitektur CPU (ARM64-v8a, ARMEABI-v7a, Universal).
-* **Lingkungan Target**: Kompatibel dari Android 7.0 (API Level 24) hingga Android 16+ (API Level 36+).
+* **Lingkungan Target**: Kompatibel dari Android 8.0 (API Level 26) hingga Android 14+ (API Level 34+).
 
 ---
 
 ## 🌟 Sorotan Riwayat Fitur Berdasarkan Kronologi Versi
 
-### 🟣 Versi v5.2.0 (Rilis Stabil Terbaru)
-* **Wallpaper AOD Animasi Bergerak**: Menambahkan dukungan video animasi sebagai latar belakang AOD (muted, looping, alpha 25%). File .mp4 diintegrasikan via VideoView dalam Jetpack Compose.
-* **Penyederhanaan Template AOD**: Template AOD dirampingkan dari 9 menjadi 3 template bawaan statis. Template ekstra anime/gambar tidak diperlukan dihapus.
-* **Pembersihan Aset Global**: 3 file drawable tidak terpakai dihapus. Folder `drawable/Aod/` dibersihkan dan file .mp4 dipindahkan ke `res/raw/` dengan penamaan standar.
-* **Persiapan Distribusi Store**: Penambahan file `STORE_METADATA.md` lengkap, update `metadata.json`, dan pembuatan screenshot test otomatis dengan Roborazzi untuk Play Store & APKPure.
-* **Perbaikan App Name**: Nama aplikasi diperbarui menjadi "Alarm Sync — Alarm Grup".
-
-### 🟢 Versi v5.1.0
+### 🟣 Versi v5.1.0 (Rilis Stabil Terbaru)
 * **Always-On Display (AOD) Otomatis**: Integrasi `AodService` berbasis `BroadcastReceiver` yang mendeteksi matinya layar HP (`ACTION_SCREEN_OFF`) untuk meluncurkan layar standby AOD secara otomatis dan andal. Lengkap dengan pintasan Switch On/Off di halaman Pengaturan & Profil utama.
 * **Fitur Anti-Burn-In**: Mekanisme pergeseran koordinat jam & tanggal otomatis secara periodik untuk mencegah kerusakan layar.
 * **Galeri Wallpaper Kustom & Motivasi**: Mendukung pengisian gambar wallpaper kustom dari galeri pengguna serta visualisasi teks kutipan motivasi harian.
