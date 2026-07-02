@@ -1,6 +1,6 @@
 # 📱 Store Metadata — Alarm Sync (Alarm Grup)
 **Application ID:** `com.kukkistudio.alarmgrup`
-**Version:** 5.1.0
+**Version:** 5.2.0
 **Target API Level:** 36 (Android 16)
 **Min SDK:** 24 (Android 7.0)
 **Category:** Productivity / Tools

@@ -4,6 +4,29 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 
 ---
 
+## [5.2.0] - 2026-07-02
+
+### 🚀 Fitur Baru & Peningkatan
+* **Wallpaper AOD Animasi Bergerak**: Menambahkan dukungan penuh untuk wallpaper AOD video animasi. File .mp4 dari folder `drawable/Aod/` dipindahkan ke `res/raw/` dan diintegrasikan dengan VideoView sebagai latar belakang AOD yang bergerak (muted, looping, hemat daya).
+* **Penyederhanaan Template AOD**: Mengurangi template AOD dari 9 menjadi 3 template bawaan statis (`aod_template_1/2/3.jpg`). Template ekstra (`img_aod_miku_*`, `img_aod_yandere_*`, `img_aod_purple_eye_*`) dihapus.
+* **Seksi Wallpaper Terpisah**: Menu pengaturan AOD kini memiliki dua seksi berbeda — "Wallpaper Statis (Bawaan)" untuk template .jpg dan "Wallpaper Animasi (AOD Bergerak)" untuk video animasi.
+
+### 🧹 Pembersihan & Optimasi Aset
+* **Hapus 3 File Drawable Tidak Terpakai**: `ic_cat_sleeping.xml`, `ic_cat_yawn.xml`, `img_cute_cat_doodle_*.jpg` — tidak ada referensi di kode.
+* **Bersihkan Folder Aod/**: Memindahkan 4 file .mp4 random dari `drawable/Aod/` ke `res/raw/` dengan nama bersih (`aod_anim_1-4.mp4`) dan menghapus folder tersebut.
+* **Hapus Template Ekstra**: Hapus 4 file template AOD yang tidak diperlukan (`img_aod_miku_blue`, `img_aod_miku_ripped`, `img_aod_yandere_cleaver`, `img_aod_purple_eye`).
+
+### 📱 Persiapan Store & Metadata
+* **Store Metadata**: Menambahkan file `STORE_METADATA.md` berisi deskripsi lengkap untuk Google Play Store & APKPure (nama, short desc, full desc, keywords, kategori, screenshot plan).
+* **Update metadata.json**: Deskripsi aplikasi diperbarui dengan listing Play Store & APKPure lengkap.
+* **Screenshot Test Otomatis**: Menambahkan `StoreScreenshotTest.kt` menggunakan Roborazzi untuk menghasilkan screenshot UI otomatis (AboutScreen, AodScreen 3 template, AodSettingsScreen) dalam resolusi 1080×1920.
+* **Perbaiki App Name**: `strings.xml` diupdate dari "Alarm Sync" menjadi "Alarm Sync — Alarm Grup".
+
+### 🔧 Perbaikan & Peningkatan
+* **Kembalikan File Terhapus**: File `img_cat_sleeping.jpg`, `img_cat_yawn.jpg`, `img_cat_happy.jpg`, `img_app_icon_fg_new.jpg`, `img_cute_cat_doodle.jpg` yang masih digunakan di `MainActivity.kt` dan ikon aplikasi telah dikembalikan.
+
+---
+
 ## [5.1.0] - 2026-06-30
 
 ### 🚀 Fitur Baru & Peningkatan

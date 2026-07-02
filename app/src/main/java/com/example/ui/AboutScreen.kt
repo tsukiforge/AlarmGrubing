@@ -168,7 +168,7 @@ fun AboutScreen(
                         fontSize = 14.sp,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
-                    SpecLine(label = "Versi Aplikasi", value = "4.2.0-Feline🐾", contentColor = contentColor)
+                    SpecLine(label = "Versi Aplikasi", value = com.example.BuildConfig.VERSION_NAME + "-Feline🐾", contentColor = contentColor)
                     SpecLine(label = "Tanggal Rilis", value = "12 Juni 2026", contentColor = contentColor)
                     SpecLine(label = "Framework UI", value = "JetCompose M3 🚀", contentColor = contentColor)
                     SpecLine(label = "Lokal Database", value = "Room SQL v2.6 ✅", contentColor = contentColor)

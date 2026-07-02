@@ -20,10 +20,10 @@ android {
     // Inject dynamic Version Code and Version Name from properties or CI/CD env
     val paramVersionCode = project.findProperty("versionCode")?.toString()?.toIntOrNull()
       ?: System.getenv("VERSION_CODE")?.toIntOrNull()
-      ?: 51
+      ?: 52
     val paramVersionName = project.findProperty("versionName")?.toString()
       ?: System.getenv("VERSION_NAME")
-      ?: "5.1.0"
+      ?: "5.2.0"
 
     versionCode = paramVersionCode
     versionName = paramVersionName
