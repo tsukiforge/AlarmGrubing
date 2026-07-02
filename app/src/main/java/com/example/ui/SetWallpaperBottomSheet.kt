@@ -13,7 +13,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * Bottom sheet untuk memilih opsi "Set as Wallpaper".
@@ -75,8 +78,27 @@ fun SetWallpaperBottomSheet(
                         isSettingWallpaper = true
                         resultMessage = null
                         scope.launch {
-                            val result = WallpaperHelper.setWallpaperFromUri(context, imageUri)
+                            // Salin dulu ke cache biar tidak bermasalah dengan URI permission
+                            val cachedUri = withContext(Dispatchers.IO) {
+                                try {
+                                    val cacheFile = File(context.cacheDir, "wallpaper_temp_${System.currentTimeMillis()}.jpg")
+                                    context.contentResolver.openInputStream(imageUri)?.use { input ->
+                                        cacheFile.outputStream().use { output ->
+                                            input.copyTo(output)
+                                        }
+                                    }
+                                    if (cacheFile.exists()) Uri.fromFile(cacheFile) else imageUri
+                                } catch (e: Exception) {
+                                    android.util.Log.w("SetWallpaper", "Gagal copy ke cache: ${e.message}")
+                                    imageUri // fallback ke URI asli
+                                }
+                            }
+                            val result = WallpaperHelper.setWallpaperFromUri(context, cachedUri)
                             isSettingWallpaper = false
+                            // Hapus file cache setelah selesai (biar tidak menumpuk)
+                            if (cachedUri.scheme == "file") {
+                                try { File(cachedUri.path!!).delete() } catch (_: Exception) {}
+                            }
                             resultMessage = when (result) {
                                 is WallpaperHelper.WallpaperResult.Success ->
                                     "✅ Wallpaper gambar berhasil diterapkan!"

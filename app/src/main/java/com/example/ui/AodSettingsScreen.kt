@@ -29,6 +29,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.R
 import com.example.alarm.AodService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.graphics.asImageBitmap
+import java.io.File
+import java.io.FileOutputStream
+
 
 @Composable
 fun AodSettingsScreen(context: Context) {
@@ -330,7 +337,7 @@ fun AodSettingsScreen(context: Context) {
                 .padding(bottom = 12.dp)
         )
 
-        animationTemplates.forEachIndexed { index, _ ->
+        animationTemplates.forEachIndexed { index, resId ->
             allItems.add {
                 val isSelected = useAnimatedAod && selectedAnimationIndex == index
                 Box(
@@ -354,19 +361,11 @@ fun AodSettingsScreen(context: Context) {
                                 .apply()
                         }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color(0xFF1A1A2E)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "▶ AOD ${index + 1}",
-                            color = Color.White.copy(alpha = 0.6f),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
+                    VideoThumbnailImage(
+                        rawResId = resId,
+                        context = context,
+                        modifier = Modifier.fillMaxSize()
+                    )
                     if (isSelected) {
                         Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
                         Text(
@@ -384,30 +383,30 @@ fun AodSettingsScreen(context: Context) {
                 }
             }
         }
+    }
 
-        // Render in elegant 3-column rows
-        val chunked = allItems.chunked(3)
-        chunked.forEach { rowItems ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                rowItems.forEach { itemComposable ->
-                    Box(modifier = Modifier.weight(1f)) {
-                        itemComposable()
-                    }
+    // Render in elegant 3-column rows
+    val chunked = allItems.chunked(3)
+    chunked.forEach { rowItems ->
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            rowItems.forEach { itemComposable ->
+                Box(modifier = Modifier.weight(1f)) {
+                    itemComposable()
                 }
-                // Fill up remaining space if row is not full
-                if (rowItems.size < 3) {
-                    repeat(3 - rowItems.size) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
+            }
+            // Fill up remaining space if row is not full
+            if (rowItems.size < 3) {
+                repeat(3 - rowItems.size) {
+                    Spacer(modifier = Modifier.weight(1f))
                 }
             }
         }
-
+    }
         // ── Seksi: Set as Wallpaper ──────────────────────────────────────────────
         Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 0.5.dp)
@@ -490,4 +489,84 @@ fun AodSettingsScreen(context: Context) {
 
 private object BoxDefaults {
     val CardBorder = androidx.compose.foundation.BorderStroke(0.5.dp, Color.White.copy(alpha = 0.08f))
+}
+
+@Composable
+fun VideoThumbnailImage(
+    rawResId: Int,
+    context: Context,
+    modifier: Modifier = Modifier
+) {
+    val cacheDir = remember { File(context.filesDir, "aod_thumbnails").also { it.mkdirs() } }
+    val cacheFile = remember(rawResId) { File(cacheDir, "thumb_${rawResId}.png") }
+
+    val bitmap by produceState<android.graphics.Bitmap?>(null, rawResId) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                // Coba load dari cache dulu
+                if (cacheFile.exists()) {
+                    android.graphics.BitmapFactory.decodeFile(cacheFile.absolutePath)
+                } else {
+                    // Extract first frame dari video & simpan ke cache
+                    val uri = Uri.parse("android.resource://${context.packageName}/$rawResId")
+                    val retriever = android.media.MediaMetadataRetriever()
+                    retriever.setDataSource(context, uri)
+                    val frame = retriever.frameAtTime
+                    retriever.release()
+
+                    if (frame != null) {
+                        // Simpan ke cache untuk下次
+                        try {
+                            FileOutputStream(cacheFile).use { out ->
+                                frame.compress(android.graphics.Bitmap.CompressFormat.PNG, 90, out)
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.w("AodSettings", "Gagal simpan cache thumbnail: ${e.message}")
+                        }
+                    }
+                    frame
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("AodSettings", "Gagal ambil thumbnail video: ${e.message}")
+                null
+            }
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!.asImageBitmap(),
+            contentDescription = "Thumbnail Video AOD",
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
+    } else {
+        Box(
+            modifier = modifier.background(Color(0xFF1A1A2E)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                color = Color.White.copy(alpha = 0.4f),
+                strokeWidth = 2.dp
+            )
+        }
+    }
+}
+
+/**
+ * Hapus semua cache thumbnail AOD untuk mengosongkan storage.
+ * Panggil ini jika user ingin membersihkan cache.
+ */
+fun clearAodThumbnailCache(context: Context) {
+    try {
+        val cacheDir = File(context.filesDir, "aod_thumbnails")
+        if (cacheDir.exists()) {
+            cacheDir.listFiles()?.forEach { it.delete() }
+            cacheDir.delete()
+            android.util.Log.d("AodSettings", "Cache thumbnail AOD dibersihkan")
+        }
+    } catch (e: Exception) {
+        android.util.Log.w("AodSettings", "Gagal bersihkan cache: ${e.message}")
+    }
 }
