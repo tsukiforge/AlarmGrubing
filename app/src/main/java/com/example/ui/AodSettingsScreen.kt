@@ -383,30 +383,30 @@ fun AodSettingsScreen(context: Context) {
                 }
             }
         }
-    }
 
-    // Render in elegant 3-column rows
-    val chunked = allItems.chunked(3)
-    chunked.forEach { rowItems ->
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            rowItems.forEach { itemComposable ->
-                Box(modifier = Modifier.weight(1f)) {
-                    itemComposable()
+        // Render in elegant 3-column rows
+        val chunked = allItems.chunked(3)
+        chunked.forEach { rowItems ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowItems.forEach { itemComposable ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        itemComposable()
+                    }
                 }
-            }
-            // Fill up remaining space if row is not full
-            if (rowItems.size < 3) {
-                repeat(3 - rowItems.size) {
-                    Spacer(modifier = Modifier.weight(1f))
+                // Fill up remaining space if row is not full
+                if (rowItems.size < 3) {
+                    repeat(3 - rowItems.size) {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
                 }
             }
         }
-    }
+
         // ── Seksi: Set as Wallpaper ──────────────────────────────────────────────
         Spacer(modifier = Modifier.height(8.dp))
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 0.5.dp)
