@@ -130,16 +130,9 @@ class MainActivity : ComponentActivity() {
         
         com.example.alarm.MotivationScheduler.scheduleDailyMotivation(this)
 
-        // Start AOD service if enabled
-        val aodPrefs = getSharedPreferences("aod_prefs", Context.MODE_PRIVATE)
-        if (aodPrefs.getBoolean("aod_enabled", false)) {
-            val serviceIntent = Intent(this, com.example.alarm.AodService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-            } else {
-                startService(serviceIntent)
-            }
-        }
+        // AOD disabled entirely per user request
+        // val aodPrefs = getSharedPreferences("aod_prefs", Context.MODE_PRIVATE)
+        // if (aodPrefs.getBoolean("aod_enabled", false)) { ... }
 
         // Configure system flags to show on lock screen / wake up layout
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
@@ -866,7 +859,7 @@ fun MainScreenContent(
                 onClick = { activeTab = 3 }
             )
             TabButton(
-                title = "📱 AOD",
+                title = "📱 Wallpaper",
                 isActive = activeTab == 4,
                 onClick = { activeTab = 4 }
             )
@@ -5325,58 +5318,7 @@ fun SettingsScreen(
             val aodPrefs = remember { context.getSharedPreferences("aod_prefs", Context.MODE_PRIVATE) }
             var aodEnabled by remember { mutableStateOf(aodPrefs.getBoolean("aod_enabled", false)) }
 
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "📱 Always-On Display (AOD)",
-                        color = IndigoPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Aktifkan Standby AOD", color = TextLight, fontSize = 13.sp)
-                            Text(
-                                text = "AOD otomatis aktif saat layar HP dimatikan (kunci ponsel)",
-                                color = TextMuted,
-                                fontSize = 11.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Switch(
-                            checked = aodEnabled,
-                            onCheckedChange = { isEnabled ->
-                                aodEnabled = isEnabled
-                                aodPrefs.edit().putBoolean("aod_enabled", isEnabled).apply()
-                                val serviceIntent = Intent(context, com.example.alarm.AodService::class.java)
-                                if (isEnabled) {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        context.startForegroundService(serviceIntent)
-                                    } else {
-                                        context.startService(serviceIntent)
-                                    }
-                                } else {
-                                    context.stopService(serviceIntent)
-                                }
-                            }
-                        )
-                    }
-                }
-            }
+            // AOD card has been removed per user request
 
             var forceFullVolume by remember { mutableStateOf(prefs.getBoolean("force_full_volume", false)) }
             var autoSpeakerHeadset by remember { mutableStateOf(prefs.getBoolean("auto_speaker_headset", false)) }

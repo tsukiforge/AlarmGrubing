@@ -119,7 +119,8 @@ class VideoLiveWallpaperService : WallpaperService() {
                     val exoPlayer = ExoPlayer.Builder(applicationContext).build().apply {
                         setMediaItem(MediaItem.fromUri(videoUri))
                         repeatMode = Player.REPEAT_MODE_ALL   // Loop terus-menerus
-                        volume = 0f                            // Tanpa suara
+                        val isMuted = prefs.getBoolean("video_muted", false)
+                        volume = if (isMuted) 0f else 1f
                         setVideoSurface(holder.surface)
                         prepare()
                         addListener(object : Player.Listener {

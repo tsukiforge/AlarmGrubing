@@ -14,16 +14,7 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
             Log.d("BootReceiver", "Device booted. Rescheduling all enabled alarms...")
             
-            // Resume AOD Service if enabled
-            val aodPrefs = context.getSharedPreferences("aod_prefs", Context.MODE_PRIVATE)
-            if (aodPrefs.getBoolean("aod_enabled", false)) {
-                val serviceIntent = Intent(context, AodService::class.java)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                    context.startForegroundService(serviceIntent)
-                } else {
-                    context.startService(serviceIntent)
-                }
-            }
+            // AOD Service functionality has been removed per user request
             
             CoroutineScope(Dispatchers.IO).launch {
                 try {

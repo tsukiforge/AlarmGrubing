@@ -125,13 +125,19 @@
         </receiver>
 
         <activity android:name=".ui.QuickShareActivity" android:theme="@style/Theme.MyApplication.Transparent" android:exported="false" />
-        <activity android:name=".ui.AodActivity" android:theme="@style/Theme.MyApplication" android:exported="false" />
+
+        <activity android:name=".ui.ShareToWallpaperActivity" android:theme="@style/Theme.MyApplication.Transparent" android:exported="true" android:label="Jadikan Wallpaper">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity>
 
         <receiver android:name=".alarm.MotivationNotificationReceiver" android:exported="false" />
 
-        <service android:name=".alarm.AodService"
-            android:enabled="true"
-            android:exported="false" />
+
 
         <!-- Live Wallpaper Video Service — harus pakai permission BIND_WALLPAPER -->
         <service

@@ -31,12 +31,16 @@ object WallpaperHelper {
      * @param imageUri Content URI gambar yang sudah memiliki persistent read permission
      * @return         [WallpaperResult.Success] atau [WallpaperResult.Error]
      */
-    suspend fun setWallpaperFromUri(context: Context, imageUri: Uri): WallpaperResult =
+    suspend fun setWallpaperFromUri(context: Context, imageUri: Uri, flag: Int? = null): WallpaperResult =
         withContext(Dispatchers.IO) {
             try {
                 val wallpaperManager = WallpaperManager.getInstance(context)
                 context.contentResolver.openInputStream(imageUri)?.use { stream ->
-                    wallpaperManager.setStream(stream)
+                    if (flag != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                        wallpaperManager.setStream(stream, null, true, flag)
+                    } else {
+                        wallpaperManager.setStream(stream)
+                    }
                     Log.d(TAG, "Wallpaper statis berhasil di-set dari URI: $imageUri")
                     WallpaperResult.Success
                 } ?: WallpaperResult.Error("Tidak bisa membuka file gambar")
