@@ -315,6 +315,13 @@ fun MainScreenContent(
     val isOfflineGroup by viewModel.isOfflineGroup.collectAsState()
 
     val context = LocalContext.current
+    val isLockedSchedule = remember { mutableStateOf<com.example.ui.HealthSchedule?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            isLockedSchedule.value = com.example.ui.isAppCurrentlyLocked(context)
+            kotlinx.coroutines.delay(5000)
+        }
+    }
     val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", Context.MODE_PRIVATE) }
     val isConnected by NetworkConnectionHelper.observeConnection(context).collectAsState(initial = NetworkConnectionHelper.isConnected(context))
     val networkType = remember(isConnected) { NetworkConnectionHelper.getNetworkType(context) }
@@ -345,11 +352,12 @@ fun MainScreenContent(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp)
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+        ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -802,6 +810,8 @@ fun MainScreenContent(
                 FileSharingScreenContent(
                     viewModel = viewModel
                 )
+            } else if (activeTab == 4) {
+                com.example.ui.HealthSocialScreen(context = context)
             } else {
                 com.example.ui.AodSettingsScreen(context = context)
             }
@@ -835,7 +845,7 @@ fun MainScreenContent(
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             TabButton(
-                title = "⏰ Pribadi",
+                title = "⏰ Diri",
                 isActive = activeTab == 0,
                 onClick = { activeTab = 0 },
                 modifier = Modifier.weight(1f)
@@ -850,21 +860,27 @@ fun MainScreenContent(
                 modifier = Modifier.weight(1f)
             )
             TabButton(
-                title = "📝 Catatan",
+                title = "📝 Memo",
                 isActive = activeTab == 2,
                 onClick = { activeTab = 2 },
                 modifier = Modifier.weight(1f)
             )
             TabButton(
-                title = "📁 Berbagi",
+                title = "📁 Share",
                 isActive = activeTab == 3,
                 onClick = { activeTab = 3 },
                 modifier = Modifier.weight(1f)
             )
             TabButton(
-                title = "📱 Wallpaper",
+                title = "❤️ Health",
                 isActive = activeTab == 4,
                 onClick = { activeTab = 4 },
+                modifier = Modifier.weight(1f)
+            )
+            TabButton(
+                title = "📱 Layar",
+                isActive = activeTab == 5,
+                onClick = { activeTab = 5 },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -909,6 +925,112 @@ fun MainScreenContent(
             }
         )
     }
+
+    // --- App Lock Screen Overlay ---
+    val currentLocked = isLockedSchedule.value
+    if (currentLocked != null) {
+        var showBypassPinDialog by remember { mutableStateOf(false) }
+        var isPinEnabledLocal by remember {
+            mutableStateOf(
+                context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
+                    .getBoolean("pin_enabled", false)
+            )
+        }
+        var actualPinLocal by remember {
+            val encrypted = context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
+                .getString("pin_code", "") ?: ""
+            mutableStateOf(if (encrypted.isNotEmpty()) com.example.ui.SecurePinStorage.decryptPin(encrypted) else "")
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .clickable(enabled = false) {}, // absorb all touches
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = currentLocked.icon,
+                    fontSize = 72.sp,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                Text(
+                    text = "Aplikasi Terkunci",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                Text(
+                    text = "Jadwal ${currentLocked.name} sedang berjalan\n(${currentLocked.startTime} - ${currentLocked.endTime})",
+                    color = Color(0xFFFF4081),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                
+                Text(
+                    text = "Tetap fokus dan disiplin dengan komitmen kesehatan Anda. Selesaikan aktivitas Anda terlebih dahulu! ✨",
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                    fontSize = 13.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(bottom = 32.dp)
+                )
+                
+                if (isPinEnabledLocal) {
+                    Button(
+                        onClick = { showBypassPinDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text("Buka Sementara dengan PIN 🔑", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            com.example.ui.setTemporaryBypass(context, 15)
+                            isLockedSchedule.value = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Text("Buka Sementara (15 Menit) 🔓", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+        
+        if (showBypassPinDialog) {
+            com.example.ui.PinInputDialog(
+                mode = "VERIFY",
+                actualPin = actualPinLocal,
+                onDismiss = { showBypassPinDialog = false },
+                onSuccess = {
+                    com.example.ui.setTemporaryBypass(context, 15)
+                    isLockedSchedule.value = null
+                    showBypassPinDialog = false
+                }
+            )
+        }
+    }
+}
 }
 
 @Composable
