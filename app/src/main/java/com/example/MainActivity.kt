@@ -831,14 +831,14 @@ fun MainScreenContent(
                 .padding(bottom = 12.dp, top = 8.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
-                .padding(6.dp)
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             TabButton(
                 title = "⏰ Pribadi",
                 isActive = activeTab == 0,
-                onClick = { activeTab = 0 }
+                onClick = { activeTab = 0 },
+                modifier = Modifier.weight(1f)
             )
             TabButton(
                 title = "👥 Grup",
@@ -846,22 +846,26 @@ fun MainScreenContent(
                 onClick = { 
                     activeTab = 1 
                     viewModel.forceSyncGroupAndCouple()
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
             TabButton(
                 title = "📝 Catatan",
                 isActive = activeTab == 2,
-                onClick = { activeTab = 2 }
+                onClick = { activeTab = 2 },
+                modifier = Modifier.weight(1f)
             )
             TabButton(
                 title = "📁 Berbagi",
                 isActive = activeTab == 3,
-                onClick = { activeTab = 3 }
+                onClick = { activeTab = 3 },
+                modifier = Modifier.weight(1f)
             )
             TabButton(
                 title = "📱 Wallpaper",
                 isActive = activeTab == 4,
-                onClick = { activeTab = 4 }
+                onClick = { activeTab = 4 },
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -928,14 +932,14 @@ fun TabButton(
             .clip(RoundedCornerShape(10.dp))
             .background(backgroundColor)
             .clickable { onClick() }
-            .padding(vertical = 10.dp, horizontal = 16.dp),
+            .padding(vertical = 10.dp, horizontal = 2.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = title,
             color = contentColor,
             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 14.sp
+            fontSize = 11.sp
         )
     }
 }

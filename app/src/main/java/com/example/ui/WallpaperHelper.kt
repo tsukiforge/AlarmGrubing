@@ -34,6 +34,9 @@ object WallpaperHelper {
     suspend fun setWallpaperFromUri(context: Context, imageUri: Uri, flag: Int? = null): WallpaperResult =
         withContext(Dispatchers.IO) {
             try {
+                if (!imageUri.toString().contains("previous_wallpaper.jpg")) {
+                    saveCurrentWallpaperAsPrevious(context)
+                }
                 val wallpaperManager = WallpaperManager.getInstance(context)
                 context.contentResolver.openInputStream(imageUri)?.use { stream ->
                     if (flag != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
@@ -62,6 +65,7 @@ object WallpaperHelper {
     suspend fun setWallpaperFromResource(context: Context, drawableId: Int): WallpaperResult =
         withContext(Dispatchers.IO) {
             try {
+                saveCurrentWallpaperAsPrevious(context)
                 val wallpaperManager = WallpaperManager.getInstance(context)
                 context.resources.openRawResource(drawableId).use { stream ->
                     wallpaperManager.setStream(stream)
@@ -73,6 +77,49 @@ object WallpaperHelper {
                 WallpaperResult.Error("Gagal set wallpaper: ${e.message}")
             }
         }
+
+    fun ensurePreviousWallpaperSaved(context: Context) {
+        val file = java.io.File(context.filesDir, "previous_wallpaper.jpg")
+        if (!file.exists()) {
+            saveCurrentWallpaperAsPrevious(context)
+        }
+    }
+
+    fun saveCurrentWallpaperAsPrevious(context: Context) {
+        try {
+            val wallpaperManager = WallpaperManager.getInstance(context)
+            val drawable = wallpaperManager.drawable
+            if (drawable != null) {
+                val bitmap = drawableToBitmap(drawable)
+                val file = java.io.File(context.filesDir, "previous_wallpaper.jpg")
+                java.io.FileOutputStream(file).use { out ->
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out)
+                }
+                Log.d(TAG, "Wallpaper sebelumnya berhasil dicadangkan ke: ${file.absolutePath}")
+            }
+        } catch (e: SecurityException) {
+            Log.e(TAG, "Gagal menyimpan wallpaper sebelumnya karena masalah izin: ${e.message}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Gagal menyimpan wallpaper sebelumnya: ${e.message}")
+        }
+    }
+
+    private fun drawableToBitmap(drawable: android.graphics.drawable.Drawable): android.graphics.Bitmap {
+        if (drawable is android.graphics.drawable.BitmapDrawable) {
+            if (drawable.bitmap != null) {
+                return drawable.bitmap
+            }
+        }
+        val bitmap = if (drawable.intrinsicWidth <= 0 || drawable.intrinsicHeight <= 0) {
+            android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
+        } else {
+            android.graphics.Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, android.graphics.Bitmap.Config.ARGB_8888)
+        }
+        val canvas = android.graphics.Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        return bitmap
+    }
 
     /**
      * Buka sistem Live Wallpaper picker yang mengarah ke VideoLiveWallpaperService.

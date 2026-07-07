@@ -38,6 +38,10 @@ fun AodSettingsScreen(context: Context) {
     var wallpaperSheetVideoUri by remember { mutableStateOf<Uri?>(null) }
     var showWallpaperSheet by remember { mutableStateOf(false) }
 
+    LaunchedEffect(Unit) {
+        WallpaperHelper.ensurePreviousWallpaperSaved(context)
+    }
+
     val templates = listOf(
         R.drawable.aod_template_1_1782867396832,
         R.drawable.aod_template_2_1782867409346,
@@ -99,29 +103,36 @@ fun AodSettingsScreen(context: Context) {
             modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        // Custom gallery buttons
-        Button(
-            onClick = { galleryLauncher.launch("image/*") },
+        // Custom gallery buttons side by side (symmetrical and smaller)
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .padding(bottom = 12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
-            shape = RoundedCornerShape(10.dp)
-        ) {
-            Text("🖼️ Pilih Gambar dari Galeri", color = Color.White, fontSize = 14.sp)
-        }
-
-        Button(
-            onClick = { videoPickerLauncher.launch("video/*") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
                 .padding(bottom = 24.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
-            shape = RoundedCornerShape(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("🎬 Pilih Video Live Wallpaper", color = Color.White, fontSize = 14.sp)
+            Button(
+                onClick = { galleryLauncher.launch("image/*") },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(42.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+            ) {
+                Text("🖼️ Galeri", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Button(
+                onClick = { videoPickerLauncher.launch("video/*") },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(42.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF9C27B0)),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+            ) {
+                Text("🎬 Live Video", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
 
         // Static templates section
@@ -136,6 +147,63 @@ fun AodSettingsScreen(context: Context) {
         )
 
         val imageItems = mutableListOf<@Composable () -> Unit>()
+
+        // 1. ADD RESTORE WALLPAPER OPTION AT INDEX 0 (NUMBER 1)
+        imageItems.add {
+            val restoreFile = File(context.filesDir, "previous_wallpaper.jpg")
+            val restoreUri = Uri.fromFile(restoreFile)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(9f / 16f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(2.dp, Color(0xFFFF4081), RoundedCornerShape(10.dp)) // Highlight border
+                    .clickable {
+                        if (restoreFile.exists()) {
+                            wallpaperSheetImageUri = restoreUri
+                            wallpaperSheetVideoUri = null
+                            showWallpaperSheet = true
+                        }
+                    }
+            ) {
+                if (restoreFile.exists()) {
+                    AsyncImage(
+                        model = restoreFile,
+                        contentDescription = "Wallpaper Restre",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF1A1A2E)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Default", color = Color.Gray, fontSize = 12.sp)
+                    }
+                }
+                
+                // Overlay text badge
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .background(Color.Black.copy(alpha = 0.65f))
+                        .padding(vertical = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Restre 🔄",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+
+        // 2. ADD STANDARD TEMPLATES
         templates.forEachIndexed { index, resId ->
             imageItems.add {
                 Box(
