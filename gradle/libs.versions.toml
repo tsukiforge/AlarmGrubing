@@ -40,6 +40,7 @@ firebaseBom = "34.12.0"
 secretsGradlePlugin = "2.0.1"
 zxing = "3.5.3"
 media3ExoPlayer = "1.5.1"
+appcompat = "1.6.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -93,6 +94,7 @@ firebase-ai = { group = "com.google.firebase", name = "firebase-ai" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3ExoPlayer" }
 androidx-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "media3ExoPlayer" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

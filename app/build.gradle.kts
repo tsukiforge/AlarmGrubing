@@ -133,6 +133,7 @@ dependencies {
   implementation(libs.androidx.compose.ui.graphics)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
+  implementation(libs.androidx.appcompat)
   implementation(libs.zxing.core)
   // Media3 ExoPlayer — untuk Live Wallpaper Video
   implementation(libs.androidx.media3.exoplayer)

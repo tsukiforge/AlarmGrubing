@@ -18,6 +18,12 @@ class AlarmRingingService : Service() {
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private val timeoutHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val timeoutRunnable = Runnable {
+        android.util.Log.d("AlarmRingingService", "No interaction for 10 minutes, auto-stopping alarm")
+        stopSelf()
+    }
+
     companion object {
         const val CHANNEL_ID = "alarm_ringing_channel"
         const val NOTIFICATION_ID = 9999
@@ -26,6 +32,7 @@ class AlarmRingingService : Service() {
         var activeAlarmTitle: String? = null
         var activeAlarmIsGroup: Boolean = false
         var activeAlarmGroupCode: String? = null
+        var activeAlarmTone: String? = null
     }
 
     override fun onCreate() {
@@ -36,6 +43,16 @@ class AlarmRingingService : Service() {
     @Suppress("DEPRECATION")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "STOP") {
+            val alarmId = intent.getStringExtra("ALARM_ID") ?: activeAlarmId
+            if (alarmId != null) {
+                cancelSnooze(alarmId)
+            }
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
+        if (intent?.action == "SNOOZE") {
+            snoozeAlarm()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -45,6 +62,11 @@ class AlarmRingingService : Service() {
         val tone = intent?.getStringExtra("ALARM_TONE") ?: "default"
         val isGroup = intent?.getBooleanExtra("ALARM_IS_GROUP", false) ?: false
         val groupCode = intent?.getStringExtra("ALARM_GROUP_CODE")
+
+        // Reset any existing timeout
+        timeoutHandler.removeCallbacks(timeoutRunnable)
+        // Set new 10-minute timeout for auto dismissal
+        timeoutHandler.postDelayed(timeoutRunnable, 10 * 60 * 1000L)
 
         // 1. Acquire Partial WakeLock to prevent the CPU from sleeping in Doze Mode / Extreme Battery Saver
         val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
@@ -68,6 +90,7 @@ class AlarmRingingService : Service() {
         activeAlarmTitle = title
         activeAlarmIsGroup = isGroup
         activeAlarmGroupCode = groupCode
+        activeAlarmTone = tone
 
         // Trigger Broadcast to UI if active
         val uiUpdateIntent = Intent("ALARM_RINGING_UPDATE").apply {
@@ -171,6 +194,7 @@ class AlarmRingingService : Service() {
     }
 
     private fun stopAlarm() {
+        timeoutHandler.removeCallbacks(timeoutRunnable)
         isRinging = false
         activeAlarmId = null
         activeAlarmTitle = null
@@ -211,6 +235,78 @@ class AlarmRingingService : Service() {
             putExtra("IS_RINGING", false)
         }
         sendBroadcast(uiUpdateIntent)
+    }
+
+    private fun snoozeAlarm() {
+        val alarmId = activeAlarmId ?: return
+        val title = activeAlarmTitle ?: "Alarm"
+        val tone = activeAlarmTone ?: "default"
+        val isGroup = activeAlarmIsGroup
+        val groupCode = activeAlarmGroupCode
+
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val snoozeIntent = Intent(this, AlarmReceiver::class.java).apply {
+            putExtra("ALARM_ID", alarmId)
+            putExtra("ALARM_TITLE", title)
+            putExtra("ALARM_TONE", tone)
+            putExtra("ALARM_IS_GROUP", isGroup)
+            putExtra("ALARM_GROUP_CODE", groupCode)
+            putExtra("IS_SNOOZE_TRIGGER", true)
+        }
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            alarmId.hashCode() + 100000,
+            snoozeIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        val triggerTime = System.currentTimeMillis() + 10 * 60 * 1000L // 10 minutes
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerTime,
+                            pendingIntent
+                        )
+                    } else {
+                        alarmManager.setAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerTime,
+                            pendingIntent
+                        )
+                    }
+                } else {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                }
+            } catch (e: SecurityException) {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+            }
+        } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, pendingIntent)
+        }
+        android.util.Log.d("AlarmRingingService", "Snoozed alarm $alarmId for 10 minutes")
+    }
+
+    private fun cancelSnooze(alarmId: String) {
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val snoozeIntent = Intent(this, AlarmReceiver::class.java)
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            alarmId.hashCode() + 100000,
+            snoozeIntent,
+            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+        )
+        if (pendingIntent != null) {
+            alarmManager.cancel(pendingIntent)
+            pendingIntent.cancel()
+        }
+        android.util.Log.d("AlarmRingingService", "Cancelled snooze for alarm $alarmId")
     }
 
     override fun onBind(intent: Intent?): IBinder? {

@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">Alarm Sync — 群组闹钟</string>
+    <string name="app_name_short">Alarm Sync</string>
+    <string name="live_wallpaper_description">来自 Alarm Sync 的动态视频壁纸。从相册中选择视频以将其设置为动态壁纸。</string>
+    <string name="settings_title">设置与个人资料</string>
+    <string name="settings_desc">配置身份及应用运行表现</string>
+    <string name="settings_language_label">语言 / Language</string>
+    <string name="settings_language_desc">选择应用界面显示语言</string>
+    <string name="settings_follow_system">跟随系统语言</string>
+    <string name="toast_language_changed">语言已更改为 %s</string>
+    
+    <string name="settings_user_name_label">用户名（显示名称）</string>
+    <string name="settings_theme_title">显示模式（主题）</string>
+    <string name="settings_theme_light">柔和白 ☀️</string>
+    <string name="settings_theme_dark">深色 🌙</string>
+    <string name="settings_alarm_title">⚙️ 闹钟设置</string>
+    <string name="settings_force_volume">强制闹钟音量最大化</string>
+    <string name="settings_auto_speaker">插耳机时自动切换至扬声器播放</string>
+    <string name="settings_auto_speaker_desc">即使插入耳机，闹钟也会通过扬声器响起</string>
+    <string name="settings_backup_title">💾 备份与恢复</string>
+    <string name="settings_backup_desc">将您的闹钟、备注和设置保存到设备为 JSON 文件，或在更换手机时恢复它们。安全且不依赖云端。 🌸</string>
+    <string name="settings_backup_btn">备份数据</string>
+    <string name="settings_restore_btn">恢复数据</string>
+    <string name="settings_support_title">🐾 支持与反馈</string>
+    <string name="settings_feedback_label">🐾 发送反馈</string>
+    <string name="settings_feedback_desc">发送有关应用开发的建议或反馈</string>
+    <string name="settings_rating_label">⭐ 评价应用</string>
+    <string name="settings_rating_desc">在 Google Play 商店留下评论以支持我们</string>
+    
+    <string name="notification_channel_name">Health Social — 自律管理</string>
+    <string name="notification_channel_desc">睡眠提醒及自我管理通知</string>
+    <string name="sleep_warning_1">嗨，快到休息时间了哦~ %1$s 将在 %2$s 锁定</string>
+    <string name="sleep_warning_2">夜已深，少看手机早点睡。%1$s 将在 %2$s 锁定哦~</string>
+    <string name="sleep_warning_3">该准备睡觉了，亲爱的~ 身体最重要！%1$s 将在 %2$s 锁定。</string>
+    <string name="sleep_lock_active">该睡觉了，亲爱的~ 应用已被锁定，直至 %1$s</string>
+    <string name="app_opened_notification">尝试打开 %1$s — %2$s</string>
+</resources>

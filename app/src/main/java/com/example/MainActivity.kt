@@ -37,10 +37,14 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.rememberScrollState
@@ -280,6 +284,12 @@ class MainActivity : ComponentActivity() {
                                     action = "STOP"
                                 }
                                 this@MainActivity.startService(stopIntent)
+                            },
+                            onSnooze = {
+                                val snoozeIntent = Intent(this@MainActivity, AlarmRingingService::class.java).apply {
+                                    action = "SNOOZE"
+                                }
+                                this@MainActivity.startService(snoozeIntent)
                             }
                         )
                     }
@@ -4728,7 +4738,8 @@ fun RingingOverlay(
     title: String,
     isGroup: Boolean,
     groupCode: String?,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onSnooze: () -> Unit
 ) {
     val infiniteTransition = rememberInfiniteTransition()
     val pulseScale by infiniteTransition.animateFloat(
@@ -4739,6 +4750,36 @@ fun RingingOverlay(
             repeatMode = RepeatMode.Reverse
         )
     )
+
+    val coroutineScope = rememberCoroutineScope()
+    val dragOffset = remember { Animatable(0f) }
+    val threshold = -300f // 300px threshold for swipe up
+
+    val swipeSnoozeText = when (Locale.getDefault().language) {
+        "zh" -> "向上滑动延迟10分钟 🛌"
+        "id" -> "Geser ke Atas untuk Tunda 10 Menit 🛌"
+        "es" -> "Desliza hacia arriba para posponer 10 min 🛌"
+        "pt" -> "Deslize para cima para adiar 10 min 🛌"
+        "fr" -> "Glissez vers le haut pour répéter 10 min 🛌"
+        "de" -> "Nach oben wischen für Schlummern 10 Min 🛌"
+        "ru" -> "Проведите вверх, чтобы отложить на 10 мин 🛌"
+        "ja" -> "上にスワイプして10分スヌーズ 🛌"
+        "ar" -> "اسحب لأعلى للتأجيل 10 دقائق 🛌"
+        else -> "Swipe Up to Snooze 10 Mins 🛌"
+    }
+
+    val dismissText = when (Locale.getDefault().language) {
+        "zh" -> "关闭闹钟 🌸"
+        "id" -> "MATIKAN SEKARANG 🌸"
+        "es" -> "APAGAR AHORA 🌸"
+        "pt" -> "DESLIGAR AGORA 🌸"
+        "fr" -> "ÉTEINDRE MAINTENANT 🌸"
+        "de" -> "JETZT AUSSCHALTEN 🌸"
+        "ru" -> "ВЫКЛЮЧИТЬ СЕЙЧАС 🌸"
+        "ja" -> "今すぐ停止 🌸"
+        "ar" -> "إيقاف الآن 🌸"
+        else -> "DISMISS ALARM 🌸"
+    }
 
     Column(
         modifier = Modifier
@@ -4827,22 +4868,127 @@ fun RingingOverlay(
             }
         }
 
-        Spacer(modifier = Modifier.height(54.dp))
+        Spacer(modifier = Modifier.height(48.dp))
+
+        // Premium Swipe Up to Snooze Area
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .height(100.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(Color(0xFF23113D).copy(alpha = 0.6f))
+                .border(1.dp, Color(0xFFFF529D).copy(alpha = 0.3f), RoundedCornerShape(32.dp)),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            val infiniteChevron = rememberInfiniteTransition()
+            val chevronAlpha by infiniteChevron.animateFloat(
+                initialValue = 0.2f,
+                targetValue = 0.9f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(800, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                )
+            )
+            
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = null,
+                    tint = Color(0xFFFF529D).copy(alpha = chevronAlpha),
+                    modifier = Modifier.size(28.dp)
+                )
+                Text(
+                    text = swipeSnoozeText,
+                    color = Color.White.copy(alpha = 0.8f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // Draggable sliding handle
+            Box(
+                modifier = Modifier
+                    .offset(y = (dragOffset.value / LocalDensity.current.density).dp)
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .padding(4.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(Color(0xFFFF529D), Color(0xFFC51162))
+                        )
+                    )
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragEnd = {
+                                if (dragOffset.value < threshold) {
+                                    onSnooze()
+                                } else {
+                                    coroutineScope.launch {
+                                        dragOffset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                    }
+                                }
+                            },
+                            onDragCancel = {
+                                coroutineScope.launch {
+                                    dragOffset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                coroutineScope.launch {
+                                    val newOffset = (dragOffset.value + dragAmount.y).coerceAtMost(0f)
+                                    dragOffset.snapTo(newOffset)
+                                }
+                            }
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.KeyboardArrowUp,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = if (dragOffset.value < threshold) "LEPAS UNTUK TUNDA! 🛌" else "TARIK KE ATAS 🛌",
+                        color = Color.White,
+                        fontWeight = FontWeight.Black,
+                        fontSize = 13.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         Button(
             onClick = onDismiss,
             colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-            shape = RoundedCornerShape(36.dp),
+            shape = RoundedCornerShape(28.dp),
             modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .height(72.dp)
+                .fillMaxWidth(0.9f)
+                .height(56.dp)
         ) {
             Text(
-                text = "MATIKAN SEKARANG 🌸",
+                text = dismissText,
                 color = Color(0xFF311B92),
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp,
-                fontSize = 16.sp
+                fontSize = 14.sp
             )
         }
     }
@@ -5269,13 +5415,13 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Pengaturan & Profil",
+                        text = stringResource(id = R.string.settings_title),
                         color = TextLight,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "Konfigurasi identitas & performa aplikasi",
+                        text = stringResource(id = R.string.settings_desc),
                         color = TextMuted,
                         fontSize = 12.sp
                     )
@@ -5377,7 +5523,7 @@ fun SettingsScreen(
                         value = textInput,
                         onValueChange = { textInput = it },
                         singleLine = true,
-                        label = { Text("Nama Pengguna (Display Name)") },
+                        label = { Text(stringResource(id = R.string.settings_user_name_label)) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = IndigoPrimary,
                             unfocusedBorderColor = SurfaceDark,
@@ -5403,7 +5549,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "Mode Tampilan (Theme)",
+                        text = stringResource(id = R.string.settings_theme_title),
                         color = IndigoPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -5413,7 +5559,10 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val modes = listOf("light" to "Putih Smooth ☀️", "dark" to "Gelap 🌙")
+                        val modes = listOf(
+                            "light" to stringResource(id = R.string.settings_theme_light),
+                            "dark" to stringResource(id = R.string.settings_theme_dark)
+                        )
                         modes.forEach { (mode, label) ->
                             val isSelected = selectedThemeMode == mode
                             Box(
@@ -5441,6 +5590,128 @@ fun SettingsScreen(
                 }
             }
 
+            // Language Selection Section
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.settings_language_label),
+                        color = IndigoPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = stringResource(id = R.string.settings_language_desc),
+                        color = TextMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                    )
+                    
+                    val currentLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
+                    val currentLangCode = if (currentLocales.isEmpty) "system" else currentLocales.get(0)?.language ?: "system"
+                    
+                    val languages = listOf(
+                        "system" to stringResource(id = R.string.settings_follow_system) + " 🌐",
+                        "id" to "Bahasa Indonesia 🇮🇩",
+                        "en" to "English 🇬🇧",
+                        "es" to "Español 🇪🇸",
+                        "pt" to "Português 🇵🇹",
+                        "fr" to "Français 🇫🇷",
+                        "de" to "Deutsch 🇩🇪",
+                        "ru" to "Русский 🇷🇺",
+                        "ar" to "العربية 🇸🇦",
+                        "ja" to "日本語 🇯🇵",
+                        "zh" to "简体中文 🇨🇳"
+                    )
+                    
+                    var expanded by remember { mutableStateOf(false) }
+                    val currentLabel = languages.find { it.first == currentLangCode }?.second ?: (stringResource(id = R.string.settings_follow_system) + " 🌐")
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(SurfaceDark)
+                            .clickable { expanded = !expanded }
+                            .padding(horizontal = 12.dp, vertical = 10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = currentLabel,
+                                color = TextLight,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Icon(
+                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                                contentDescription = null,
+                                tint = TextMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    
+                    if (expanded) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            languages.forEach { (code, label) ->
+                                val isSelected = currentLangCode == code
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) IndigoPrimary.copy(alpha = 0.2f) else Color.Transparent)
+                                        .clickable {
+                                            expanded = false
+                                            val localeList = if (code == "system") {
+                                                androidx.core.os.LocaleListCompat.getEmptyLocaleList()
+                                            } else {
+                                                androidx.core.os.LocaleListCompat.forLanguageTags(code)
+                                            }
+                                            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
+                                            
+                                            val displayLang = if (code == "system") "System" else label
+                                            val toastMsg = context.getString(R.string.toast_language_changed, displayLang)
+                                            android.widget.Toast.makeText(context, toastMsg, android.widget.Toast.LENGTH_SHORT).show()
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) IndigoLight else TextLight,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = IndigoLight,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             val aodPrefs = remember { context.getSharedPreferences("aod_prefs", Context.MODE_PRIVATE) }
             var aodEnabled by remember { mutableStateOf(aodPrefs.getBoolean("aod_enabled", false)) }
 
@@ -5460,7 +5731,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(16.dp)
                 ) {
                     Text(
-                        text = "⚙️ Pengaturan Alarm",
+                        text = stringResource(id = R.string.settings_alarm_title),
                         color = IndigoPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -5472,7 +5743,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "Paksa Volume Alarm Full", color = TextLight, fontSize = 13.sp)
+                        Text(text = stringResource(id = R.string.settings_force_volume), color = TextLight, fontSize = 13.sp)
                         Switch(
                             checked = forceFullVolume,
                             onCheckedChange = {
@@ -5488,9 +5759,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Auto Pindah Speaker saat Headset", color = TextLight, fontSize = 13.sp)
+                            Text(text = stringResource(id = R.string.settings_auto_speaker), color = TextLight, fontSize = 13.sp)
                             Text(
-                                text = "Alarm akan berbunyi dari speaker meskipun headset terpasang",
+                                text = stringResource(id = R.string.settings_auto_speaker_desc),
                                 color = TextMuted,
                                 fontSize = 11.sp
                             )
@@ -5630,14 +5901,14 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "💾 BACKUP & RESTORE",
+                        text = stringResource(id = R.string.settings_backup_title),
                         color = IndigoPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     Text(
-                        text = "Amankan alarm, catatan, dan pengaturan ke perangkat as file JSON, atau pulihkan jika berganti HP. Aman dan tidak memerlukan cloud. 🌸",
+                        text = stringResource(id = R.string.settings_backup_desc),
                         color = TextMuted,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -5651,7 +5922,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark)
                         ) {
-                            Text("Restorasi", color = TextLight, fontSize = 11.sp)
+                            Text(stringResource(id = R.string.settings_restore_btn), color = TextLight, fontSize = 11.sp)
                         }
                         Button(
                             onClick = {
@@ -5661,7 +5932,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = IndigoPrimary)
                         ) {
-                            Text("Backup Data", color = Color.White, fontSize = 11.sp)
+                            Text(stringResource(id = R.string.settings_backup_btn), color = Color.White, fontSize = 11.sp)
                         }
                     }
                 }
@@ -5677,7 +5948,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "🐾 DUKUNGAN & MASUKAN",
+                        text = stringResource(id = R.string.settings_support_title),
                         color = IndigoPrimary,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -5698,8 +5969,8 @@ fun SettingsScreen(
                         Icon(imageVector = Icons.Default.Email, contentDescription = null, tint = IndigoPrimary, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("🐾 Kirim Masukan", color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                            Text("Kirim saran atau cakar tanggapan untuk pengembangan aplikasi", color = TextMuted, fontSize = 10.sp)
+                            Text(stringResource(id = R.string.settings_feedback_label), color = TextLight, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(id = R.string.settings_feedback_desc), color = TextMuted, fontSize = 10.sp)
                         }
                         Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
                     }

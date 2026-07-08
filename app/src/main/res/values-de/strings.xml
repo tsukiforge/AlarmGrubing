@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">Alarm Sync — Gruppenwecker</string>
+    <string name="app_name_short">Alarm Sync</string>
+    <string name="live_wallpaper_description">Live-Video-Hintergrundbild von Alarm Sync. Wählen Sie ein Video aus der Galerie aus, um es als Live-Hintergrundbild festzulegen.</string>
+    <string name="settings_title">Einstellungen &amp; Profil</string>
+    <string name="settings_desc">Identität und App-Leistung konfigurieren</string>
+    <string name="settings_language_label">Sprache / Language</string>
+    <string name="settings_language_desc">Wählen Sie die Sprache der App-Benutzeroberfläche</string>
+    <string name="settings_follow_system">Systemsprache folgen</string>
+    <string name="toast_language_changed">Sprache geändert in %s</string>
+    
+    <string name="settings_user_name_label">Benutzername (Anzeigename)</string>
+    <string name="settings_theme_title">Anzeigemodus (Thema)</string>
+    <string name="settings_theme_light">Sanftes Hell ☀️</string>
+    <string name="settings_theme_dark">Dunkel 🌙</string>
+    <string name="settings_alarm_title">⚙️ Alarmeinstellungen</string>
+    <string name="settings_force_volume">Volle Alarmlautstärke erzwingen</string>
+    <string name="settings_auto_speaker">Automatischer Lautsprecherwechsel bei Headset</string>
+    <string name="settings_auto_speaker_desc">Der Wecker ertönt über den Lautsprecher, selbst wenn ein Headset angeschlossen ist</string>
+    <string name="settings_backup_title">💾 BACKUP &amp; WIEDERHERSTELLUNG</string>
+    <string name="settings_backup_desc">Sichern Sie Ihre Wecker, Notizen und Einstellungen als JSON-Datei auf Ihrem Gerät, oder stellen Sie sie bei einem Gerätewechsel wieder her. Sicher und ohne Cloud. 🌸</string>
+    <string name="settings_backup_btn">Daten sichern</string>
+    <string name="settings_restore_btn">Wiederherstellen</string>
+    <string name="settings_support_title">🐾 SUPPORT &amp; FEEDBACK</string>
+    <string name="settings_feedback_label">🐾 Feedback senden</string>
+    <string name="settings_feedback_desc">Senden Sie Vorschläge oder Feedback für die App-Entwicklung</string>
+    <string name="settings_rating_label">⭐ App bewerten</string>
+    <string name="settings_rating_desc">Unterstützen Sie uns mit einer Bewertung im Google Play Store</string>
+    
+    <string name="notification_channel_name">Health Social — Selbstdisziplin</string>
+    <string name="notification_channel_desc">Schlaferinnerungen und Selbstdisziplin-Benachrichtigungen</string>
+    <string name="sleep_warning_1">Hey, es ist fast Zeit zum Ausruhen~ %1$s wird um %2$s gesperrt</string>
+    <string name="sleep_warning_2">Es wird spät, lass uns die Bildschirmzeit reduzieren. %1$s wird um %2$s gesperrt~</string>
+    <string name="sleep_warning_3">Zeit, sich auf das Bett vorzubereiten, Liebling~ Achte auf deine Gesundheit! %1$s wird um %2$s gesperrt.</string>
+    <string name="sleep_lock_active">Schlafenszeit, Liebling~ Anwendungen sind bis %1$s gesperrt</string>
+    <string name="app_opened_notification">Versuch, %1$s zu öffnen — %2$s</string>
+</resources>

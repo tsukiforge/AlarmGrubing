@@ -61,25 +61,29 @@ class AlarmReceiver : BroadcastReceiver() {
             context.startService(serviceIntent)
         }
 
-        // 3. Reschedule repeat alarms or disable single alarm
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val db = AppDatabase.getDatabase(context)
-                val alarmDao = db.alarmDao()
-                val alarm = alarmDao.getAlarmById(alarmId)
-                if (alarm != null) {
-                    if (alarm.daysOfWeek.isBlank()) {
-                        // One-time alarm: disable it in Room
-                        val updated = alarm.copy(isEnabled = false)
-                        alarmDao.updateAlarm(updated)
-                    } else {
-                        // Repeating alarm: schedule next wake-up
-                        AlarmScheduler.schedule(context, alarm)
-                        android.util.Log.d("AlarmReceiver", "Successfully rescheduled repeating alarm: ${alarm.id}")
+        val isSnooze = intent.getBooleanExtra("IS_SNOOZE_TRIGGER", false)
+
+        // 3. Reschedule repeat alarms or disable single alarm (only if NOT a snooze trigger)
+        if (!isSnooze) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val db = AppDatabase.getDatabase(context)
+                    val alarmDao = db.alarmDao()
+                    val alarm = alarmDao.getAlarmById(alarmId)
+                    if (alarm != null) {
+                        if (alarm.daysOfWeek.isBlank()) {
+                            // One-time alarm: disable it in Room
+                            val updated = alarm.copy(isEnabled = false)
+                            alarmDao.updateAlarm(updated)
+                        } else {
+                            // Repeating alarm: schedule next wake-up
+                            AlarmScheduler.schedule(context, alarm)
+                            android.util.Log.d("AlarmReceiver", "Successfully rescheduled repeating alarm: ${alarm.id}")
+                        }
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }

@@ -2,4 +2,36 @@
     <string name="app_name">Alarm Sync — Alarm Grup</string>
     <string name="app_name_short">Alarm Sync</string>
     <string name="live_wallpaper_description">Wallpaper video bergerak dari Alarm Sync. Pilih video dari galeri untuk dijadikan live wallpaper.</string>
+    <string name="settings_title">Pengaturan &amp; Profil</string>
+    <string name="settings_desc">Konfigurasi identitas &amp; performa aplikasi</string>
+    <string name="settings_language_label">Bahasa / Language</string>
+    <string name="settings_language_desc">Pilih bahasa antarmuka aplikasi</string>
+    <string name="settings_follow_system">Ikuti Bahasa Sistem</string>
+    <string name="toast_language_changed">Bahasa diubah ke %s</string>
+    
+    <string name="settings_user_name_label">Nama Pengguna (Display Name)</string>
+    <string name="settings_theme_title">Mode Tampilan (Theme)</string>
+    <string name="settings_theme_light">Putih Smooth ☀️</string>
+    <string name="settings_theme_dark">Gelap 🌙</string>
+    <string name="settings_alarm_title">⚙️ Pengaturan Alarm</string>
+    <string name="settings_force_volume">Paksa Volume Alarm Full</string>
+    <string name="settings_auto_speaker">Auto Pindah Speaker saat Headset</string>
+    <string name="settings_auto_speaker_desc">Alarm akan berbunyi dari speaker meskipun headset terpasang</string>
+    <string name="settings_backup_title">💾 BACKUP &amp; RESTORE</string>
+    <string name="settings_backup_desc">Amankan alarm, catatan, dan pengaturan ke perangkat sebagai file JSON, atau pulihkan jika berganti HP. Aman dan tidak memerlukan cloud. 🌸</string>
+    <string name="settings_backup_btn">Backup Data</string>
+    <string name="settings_restore_btn">Restorasi</string>
+    <string name="settings_support_title">🐾 DUKUNGAN &amp; MASUKAN</string>
+    <string name="settings_feedback_label">🐾 Kirim Masukan</string>
+    <string name="settings_feedback_desc">Kirim saran atau cakar tanggapan untuk pengembangan aplikasi</string>
+    <string name="settings_rating_label">⭐ Beri Rating</string>
+    <string name="settings_rating_desc">Dukung kami dengan memberikan ulasan di Google Play Store</string>
+    
+    <string name="notification_channel_name">Health Social — Kontrol Diri</string>
+    <string name="notification_channel_desc">Notifikasi pengingat tidur dan kontrol diri</string>
+    <string name="sleep_warning_1">Hai, sebentar lagi waktunya istirahat ya~ %1$s bakal dikunci jam %2$s</string>
+    <string name="sleep_warning_2">Sudah larut malam nih, yuk kurangi main HP. %1$s bakal dikunci jam %2$s ya~</string>
+    <string name="sleep_warning_3">Waktunya bersiap-siap tidur, sayang~ Ingat kesehatanmu! %1$s akan dikunci jam %2$s.</string>
+    <string name="sleep_lock_active">Waktunya tidur, sayang~ Aplikasi udah dikunci sampai jam %1$s</string>
+    <string name="app_opened_notification">Percobaan membuka %1$s — %2$s</string>
 </resources>

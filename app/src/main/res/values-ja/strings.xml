@@ -1,0 +1,37 @@
+<resources>
+    <string name="app_name">Alarm Sync — グループアラーム</string>
+    <string name="app_name_short">Alarm Sync</string>
+    <string name="live_wallpaper_description">Alarm Syncのライブ動画壁紙。ギャラリーから動画を選択してライブ壁紙に設定します。</string>
+    <string name="settings_title">設定とプロフィール</string>
+    <string name="settings_desc">アカウント情報とアプリ動作の設定</string>
+    <string name="settings_language_label">言語 / Language</string>
+    <string name="settings_language_desc">アプリの表示言語を選択します</string>
+    <string name="settings_follow_system">システム言語に従う</string>
+    <string name="toast_language_changed">言語が %s に変更されました</string>
+    
+    <string name="settings_user_name_label">ユーザー名（表示名）</string>
+    <string name="settings_theme_title">画面モード（テーマ）</string>
+    <string name="settings_theme_light">スムーズライト ☀️</string>
+    <string name="settings_theme_dark">ダーク 🌙</string>
+    <string name="settings_alarm_title">⚙️ アラーム設定</string>
+    <string name="settings_force_volume">アラーム音量を強制的に最大化</string>
+    <string name="settings_auto_speaker">イヤホン装着時もスピーカーから出力</string>
+    <string name="settings_auto_speaker_desc">イヤホンが接続されていてもアラーム音がスピーカーから鳴ります</string>
+    <string name="settings_backup_title">💾 バックアップと復元</string>
+    <string name="settings_backup_desc">アラーム、メモ、設定をJSONファイルとして端末に保存、または新しい端末に復元。安全でクラウド不要。 🌸</string>
+    <string name="settings_backup_btn">データをバックアップ</string>
+    <string name="settings_restore_btn">復元</string>
+    <string name="settings_support_title">🐾 サポートとフィードバック</string>
+    <string name="settings_feedback_label">🐾 フィードバックを送信</string>
+    <string name="settings_feedback_desc">アプリ開発の提案やフィードバックを送信します</string>
+    <string name="settings_rating_label">⭐ アプリを評価</string>
+    <string name="settings_rating_desc">Google Playストアでレビューを書いて応援する</string>
+    
+    <string name="notification_channel_name">Health Social — 自己管理</string>
+    <string name="notification_channel_desc">睡眠リマインダーと自己管理通知</string>
+    <string name="sleep_warning_1">ねえ、もうすぐお休みの時間だよ~ %1$sは%2$sにロックされます</string>
+    <string name="sleep_warning_2">夜遅くなってきたよ、スマホを控えよう。%1$sは%2$sにロックされますよ~</string>
+    <string name="sleep_warning_3">お休みの準備の時間だよ、お疲れ様~ 体に気をつけてね！%1$sは%2$sにロックされます。</string>
+    <string name="sleep_lock_active">お休みの時間だよ、お疲れ様~ アプリは%1$sまでロックされています</string>
+    <string name="app_opened_notification">%1$sを開こうとしました — %2$s</string>
+</resources>
