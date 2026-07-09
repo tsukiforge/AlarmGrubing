@@ -4,6 +4,42 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 
 ---
 
+## [5.3.0] - 2026-07-09
+
+### 🚀 Fitur Baru & Peningkatan
+* **Peralihan Bahasa Instan (Instant Locale Switching)**: Mendukung pengubahan bahasa secara langsung (Indonesian <-> English) dengan penyimpanan preferensi kustom terpusat dan pemuatan ulang aktivitas (`Activity.recreate()`) secara dinamis tanpa perlu memulai ulang ponsel secara manual.
+* **Sistem Navigasi Cerdas (Hardware Back Handler)**: Menambahkan Jetpack Compose `BackHandler` untuk penanganan tombol fisik "Kembali" pintar. Tombol kembali kini mengurungkan input dialog, menutup pop-up edit alarm, atau menavigasi kembali ke tab Beranda secara otomatis sebelum keluar dari aplikasi.
+* **Metode Tahan 2 Detik Layar Dering (Long-Press to Dismiss)**: Meningkatkan mekanisme keamanan mematikan alarm pada layar dering penuh (*Full-Screen Alarm Overlay*). Pengguna kini harus menahan lingkaran tengah selama 2 detik untuk menghindari ketidaksengajaan mematikan alarm saat masih setengah mengantuk.
+* **Kebijakan Profil Bersih (Clean Profile Management)**: Menyederhanakan alur pengaturan foto profil dengan menghapus tombol hapus foto yang berlebihan, memastikan integrasi media penyimpanan lokal tetap bersih dan aman (*privacy-first*).
+
+---
+
+## [5.2.60] - 2026-07-06
+
+### 🚀 Fitur Baru & Peningkatan
+* **Live Video Wallpaper & Live Wallpaper Manager**: Mendukung penyetelan video MP4 kustom langsung dari galeri sebagai wallpaper dinamis berkinerja tinggi. Dilengkapi dengan fungsionalitas auto-restore cerdas untuk mengembalikan wallpaper asli sistem kapan saja secara instan tanpa mengganggu konfigurasi launcher.
+* **Sakura Floating Animation Overlay**: Lapisan kelopak bunga sakura dinamis yang mengambang dengan indah di background aplikasi, memberikan estetika modern, damai, dan rileks selama navigasi antarmuka.
+* **Layar Siaga Always-On Display (AOD) Terpadu**: Menyinkronkan gambar visual latar belakang kustom dengan jam anti-burn-in dan kata-kata motivasi harian yang dinamis.
+
+---
+
+## [5.2.20] - 2026-07-03
+
+### 🚀 Fitur Baru & Peningkatan
+* **Catatan & Memo Terintegrasi (Room Notes)**: Tab Catatan interaktif untuk menulis memo, ide, atau tugas sebelum tidur menggunakan database Room SQLite dengan penyesuaian warna kartu estetik yang minimalis.
+* **Modul Keamanan Health & Social Lock**: Penguncian aplikasi penarik perhatian (seperti media sosial, video, game) berbasis jadwal produktif (Fokus, Belajar, Bermain) yang diamankan oleh enkripsi PIN berkas lokal JSON berkekuatan tinggi.
+
+---
+
+## [5.2.0] - 2026-07-01
+
+### 🚀 Fitur Baru & Peningkatan
+* **Penyandingan Couple Sync Unggulan**: Koneksi eksklusif berdua dalam grup, melacak skor kepatuhan, serta perhitungan hari bangun berurutan (streak) untuk memotivasi satu sama lain secara real-time.
+* **Home Screen Couple Widget**: Widget berukuran ringkas yang menampilkan sisa baterai pasangan serta status bangun/tidur mereka secara langsung di layar beranda.
+* **Group Chat & Secure File Sharing**: Pengiriman pesan instan serta dokumen penting secara instan dengan proteksi lokal antar anggota grup kamar.
+
+---
+
 ## [5.1.0] - 2026-06-30
 
 ### 🚀 Fitur Baru & Peningkatan

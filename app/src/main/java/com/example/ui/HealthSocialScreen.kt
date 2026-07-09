@@ -26,6 +26,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 
 // Data model for schedules
 data class HealthSchedule(
@@ -35,7 +42,8 @@ data class HealthSchedule(
     val startTime: String, // "HH:mm"
     val endTime: String,   // "HH:mm"
     val isActive: Boolean,
-    val days: List<String>
+    val days: List<String>,
+    val lockedApps: List<String> = emptyList()
 )
 
 object HealthSocialDefaults {
@@ -44,8 +52,43 @@ object HealthSocialDefaults {
     val ALL_DAYS = listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
 }
 
+fun loadPinConfig(context: Context): Pair<Boolean, String> {
+    val file = File(context.filesDir, "pin_config.json")
+    if (!file.exists()) {
+        val prefs = context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
+        val enabled = prefs.getBoolean("pin_enabled", false)
+        val encrypted = prefs.getString("pin_code", "") ?: ""
+        val pin = if (encrypted.isNotEmpty()) SecurePinStorage.decryptPin(encrypted) else ""
+        savePinConfig(context, enabled, pin)
+        return Pair(enabled, pin)
+    }
+    return try {
+        val json = JSONObject(file.readText())
+        val enabled = json.optBoolean("pin_enabled", false)
+        val encrypted = json.optString("pin_code", "")
+        val pin = if (encrypted.isNotEmpty()) SecurePinStorage.decryptPin(encrypted) else ""
+        Pair(enabled, pin)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Pair(false, "")
+    }
+}
+
+fun savePinConfig(context: Context, enabled: Boolean, pin: String) {
+    try {
+        val file = File(context.filesDir, "pin_config.json")
+        val json = JSONObject()
+        json.put("pin_enabled", enabled)
+        val encrypted = if (pin.isNotEmpty()) SecurePinStorage.encryptPin(pin) else ""
+        json.put("pin_code", encrypted)
+        file.writeText(json.toString(4))
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+}
+
 fun loadSchedules(context: Context): List<HealthSchedule> {
-    val prefs = context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
+    val file = File(context.filesDir, "health_schedules.json")
     val defaultDays = listOf("Sen", "Sel", "Rab", "Kam", "Jum")
     val defaults = listOf(
         HealthSchedule("fokus", "Jadwal Fokus", "🎯", "08:00", "12:00", false, defaultDays),
@@ -55,24 +98,94 @@ fun loadSchedules(context: Context): List<HealthSchedule> {
         HealthSchedule("bermain", "Jadwal Bermain", "🎮", "18:00", "20:00", false, defaultDays)
     )
     
-    return defaults.map { default ->
-        val active = prefs.getBoolean("sched_${default.id}_active", default.isActive)
-        val start = prefs.getString("sched_${default.id}_start", default.startTime) ?: default.startTime
-        val end = prefs.getString("sched_${default.id}_end", default.endTime) ?: default.endTime
-        val daysString = prefs.getString("sched_${default.id}_days", default.days.joinToString(",")) ?: default.days.joinToString(",")
-        val daysList = if (daysString.isEmpty()) emptyList() else daysString.split(",")
-        default.copy(isActive = active, startTime = start, endTime = end, days = daysList)
+    if (!file.exists()) {
+        // Migration from SharedPreferences if existing
+        val prefs = context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
+        val migrated = defaults.map { d ->
+            val active = prefs.getBoolean("sched_${d.id}_active", d.isActive)
+            val start = prefs.getString("sched_${d.id}_start", d.startTime) ?: d.startTime
+            val end = prefs.getString("sched_${d.id}_end", d.endTime) ?: d.endTime
+            val daysString = prefs.getString("sched_${d.id}_days", d.days.joinToString(",")) ?: d.days.joinToString(",")
+            val daysList = if (daysString.isEmpty()) emptyList() else daysString.split(",")
+            d.copy(isActive = active, startTime = start, endTime = end, days = daysList)
+        }
+        saveSchedulesToJson(context, migrated)
+        return migrated
+    }
+    
+    return try {
+        val jsonArray = JSONArray(file.readText())
+        val list = mutableListOf<HealthSchedule>()
+        for (i in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(i)
+            val id = obj.getString("id")
+            val name = obj.getString("name")
+            val icon = obj.getString("icon")
+            val startTime = obj.getString("startTime")
+            val endTime = obj.getString("endTime")
+            val isActive = obj.getBoolean("isActive")
+            
+            val daysArray = obj.getJSONArray("days")
+            val daysList = mutableListOf<String>()
+            for (j in 0 until daysArray.length()) {
+                daysList.add(daysArray.getString(j))
+            }
+            
+            val lockedAppsList = mutableListOf<String>()
+            if (obj.has("lockedApps")) {
+                val appsArray = obj.getJSONArray("lockedApps")
+                for (j in 0 until appsArray.length()) {
+                    lockedAppsList.add(appsArray.getString(j))
+                }
+            }
+            
+            list.add(HealthSchedule(id, name, icon, startTime, endTime, isActive, daysList, lockedAppsList))
+        }
+        list
+    } catch (e: Exception) {
+        e.printStackTrace()
+        defaults
+    }
+}
+
+fun saveSchedulesToJson(context: Context, schedules: List<HealthSchedule>) {
+    try {
+        val jsonArray = JSONArray()
+        for (sched in schedules) {
+            val obj = JSONObject()
+            obj.put("id", sched.id)
+            obj.put("name", sched.name)
+            obj.put("icon", sched.icon)
+            obj.put("startTime", sched.startTime)
+            obj.put("endTime", sched.endTime)
+            obj.put("isActive", sched.isActive)
+            
+            val daysArray = JSONArray()
+            sched.days.forEach { daysArray.put(it) }
+            obj.put("days", daysArray)
+            
+            val appsArray = JSONArray()
+            sched.lockedApps.forEach { appsArray.put(it) }
+            obj.put("lockedApps", appsArray)
+            
+            jsonArray.put(obj)
+        }
+        val file = File(context.filesDir, "health_schedules.json")
+        file.writeText(jsonArray.toString(4))
+    } catch (e: Exception) {
+        e.printStackTrace()
     }
 }
 
 fun saveSchedule(context: Context, schedule: HealthSchedule) {
-    val prefs = context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
-    prefs.edit()
-        .putBoolean("sched_${schedule.id}_active", schedule.isActive)
-        .putString("sched_${schedule.id}_start", schedule.startTime)
-        .putString("sched_${schedule.id}_end", schedule.endTime)
-        .putString("sched_${schedule.id}_days", schedule.days.joinToString(","))
-        .apply()
+    val current = loadSchedules(context).toMutableList()
+    val index = current.indexOfFirst { it.id == schedule.id }
+    if (index != -1) {
+        current[index] = schedule
+    } else {
+        current.add(schedule)
+    }
+    saveSchedulesToJson(context, current)
 }
 
 @Composable
@@ -85,13 +198,13 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
         mutableStateOf(prefs.getBoolean("support_banner_dismissed", false))
     }
     
+    val pinConfig = remember { loadPinConfig(context) }
     var isPinEnabled by remember {
-        mutableStateOf(prefs.getBoolean("pin_enabled", false))
+        mutableStateOf(pinConfig.first)
     }
     
     var pinCode by remember {
-        val encrypted = prefs.getString("pin_code", "") ?: ""
-        mutableStateOf(if (encrypted.isNotEmpty()) SecurePinStorage.decryptPin(encrypted) else "")
+        mutableStateOf(pinConfig.second)
     }
     
     var isAppLockEnabled by remember {
@@ -314,9 +427,21 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                 ScheduleCard(
                     schedule = schedule,
                     onToggleChange = { isActive ->
-                        val updated = schedule.copy(isActive = isActive)
-                        saveSchedule(context, updated)
-                        schedules = loadSchedules(context)
+                        if (isActive) {
+                            // If activating, prompt the user with the setup wizard first
+                            if (isPinEnabled) {
+                                onPinVerifiedAction = { showEditDialogFor = schedule }
+                                pinDialogMode = "VERIFY"
+                                showPinDialog = true
+                            } else {
+                                showEditDialogFor = schedule
+                            }
+                        } else {
+                            // Deactivate directly
+                            val updated = schedule.copy(isActive = false)
+                            saveSchedule(context, updated)
+                            schedules = loadSchedules(context)
+                        }
                     },
                     onEditClick = {
                         if (isPinEnabled) {
@@ -347,18 +472,11 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                 onDismiss = { showPinDialog = false },
                 onSuccess = { enteredPin ->
                     if (pinDialogMode == "SET") {
-                        val encrypted = SecurePinStorage.encryptPin(enteredPin)
-                        prefs.edit()
-                            .putBoolean("pin_enabled", true)
-                            .putString("pin_code", encrypted)
-                            .apply()
+                        savePinConfig(context, true, enteredPin)
                         isPinEnabled = true
                         pinCode = enteredPin
                     } else if (pinDialogMode == "DISABLE") {
-                        prefs.edit()
-                            .putBoolean("pin_enabled", false)
-                            .putString("pin_code", "")
-                            .apply()
+                        savePinConfig(context, false, "")
                         isPinEnabled = false
                         pinCode = ""
                     } else if (pinDialogMode == "VERIFY") {
@@ -808,182 +926,354 @@ fun EditScheduleDialog(
     onDismiss: () -> Unit,
     onSave: (HealthSchedule) -> Unit
 ) {
+    val context = LocalContext.current
+    var currentStep by remember { mutableStateOf(1) }
+    
+    // Step 1 States
     var startText by remember { mutableStateOf(schedule.startTime) }
     var endText by remember { mutableStateOf(schedule.endTime) }
     var selectedDays by remember { mutableStateOf(schedule.days.toSet()) }
     var errorMsg by remember { mutableStateOf("") }
     
+    // Step 2 States
+    var selectedApps by remember { mutableStateOf(schedule.lockedApps.toSet()) }
+    var searchQuery by remember { mutableStateOf("") }
+    
+    // App info fetching
+    val installedApps = remember { mutableStateListOf<AppInfo>() }
+    var isAppsLoading by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            try {
+                val pm = context.packageManager
+                val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                }
+                val list = pm.queryIntentActivities(intent, 0)
+                val apps = list.map { resolveInfo ->
+                    val appName = resolveInfo.loadLabel(pm).toString()
+                    val packageName = resolveInfo.activityInfo.packageName
+                    AppInfo(name = appName, packageName = packageName)
+                }.distinctBy { it.packageName }.sortedBy { it.name }
+                
+                withContext(Dispatchers.Main) {
+                    installedApps.clear()
+                    installedApps.addAll(apps)
+                    isAppsLoading = false
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                val fallbacks = listOf(
+                    AppInfo("WhatsApp", "com.whatsapp"),
+                    AppInfo("Instagram", "com.instagram.android"),
+                    AppInfo("TikTok", "com.zhiliaoapp.musically"),
+                    AppInfo("YouTube", "com.google.android.youtube"),
+                    AppInfo("Facebook", "com.facebook.katana"),
+                    AppInfo("Twitter / X", "com.twitter.android"),
+                    AppInfo("Telegram", "org.telegram.messenger"),
+                    AppInfo("Mobile Legends", "com.mobile.legends")
+                )
+                withContext(Dispatchers.Main) {
+                    installedApps.clear()
+                    installedApps.addAll(fallbacks)
+                    isAppsLoading = false
+                }
+            }
+        }
+    }
+    
     AlertDialog(
-        onDismissRequest = { onDismiss() },
+        onDismissRequest = onDismiss,
         title = {
             Text(
-                text = "Edit ${schedule.name}",
+                text = if (currentStep == 1) "Langkah 1/2: Atur Jam & Jadwal" else "Langkah 2/2: Pilih Aplikasi Terkunci",
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp
             )
         },
         text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedTextField(
-                        value = startText,
-                        onValueChange = { startText = it },
-                        label = { Text("Mulai", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp) },
-                        placeholder = { Text("08:00") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                        )
-                    )
-                    OutlinedTextField(
-                        value = endText,
-                        onValueChange = { endText = it },
-                        label = { Text("Selesai", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp) },
-                        placeholder = { Text("12:00") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                        )
-                    )
-                }
-                
-                Text(
-                    text = "Hari Aktif:",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.sp
-                )
-                
-                // Day chips using standard Row wrappers for safety
+            if (currentStep == 1) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    val daysRow1 = listOf("Sen", "Sel", "Rab", "Kam")
-                    val daysRow2 = listOf("Jum", "Sab", "Min")
-                    
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        daysRow1.forEach { day ->
-                            val isSelected = selectedDays.contains(day)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Color(0xFFFF4081) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                                    .clickable {
-                                        selectedDays = if (isSelected) {
-                                            selectedDays - day
-                                        } else {
-                                            selectedDays + day
+                        OutlinedTextField(
+                            value = startText,
+                            onValueChange = { startText = it },
+                            label = { Text("Mulai", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp) },
+                            placeholder = { Text("08:00") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent
+                            )
+                        )
+                        OutlinedTextField(
+                            value = endText,
+                            onValueChange = { endText = it },
+                            label = { Text("Selesai", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp) },
+                            placeholder = { Text("12:00") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent
+                            )
+                        )
+                    }
+                    
+                    Text(
+                        text = "Hari Aktif:",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    )
+                    
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val daysRow1 = listOf("Sen", "Sel", "Rab", "Kam")
+                        val daysRow2 = listOf("Jum", "Sab", "Min")
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            daysRow1.forEach { day ->
+                                val isSelected = selectedDays.contains(day)
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) Color(0xFFFF4081) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                        .clickable {
+                                            selectedDays = if (isSelected) {
+                                                selectedDays - day
+                                            } else {
+                                                selectedDays + day
+                                            }
                                         }
-                                    }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = day,
-                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = day,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
+                        }
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            daysRow2.forEach { day ->
+                                val isSelected = selectedDays.contains(day)
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) Color(0xFFFF4081) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                        .clickable {
+                                            selectedDays = if (isSelected) {
+                                                selectedDays - day
+                                            } else {
+                                                selectedDays + day
+                                            }
+                                        }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = day,
+                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Box(modifier = Modifier.weight(1f))
                         }
                     }
                     
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        daysRow2.forEach { day ->
-                            val isSelected = selectedDays.contains(day)
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSelected) Color(0xFFFF4081) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
-                                    .clickable {
-                                        selectedDays = if (isSelected) {
-                                            selectedDays - day
-                                        } else {
-                                            selectedDays + day
-                                        }
-                                    }
-                                    .padding(vertical = 8.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = day,
-                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                        // Fill space to keep it symmetric
-                        Box(modifier = Modifier.weight(1f))
+                    if (errorMsg.isNotEmpty()) {
+                        Text(
+                            text = errorMsg,
+                            color = Color.Red,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
-                
-                if (errorMsg.isNotEmpty()) {
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text(
-                        text = errorMsg,
-                        color = Color.Red,
+                        text = "Centang aplikasi yang ingin dikunci oleh sistem saat jadwal ini berjalan aktif:",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
+                        lineHeight = 15.sp
                     )
+                    
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Cari aplikasi...", fontSize = 12.sp) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent
+                        )
+                    )
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                            .padding(4.dp)
+                    ) {
+                        if (isAppsLoading) {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = Color(0xFFFF4081), modifier = Modifier.size(24.dp))
+                            }
+                        } else {
+                            val filtered = installedApps.filter { it.name.contains(searchQuery, ignoreCase = true) || it.packageName.contains(searchQuery, ignoreCase = true) }
+                            if (filtered.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text("Tidak ada aplikasi ditemukan", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                                }
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    items(filtered) { app ->
+                                        val isChecked = selectedApps.contains(app.packageName)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable {
+                                                    selectedApps = if (isChecked) {
+                                                        selectedApps - app.packageName
+                                                    } else {
+                                                        selectedApps + app.packageName
+                                                    }
+                                                }
+                                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(app.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Text(app.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            }
+                                            Checkbox(
+                                                checked = isChecked,
+                                                onCheckedChange = { checked ->
+                                                    selectedApps = if (checked == true) {
+                                                        selectedApps + app.packageName
+                                                    } else {
+                                                        selectedApps - app.packageName
+                                                    }
+                                                },
+                                                colors = CheckboxDefaults.colors(checkedColor = Color(0xFFFF4081))
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val timeRegex = "^([01]?[0-9]|2[0-3]):[0-5][0-9]$".toRegex()
-                    if (!timeRegex.matches(startText) || !timeRegex.matches(endText)) {
-                        errorMsg = "Format waktu harus HH:mm (contoh: 08:30)!"
-                    } else if (selectedDays.isEmpty()) {
-                        errorMsg = "Pilih minimal satu hari aktif!"
-                    } else {
+            if (currentStep == 1) {
+                Button(
+                    onClick = {
+                        val startParts = startText.split(":")
+                        val endParts = endText.split(":")
+                        if (startParts.size != 2 || endParts.size != 2 || 
+                            startParts[0].toIntOrNull() == null || startParts[1].toIntOrNull() == null ||
+                            endParts[0].toIntOrNull() == null || endParts[1].toIntOrNull() == null ||
+                            startParts[0].toInt() !in 0..23 || startParts[1].toInt() !in 0..59 ||
+                            endParts[0].toInt() !in 0..23 || endParts[1].toInt() !in 0..59) {
+                            errorMsg = "Format waktu harus HH:mm (contoh: 08:00)!"
+                        } else if (selectedDays.isEmpty()) {
+                            errorMsg = "Pilih minimal satu hari aktif!"
+                        } else {
+                            errorMsg = ""
+                            currentStep = 2
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081))
+                ) {
+                    Text("Selanjutnya ➡️", color = Color.White, fontSize = 12.sp)
+                }
+            } else {
+                Button(
+                    onClick = {
                         onSave(
                             schedule.copy(
                                 startTime = startText,
                                 endTime = endText,
-                                days = selectedDays.toList()
+                                days = selectedDays.toList(),
+                                lockedApps = selectedApps.toList(),
+                                isActive = true
                             )
                         )
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081))
-            ) {
-                Text("Simpan", color = Color.White, fontSize = 12.sp)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081))
+                ) {
+                    Text("Selesai & Simpan 💾", color = Color.White, fontSize = 12.sp)
+                }
             }
         },
         dismissButton = {
-            TextButton(onClick = { onDismiss() }) {
-                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            if (currentStep == 2) {
+                TextButton(onClick = { currentStep = 1 }) {
+                    Text("⬅️ Kembali", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
             }
         },
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(20.dp)
     )
 }
+
+data class AppInfo(val name: String, val packageName: String)
 
 fun openUrl(context: Context, url: String) {
     try {

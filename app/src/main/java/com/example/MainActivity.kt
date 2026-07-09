@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -38,6 +39,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
@@ -182,10 +184,25 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val context = LocalContext.current
-            val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", MODE_PRIVATE) }
-            var currentScreen by remember { mutableStateOf("home") }
-            var profilePicTrigger by remember { mutableStateOf(false) }
+            val originalContext = LocalContext.current
+            val appLangPrefs = remember { originalContext.getSharedPreferences("app_prefs", MODE_PRIVATE) }
+            val selectedLang = remember { appLangPrefs.getString("app_language", "system") ?: "system" }
+            val contextWithLocale = remember(selectedLang) {
+                if (selectedLang != "system") {
+                    val locale = if (selectedLang == "id") java.util.Locale("in", "ID") else java.util.Locale(selectedLang)
+                    java.util.Locale.setDefault(locale)
+                    val config = android.content.res.Configuration(originalContext.resources.configuration)
+                    config.setLocale(locale)
+                    originalContext.createConfigurationContext(config)
+                } else {
+                    originalContext
+                }
+            }
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalContext provides contextWithLocale) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", MODE_PRIVATE) }
+                var currentScreen by remember { mutableStateOf("home") }
+                var profilePicTrigger by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
                 val savedMode = prefs.getString("theme_mode", "light") ?: "light"
@@ -297,6 +314,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 
     override fun onDestroy() {
         try {
@@ -340,6 +358,19 @@ fun MainScreenContent(
     var showAddDialog by remember { mutableStateOf(false) }
     var alarmToEdit by remember { mutableStateOf<Alarm?>(null) }
     var showUserNameDialog by remember { mutableStateOf(false) }
+
+    val isBackHandlerEnabled = showUserNameDialog || showAddDialog || (alarmToEdit != null) || (activeTab != 0)
+    BackHandler(enabled = isBackHandlerEnabled) {
+        if (showUserNameDialog) {
+            showUserNameDialog = false
+        } else if (showAddDialog) {
+            showAddDialog = false
+        } else if (alarmToEdit != null) {
+            alarmToEdit = null
+        } else if (activeTab != 0) {
+            activeTab = 0
+        }
+    }
 
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateInfoState by remember { mutableStateOf<GithubUpdateChecker.UpdateInfo?>(null) }
@@ -4856,7 +4887,14 @@ fun RingingOverlay(
                 modifier = Modifier
                     .size(100.dp)
                     .clip(CircleShape)
-                    .background(PinkAccent),
+                    .background(PinkAccent)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onLongPress = {
+                                onDismiss()
+                            }
+                        )
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -4868,22 +4906,56 @@ fun RingingOverlay(
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "💡 Tahan lingkaran tengah selama 2 detik untuk mematikan",
+            color = IndigoLight.copy(alpha = 0.6f),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center
+        )
+
         Spacer(modifier = Modifier.height(48.dp))
 
-        // Premium Swipe Up to Snooze Area
+        // Premium Gesture Swipe Up to Snooze Area (No Button!)
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.9f)
-                .height(100.dp)
-                .clip(RoundedCornerShape(32.dp))
+                .height(110.dp)
+                .clip(RoundedCornerShape(24.dp))
                 .background(Color(0xFF23113D).copy(alpha = 0.6f))
-                .border(1.dp, Color(0xFFFF529D).copy(alpha = 0.3f), RoundedCornerShape(32.dp)),
-            contentAlignment = Alignment.BottomCenter
+                .border(1.dp, Color(0xFFFF529D).copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                .pointerInput(Unit) {
+                    detectDragGestures(
+                        onDragEnd = {
+                            if (dragOffset.value < threshold) {
+                                onSnooze()
+                            } else {
+                                coroutineScope.launch {
+                                    dragOffset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                }
+                            }
+                        },
+                        onDragCancel = {
+                            coroutineScope.launch {
+                                dragOffset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                            }
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            coroutineScope.launch {
+                                val newOffset = (dragOffset.value + dragAmount.y).coerceAtMost(0f)
+                                dragOffset.snapTo(newOffset)
+                            }
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
         ) {
             val infiniteChevron = rememberInfiniteTransition()
             val chevronAlpha by infiniteChevron.animateFloat(
-                initialValue = 0.2f,
-                targetValue = 0.9f,
+                initialValue = 0.3f,
+                targetValue = 1.0f,
                 animationSpec = infiniteRepeatable(
                     animation = tween(800, easing = LinearEasing),
                     repeatMode = RepeatMode.Reverse
@@ -4891,7 +4963,9 @@ fun RingingOverlay(
             )
             
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(y = (dragOffset.value / LocalDensity.current.density).dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -4899,97 +4973,19 @@ fun RingingOverlay(
                     imageVector = Icons.Default.KeyboardArrowUp,
                     contentDescription = null,
                     tint = Color(0xFFFF529D).copy(alpha = chevronAlpha),
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = swipeSnoozeText,
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 11.sp,
+                    text = if (dragOffset.value < threshold) "LEPAS UNTUK TUNDA! 🛌" else swipeSnoozeText,
+                    color = Color.White,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
+                    letterSpacing = 1.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp)
                 )
-                Spacer(modifier = Modifier.height(10.dp))
             }
-
-            // Draggable sliding handle
-            Box(
-                modifier = Modifier
-                    .offset(y = (dragOffset.value / LocalDensity.current.density).dp)
-                    .fillMaxWidth()
-                    .height(64.dp)
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(Color(0xFFFF529D), Color(0xFFC51162))
-                        )
-                    )
-                    .pointerInput(Unit) {
-                        detectDragGestures(
-                            onDragEnd = {
-                                if (dragOffset.value < threshold) {
-                                    onSnooze()
-                                } else {
-                                    coroutineScope.launch {
-                                        dragOffset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
-                                    }
-                                }
-                            },
-                            onDragCancel = {
-                                coroutineScope.launch {
-                                    dragOffset.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
-                                }
-                            },
-                            onDrag = { change, dragAmount ->
-                                change.consume()
-                                coroutineScope.launch {
-                                    val newOffset = (dragOffset.value + dragAmount.y).coerceAtMost(0f)
-                                    dragOffset.snapTo(newOffset)
-                                }
-                            }
-                        )
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.KeyboardArrowUp,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = if (dragOffset.value < threshold) "LEPAS UNTUK TUNDA! 🛌" else "TARIK KE ATAS 🛌",
-                        color = Color.White,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 13.sp,
-                        letterSpacing = 1.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(
-            onClick = onDismiss,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-            shape = RoundedCornerShape(28.dp),
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .height(56.dp)
-        ) {
-            Text(
-                text = dismissText,
-                color = Color(0xFF311B92),
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp,
-                fontSize = 14.sp
-            )
         }
     }
 }
@@ -5497,24 +5493,7 @@ fun SettingsScreen(
                             Text("Ganti Foto", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        if (hasCustomPic) {
-                            OutlinedButton(
-                                onClick = {
-                                    try {
-                                        if (profileFile.exists()) profileFile.delete()
-                                        prefs.edit().putBoolean("has_custom_profile_pic", false).apply()
-                                        onProfilePicChanged()
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                },
-                                shape = RoundedCornerShape(12.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.Red.copy(alpha = 0.6f)),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text("Hapus", color = Color.Red, fontSize = 11.sp)
-                            }
-                        }
+                        // Hapus button has been removed per user request
                     }
                     
                     Spacer(modifier = Modifier.height(16.dp))
@@ -5676,12 +5655,19 @@ fun SettingsScreen(
                                         .background(if (isSelected) IndigoPrimary.copy(alpha = 0.2f) else Color.Transparent)
                                         .clickable {
                                             expanded = false
+                                            val appLangPrefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                                            appLangPrefs.edit().putString("app_language", code).apply()
+                                            
                                             val localeList = if (code == "system") {
                                                 androidx.core.os.LocaleListCompat.getEmptyLocaleList()
                                             } else {
                                                 androidx.core.os.LocaleListCompat.forLanguageTags(code)
                                             }
                                             androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
+                                            
+                                            if (context is android.app.Activity) {
+                                                context.recreate()
+                                            }
                                             
                                             val displayLang = if (code == "system") "System" else label
                                             val toastMsg = context.getString(R.string.toast_language_changed, displayLang)
