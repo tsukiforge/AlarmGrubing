@@ -4,6 +4,21 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 
 ---
 
+## [5.4.0] - 2026-07-12
+
+### 🚀 Fitur Baru & Peningkatan
+* **Health Social Enforcement (Penguncian Aplikasi Berjadwal)**: Sistem penguncian aplikasi produktif penuh berbasis jadwal (Fokus, Belajar, Screen Time) yang diamankan dengan enkripsi PIN. Mencakup foreground service dengan UsageStatsManager untuk monitoring real-time setiap 2 detik, overlay kunci full-screen via WindowManager (TYPE_APPLICATION_OVERLAY), serta verifikasi PIN melalui overlay activity terpisah.
+* **Quick Settings Tile (AppLock)**: Tile Quick Settings Android untuk mengunci aplikasi langsung dari panel notifikasi. Mendeteksi aplikasi foreground via UsageStatsManager dan langsung memicu overlay kunci yang sama.
+* **AlarmManager Schedule untuk Health Social**: Penjadwalan start/stop monitoring service menggunakan AlarmManager.setExactAndAllowWhileIdle dengan BOOT_COMPLETED receiver untuk re-register alarm setelah restart perangkat.
+* **Material 3 TimePicker (Dial Mode)**: Mengganti custom OutlinedTextField untuk jam jadwal dengan Material 3 TimePicker dial mode bawaan Compose Material3 (, ), memberikan pengalaman pemilihan waktu yang lebih intuitif dan modern.
+* **Notifikasi Mode Health Social**: Notifikasi otomatis saat jadwal dimulai (mode fokus aktif) dan jadwal berakhir (mode fokus selesai), membantu pengguna tetap sadar akan perubahan status pembatasan aplikasi.
+* **Penyimpanan Bahasa Persisten (Locale Persistence)**: Implementasi custom Application class (AlarmGrubingApp) dengan override attachBaseContext() untuk mengaplikasikan bahasa yang dipilih sebelum UI dirender, memastikan bahasa tetap bertahan meskipun aplikasi di-restart atau proses Android dihentikan.
+* **AppLocalesMetadataHolderService**: Dukungan autoStoreLocales untuk Android 13+ melalui metadata service, serta locales_config.xml dengan dukungan bahasa Indonesia, Inggris, Spanyol, Perancis, dan Arab.
+
+### 🛠️ Perbaikan Bug
+* **Perbaikan UI Snooze**: Area swipe snooze di RingingOverlay tidak lagi terbungkus card visual (background gelap, border, rounded shape). Area swipe kini full-width dan mengisi sisa layar, sehingga pengguna dapat swipe di mana saja tanpa hambatan visual.
+* **Pencegahan Double Alarm**: Menambahkan guard di AlarmRingingService.onStartCommand() untuk menolak duplicate trigger alarm saat layar dering sudah aktif, mencegah alarm berbunyi dua kali secara bersamaan.
+
 ## [5.3.0] - 2026-07-09
 
 ### 🚀 Fitur Baru & Peningkatan
