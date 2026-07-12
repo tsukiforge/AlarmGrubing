@@ -155,20 +155,17 @@ class HealthSocialMonitorService : Service() {
             val endTime = System.currentTimeMillis()
             val beginTime = endTime - 30_000L // 30 detik terakhir cukup
 
-            val usageEvents = usm.queryEvents(beginTime, endTime)
-            if (usageEvents == null) return null
-
             var lastForegroundPackage: String? = null
             val event = UsageEvents.Event()
 
-            while (usageEvents.hasNextEvent()) {
-                usageEvents.getNextEvent(event)
-                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                    lastForegroundPackage = event.packageName
+            usm.queryEvents(beginTime, endTime)?.use { events ->
+                while (events.hasNextEvent()) {
+                    events.getNextEvent(event)
+                    if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                        lastForegroundPackage = event.packageName
+                    }
                 }
             }
-
-            usageEvents.close()
 
             // Filter launcher package
             val launcherPackage = getLauncherPackageName()
