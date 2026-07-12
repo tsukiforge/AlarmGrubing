@@ -26,17 +26,22 @@ class AlarmGrubingApp : Application() {
         val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
         val savedLanguage = prefs.getString("app_language", "system") ?: "system"
 
-        if (savedLanguage != "system") {
+        // Default fallback: jika bahasa sistem bukan id/en/ja, paksa ke Indonesia
+        val effectiveLanguage = if (savedLanguage == "system") {
+            val systemLang = getSystemLocale()
+            if (systemLang !in listOf("id", "en", "ja")) "id" else "system"
+        } else savedLanguage
+
+        if (effectiveLanguage != "system") {
             val localeList = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                androidx.core.os.LocaleListCompat.forLanguageTags(savedLanguage)
+                androidx.core.os.LocaleListCompat.forLanguageTags(effectiveLanguage)
             } else {
                 @Suppress("DEPRECATION")
-                val locale = when (savedLanguage) {
+                val locale = when (effectiveLanguage) {
                     "id" -> java.util.Locale("in", "ID")
                     "en" -> java.util.Locale("en")
-                    "es" -> java.util.Locale("es")
-                    "fr" -> java.util.Locale("fr")
-                    else -> java.util.Locale(savedLanguage)
+                    "ja" -> java.util.Locale("ja")
+                    else -> java.util.Locale(effectiveLanguage)
                 }
                 @Suppress("DEPRECATION")
                 java.util.Locale.setDefault(locale)
@@ -44,6 +49,15 @@ class AlarmGrubingApp : Application() {
                 compatList
             }
             AppCompatDelegate.setApplicationLocales(localeList)
+        }
+    }
+
+    private fun getSystemLocale(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            resources.configuration.locales.get(0).language
+        } else {
+            @Suppress("DEPRECATION")
+            resources.configuration.locale.language
         }
     }
 }

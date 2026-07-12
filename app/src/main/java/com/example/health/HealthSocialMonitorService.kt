@@ -4,8 +4,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.app.usage.UsageStatsManager
-import android.app.usage.UsageStats
+import android.app.UsageStatsManager
+import android.app.usage.UsageEvents
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -31,7 +31,7 @@ class HealthSocialMonitorService : Service() {
         var isRunning = false
     }
 
-    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var monitoringJob: Job? = null
 
     override fun onCreate() {
@@ -44,6 +44,20 @@ class HealthSocialMonitorService : Service() {
             stopMonitoring()
             stopSelf()
             return START_NOT_STICKY
+        }
+
+        // 🛡️ Guard: cegah double start — cancel job lama sebelum bikin baru
+        if (isRunning) {
+            android.util.Log.w(TAG, "Already running, skipping duplicate start")
+            return START_STICKY
+        }
+
+        // WAJIB: cancel job sebelumnya kalau ada
+        monitoringJob?.cancel()
+
+        // Recreate scope jika sudah di-cancel (misal setelah STOP)
+        if (scope.isActive.not()) {
+            scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         }
 
         isRunning = true
@@ -70,22 +84,48 @@ class HealthSocialMonitorService : Service() {
         scope.cancel()
     }
 
+    // Track current locked app to avoid re-rendering overlay
+    private var lastLockedApp: String? = null
+
     private suspend fun monitorLoop() {
-        while (scope.isActive) {
+        lastLockedApp = null
+        while (isActive) {
             try {
                 val schedule = isAppCurrentlyLocked(this)
                 if (schedule != null) {
                     // Ada jadwal aktif — deteksi app foreground
                     val foregroundApp = getCurrentForegroundPackage()
                     if (foregroundApp != null && schedule.lockedApps.contains(foregroundApp)) {
-                        // App yang sedang dibuka ada di daftar terkunci
-                        HealthSocialOverlayManager.showLockOverlay(
-                            this,
-                            schedule.name,
-                            schedule.icon,
-                            foregroundApp
-                        )
+                        // 🐛 Bug 4 fix: Jangan re-render overlay jika app yg sama masih terbuka
+                        if (foregroundApp != lastLockedApp || !HealthSocialOverlayManager.isOverlayShowing()) {
+                            lastLockedApp = foregroundApp
+                            // 🐛 Bug 3 fix: Operasi UI/WindowManager WAJIB di Main thread
+                            withContext(Dispatchers.Main) {
+                                HealthSocialOverlayManager.showLockOverlay(
+                                    this@HealthSocialMonitorService,
+                                    schedule.name,
+                                    schedule.icon,
+                                    foregroundApp
+                                )
+                            }
+                        }
+                    } else {
+                        // App tidak terkunci — dismiss overlay jika ada
+                        if (HealthSocialOverlayManager.isOverlayShowing()) {
+                            withContext(Dispatchers.Main) {
+                                HealthSocialOverlayManager.dismissOverlay()
+                            }
+                        }
+                        lastLockedApp = null
                     }
+                } else {
+                    // Tidak ada jadwal aktif — dismiss overlay
+                    if (HealthSocialOverlayManager.isOverlayShowing()) {
+                        withContext(Dispatchers.Main) {
+                            HealthSocialOverlayManager.dismissOverlay()
+                        }
+                    }
+                    lastLockedApp = null
                 }
 
                 // Cek apakah masih ada jadwal aktif — jika tidak, stop service
@@ -99,35 +139,42 @@ class HealthSocialMonitorService : Service() {
                 android.util.Log.e(TAG, "Monitoring error: ${e.message}", e)
             }
 
-            // Polling tiap 2 detik untuk respon cepat
-            delay(2000L)
+            // Polling tiap 3 detik — cukup responsif, lebih hemat baterai
+            delay(3000L)
         }
     }
 
     /**
      * Mendapatkan package name dari aplikasi yang sedang di foreground.
-     * Menggunakan UsageStatsManager dengan interval waktu pendek (query 1 menit terakhir).
+     * Menggunakan UsageEvents (queryEvents) — jauh lebih ringan daripada queryUsageStats.
+     * QueryEvents hanya mengambil event terakhir (MOVE_TO_FOREGROUND) tanpa scan riwayat harian penuh.
      */
     private fun getCurrentForegroundPackage(): String? {
         return try {
             val usm = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val endTime = System.currentTimeMillis()
-            val beginTime = endTime - 60_000L // 1 menit terakhir
+            val beginTime = endTime - 30_000L // 30 detik terakhir cukup
 
-            val stats = usm.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY,
-                beginTime,
-                endTime
-            )
+            val usageEvents = usm.queryEvents(beginTime, endTime)
+            if (usageEvents == null) return null
 
-            if (stats.isNullOrEmpty()) return null
+            var lastForegroundPackage: String? = null
+            val event = UsageEvents.Event()
 
-            // Cari app dengan usage time paling besar (terbaru) yang bukan launcher/system
+            while (usageEvents.hasNextEvent()) {
+                usageEvents.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    lastForegroundPackage = event.packageName
+                }
+            }
+
+            usageEvents.close()
+
+            // Filter launcher package
             val launcherPackage = getLauncherPackageName()
-            stats
-                .filter { it.packageName != launcherPackage }
-                .maxByOrNull { it.lastTimeUsed }
-                ?.packageName
+            if (lastForegroundPackage == launcherPackage) return null
+
+            return lastForegroundPackage
         } catch (e: SecurityException) {
             // Permission PACKAGE_USAGE_STATS belum diberikan
             android.util.Log.w(TAG, "UsageStats permission not granted")

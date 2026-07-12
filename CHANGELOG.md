@@ -7,10 +7,10 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 ## [5.4.0] - 2026-07-12
 
 ### 🚀 Fitur Baru & Peningkatan
-* **Health Social Enforcement (Penguncian Aplikasi Berjadwal)**: Sistem penguncian aplikasi produktif penuh berbasis jadwal (Fokus, Belajar, Screen Time) yang diamankan dengan enkripsi PIN. Mencakup foreground service dengan UsageStatsManager untuk monitoring real-time setiap 2 detik, overlay kunci full-screen via WindowManager (TYPE_APPLICATION_OVERLAY), serta verifikasi PIN melalui overlay activity terpisah.
+* **Health Social Enforcement (Penguncian Aplikasi Berjadwal)**: Sistem penguncian aplikasi produktif penuh berbasis jadwal (Fokus, Belajar, Screen Time) yang diamankan dengan enkripsi PIN. Mencakup foreground service dengan UsageStatsManager untuk monitoring real-time, overlay kunci full-screen via WindowManager (TYPE_APPLICATION_OVERLAY), serta verifikasi PIN melalui overlay activity terpisah.
 * **Quick Settings Tile (AppLock)**: Tile Quick Settings Android untuk mengunci aplikasi langsung dari panel notifikasi. Mendeteksi aplikasi foreground via UsageStatsManager dan langsung memicu overlay kunci yang sama.
 * **AlarmManager Schedule untuk Health Social**: Penjadwalan start/stop monitoring service menggunakan AlarmManager.setExactAndAllowWhileIdle dengan BOOT_COMPLETED receiver untuk re-register alarm setelah restart perangkat.
-* **Material 3 TimePicker (Dial Mode)**: Mengganti custom OutlinedTextField untuk jam jadwal dengan Material 3 TimePicker dial mode bawaan Compose Material3 (, ), memberikan pengalaman pemilihan waktu yang lebih intuitif dan modern.
+* **Material 3 TimePicker (Dial Mode)**: Mengganti custom OutlinedTextField untuk jam jadwal dengan Material 3 TimePicker dial mode bawaan Compose Material3, memberikan pengalaman pemilihan waktu yang lebih intuitif dan modern.
 * **Notifikasi Mode Health Social**: Notifikasi otomatis saat jadwal dimulai (mode fokus aktif) dan jadwal berakhir (mode fokus selesai), membantu pengguna tetap sadar akan perubahan status pembatasan aplikasi.
 * **Penyimpanan Bahasa Persisten (Locale Persistence)**: Implementasi custom Application class (AlarmGrubingApp) dengan override attachBaseContext() untuk mengaplikasikan bahasa yang dipilih sebelum UI dirender, memastikan bahasa tetap bertahan meskipun aplikasi di-restart atau proses Android dihentikan.
 * **AppLocalesMetadataHolderService**: Dukungan autoStoreLocales untuk Android 13+ melalui metadata service, serta locales_config.xml dengan dukungan bahasa Indonesia, Inggris, Spanyol, Perancis, dan Arab.
@@ -18,6 +18,17 @@ Semua riwayat perubahan, rilis, perbaikan bug, dan optimasi arsitektur aplikasi 
 ### 🛠️ Perbaikan Bug
 * **Perbaikan UI Snooze**: Area swipe snooze di RingingOverlay tidak lagi terbungkus card visual (background gelap, border, rounded shape). Area swipe kini full-width dan mengisi sisa layar, sehingga pengguna dapat swipe di mana saja tanpa hambatan visual.
 * **Pencegahan Double Alarm**: Menambahkan guard di AlarmRingingService.onStartCommand() untuk menolak duplicate trigger alarm saat layar dering sudah aktif, mencegah alarm berbunyi dua kali secara bersamaan.
+
+### ⚡ Optimasi Kinerja & Stabilitas (v5.4.0 Hotfix)
+* **Perbaikan Freeze/Lag Akibat Multiple Monitoring Loop**: Menambahkan guard `if (isRunning) return START_STICKY` dan `monitoringJob?.cancel()` sebelum membuat job baru di `HealthSocialMonitorService.onStartCommand()`. Juga menambahkan rekreasi `CoroutineScope` jika sudah di-cancel, mencegah tumpukan loop monitoring berjalan bersamaan yang menyebabkan lag parah.
+* **Optimasi Query Foreground App**: Mengganti `queryUsageStats(INTERVAL_DAILY)` yang berat dengan `queryEvents()` yang hanya mengambil event `MOVE_TO_FOREGROUND` — jauh lebih ringan tanpa scan riwayat harian penuh. Interval polling dinaikkan dari 2 detik ke 3 detik.
+* **Overlay Dipindah ke Main Thread**: Memindahkan semua pemanggilan `HealthSocialOverlayManager.showLockOverlay()` dan `dismissOverlay()` ke `Dispatchers.Main` dengan `withContext()`, karena operasi `WindowManager.addView`/`removeView` wajib dari thread yang memiliki Looper.
+* **Cegah Re-render Overlay Berulang**: Menambahkan tracking `lastLockedApp` dan pengecekan `isOverlayShowing()` untuk menghindari inflate ulang overlay setiap 3 detik jika aplikasi terkunci yang sama masih terbuka. Overlay juga otomatis di-dismiss saat aplikasi foreground berubah ke bukan app terkunci.
+
+### 🌐 Penyederhanaan Bahasa
+* **Dukungan Bahasa Dikurangi ke 3 Bahasa**: `locales_config.xml` hanya menyertakan Indonesia (`id`), Inggris (`en`), dan Jepang (`ja`). Bahasa Spanyol, Portugis, Perancis, Jerman, Rusia, Arab, dan Mandarin dihapus beserta file resource string-nya.
+* **Default Fallback ke Indonesia**: Jika bahasa perangkat bukan salah satu dari 3 bahasa yang didukung, aplikasi otomatis fallback ke Bahasa Indonesia (bukan Inggris).
+* **Pilihan Bahasa di UI**: Opsi bahasa di Settings dikurangi dari 11 menjadi 4 (Ikuti Sistem, Indonesia, English, 日本語).
 
 ## [5.3.0] - 2026-07-09
 

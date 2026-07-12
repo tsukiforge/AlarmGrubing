@@ -5597,14 +5597,6 @@ fun SettingsScreen(
                         "system" to stringResource(id = R.string.settings_follow_system) + " 🌐",
                         "id" to "Bahasa Indonesia 🇮🇩",
                         "en" to "English 🇬🇧",
-                        "es" to "Español 🇪🇸",
-                        "pt" to "Português 🇵🇹",
-                        "fr" to "Français 🇫🇷",
-                        "de" to "Deutsch 🇩🇪",
-                        "ru" to "Русский 🇷🇺",
-                        "ar" to "العربية 🇸🇦",
-                        "ja" to "日本語 🇯🇵",
-                        "zh" to "简体中文 🇨🇳"
                     )
                     
                     var expanded by remember { mutableStateOf(false) }
