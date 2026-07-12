@@ -3,6 +3,8 @@ package com.example.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -26,9 +28,11 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.health.HealthSocialAlarmScheduler
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalContext
@@ -186,6 +190,8 @@ fun saveSchedule(context: Context, schedule: HealthSchedule) {
         current.add(schedule)
     }
     saveSchedulesToJson(context, current)
+    // Reschedule Health Social alarms
+    HealthSocialAlarmScheduler.rescheduleAll(context)
 }
 
 @Composable
@@ -399,6 +405,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                     } else {
                                         isAppLockEnabled = false
                                         prefs.edit().putBoolean("app_lock_enabled", false).apply()
+                                        HealthSocialAlarmScheduler.rescheduleAll(context)
                                     }
                                 },
                                 colors = SwitchDefaults.colors(
@@ -407,6 +414,66 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                 )
                             )
                         }
+
+                        // Permission Status Section
+                        Divider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+
+                        Text(
+                            text = "Izin yang Diperlukan:",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Usage Stats Permission
+                        val hasUsageStats = remember {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                                try {
+                                    val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as android.app.usage.UsageStatsManager
+                                    usm.queryUsageStats(android.app.usage.UsageStatsManager.INTERVAL_DAILY, 0, System.currentTimeMillis())
+                                    true
+                                } catch (e: SecurityException) {
+                                    false
+                                } catch (e: Exception) {
+                                    false
+                                }
+                            } else true
+                        }
+                        PermissionStatusRow(
+                            label = "Akses Penggunaan (Usage Stats)",
+                            description = "Untuk mendeteksi aplikasi yang sedang dibuka",
+                            granted = hasUsageStats,
+                            onClick = {
+                                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                try { context.startActivity(intent) } catch (e: Exception) {}
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Overlay Permission
+                        val hasOverlayPermission = remember {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                Settings.canDrawOverlays(context)
+                            } else true
+                        }
+                        PermissionStatusRow(
+                            label = "Tampilkan di Atas Aplikasi Lain (Overlay)",
+                            description = "Untuk menampilkan layar kunci di atas aplikasi",
+                            granted = hasOverlayPermission,
+                            onClick = {
+                                val intent = Intent(
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:${context.packageName}")
+                                ).apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                try { context.startActivity(intent) } catch (e: Exception) {}
+                            }
+                        )
                     }
                 }
             }
@@ -582,12 +649,12 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                             }
                         }
                     }
-                },
-                confirmButton = {
+                },                        confirmButton = {
                     Button(
                         onClick = {
                             isAppLockEnabled = true
                             prefs.edit().putBoolean("app_lock_enabled", true).apply()
+                            HealthSocialAlarmScheduler.rescheduleAll(context)
                             showLockConsentDialog = false
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081))
@@ -921,6 +988,54 @@ fun PinInputDialog(
 }
 
 @Composable
+fun PermissionStatusRow(
+    label: String,
+    description: String,
+    granted: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (granted) Color(0xFF2E7D32).copy(alpha = 0.08f) else Color(0xFFC62828).copy(alpha = 0.08f))
+            .clickable { if (!granted) onClick() }
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(
+            imageVector = if (granted) Icons.Default.CheckCircle else Icons.Default.Warning,
+            contentDescription = null,
+            tint = if (granted) Color(0xFF2E7D32) else Color(0xFFC62828),
+            modifier = Modifier.size(18.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                color = if (granted) Color(0xFF2E7D32) else Color(0xFFC62828),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            val subtitleText = if (granted) "✓ Izin diberikan" else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) "Ketuk untuk berikan izin" else "Izin tidak diperlukan"
+            Text(
+                text = subtitleText,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 9.sp
+            )
+        }
+        if (!granted) {
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Atur",
+                tint = Color(0xFFC62828),
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+@Composable
 fun EditScheduleDialog(
     schedule: HealthSchedule,
     onDismiss: () -> Unit,
@@ -934,6 +1049,10 @@ fun EditScheduleDialog(
     var endText by remember { mutableStateOf(schedule.endTime) }
     var selectedDays by remember { mutableStateOf(schedule.days.toSet()) }
     var errorMsg by remember { mutableStateOf("") }
+    
+    // Time picker state
+    var showStartTimePicker by remember { mutableStateOf(false) }
+    var showEndTimePicker by remember { mutableStateOf(false) }
     
     // Step 2 States
     var selectedApps by remember { mutableStateOf(schedule.lockedApps.toSet()) }
@@ -983,6 +1102,37 @@ fun EditScheduleDialog(
         }
     }
     
+    // TimePicker dialog state
+    if (showStartTimePicker) {
+        val parts = startText.split(":")
+        val initialHour = parts.getOrNull(0)?.toIntOrNull() ?: 8
+        val initialMinute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        TimePickerDialog(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+            onDismiss = { showStartTimePicker = false },
+            onConfirm = { hour, minute ->
+                startText = String.format("%02d:%02d", hour, minute)
+                showStartTimePicker = false
+            }
+        )
+    }
+    
+    if (showEndTimePicker) {
+        val parts = endText.split(":")
+        val initialHour = parts.getOrNull(0)?.toIntOrNull() ?: 17
+        val initialMinute = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        TimePickerDialog(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+            onDismiss = { showEndTimePicker = false },
+            onConfirm = { hour, minute ->
+                endText = String.format("%02d:%02d", hour, minute)
+                showEndTimePicker = false
+            }
+        )
+    }
+    
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -999,42 +1149,79 @@ fun EditScheduleDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
+                    Text(
+                        text = "Ketuk waktu untuk membuka TimePicker:",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 12.sp
+                    )
+                    
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedTextField(
-                            value = startText,
-                            onValueChange = { startText = it },
-                            label = { Text("Mulai", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp) },
-                            placeholder = { Text("08:00") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
-                            )
-                        )
-                        OutlinedTextField(
-                            value = endText,
-                            onValueChange = { endText = it },
-                            label = { Text("Selesai", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp) },
-                            placeholder = { Text("12:00") },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
-                            )
-                        )
+                        // Start Time Button
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                                .clickable { showStartTimePicker = true }
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Mulai",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = startText,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "🕐 Ketuk untuk atur",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
+                        
+                        // End Time Button
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f))
+                                .clickable { showEndTimePicker = true }
+                                .padding(12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "Selesai",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 11.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = endText,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "🕐 Ketuk untuk atur",
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 9.sp
+                                )
+                            }
+                        }
                     }
                     
                     Text(
@@ -1274,6 +1461,62 @@ fun EditScheduleDialog(
 }
 
 data class AppInfo(val name: String, val packageName: String)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TimePickerDialog(
+    initialHour: Int,
+    initialMinute: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, Int) -> Unit
+) {
+    val timePickerState = rememberTimePickerState(
+        initialHour = initialHour,
+        initialMinute = initialMinute,
+        is24Hour = true
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Pilih Waktu",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp
+            )
+        },
+        text = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                TimePicker(
+                    state = timePickerState
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onConfirm(timePickerState.hour, timePickerState.minute)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081))
+            ) {
+                Text("Pilih ✅", color = Color.White, fontSize = 12.sp)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp)
+    )
+}
 
 fun openUrl(context: Context, url: String) {
     try {

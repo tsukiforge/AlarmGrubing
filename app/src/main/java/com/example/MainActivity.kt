@@ -4915,16 +4915,13 @@ fun RingingOverlay(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(48.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-        // Premium Gesture Swipe Up to Snooze Area (No Button!)
+        // Swipe Up to Snooze — full area, no card visual, bisa swipe di mana saja
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .height(110.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF23113D).copy(alpha = 0.6f))
-                .border(1.dp, Color(0xFFFF529D).copy(alpha = 0.3f), RoundedCornerShape(24.dp))
+                .fillMaxWidth()
+                .weight(1f)
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragEnd = {

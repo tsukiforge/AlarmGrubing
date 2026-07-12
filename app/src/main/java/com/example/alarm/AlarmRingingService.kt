@@ -42,6 +42,13 @@ class AlarmRingingService : Service() {
 
     @Suppress("DEPRECATION")
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Guard: jika sudah berdering dan ini bukan aksi STOP/SNOOZE,
+        // jangan proses double alarm (ignore duplicate trigger)
+        if (isRinging && intent?.action == null) {
+            android.util.Log.w("AlarmRingingService", "Already ringing, ignoring duplicate trigger")
+            return START_NOT_STICKY
+        }
+
         if (intent?.action == "STOP") {
             val alarmId = intent.getStringExtra("ALARM_ID") ?: activeAlarmId
             if (alarmId != null) {

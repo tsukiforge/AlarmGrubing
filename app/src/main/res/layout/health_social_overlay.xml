@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#CC000000">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:gravity="center">
+
+        <!-- Card Container -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/widget_bg"
+            android:padding="24dp"
+            android:gravity="center">
+
+            <!-- Icon / Emoji Title -->
+            <TextView
+                android:id="@+id/overlay_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔒 Aplikasi Terkunci"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Schedule Name -->
+            <TextView
+                android:id="@+id/overlay_subtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mode: Jadwal Aktif"
+                android:textSize="16sp"
+                android:textColor="#FF4081"
+                android:gravity="center"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Description -->
+            <TextView
+                android:id="@+id/overlay_description"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Aplikasi yang Anda buka sedang dalam daftar blokir. Tetap fokus dengan komitmen Anda! ✨"
+                android:textSize="13sp"
+                android:textColor="#B0BEC5"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:layout_marginBottom="24dp" />
+
+            <!-- PIN Button -->
+            <Button
+                android:id="@+id/overlay_pin_button"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="🔑 Buka dengan PIN"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="#FF4081"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Bypass 15 Minutes Button -->
+            <Button
+                android:id="@+id/overlay_bypass_button"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="⏱️ Buka Sementara (15 Menit)"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:background="#FF6F00"
+                android:layout_marginBottom="12dp" />
+
+            <!-- Settings Button -->
+            <TextView
+                android:id="@+id/overlay_settings_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Buka Pengaturan"
+                android:textSize="12sp"
+                android:textColor="#78909C"
+                android:gravity="center"
+                android:padding="8dp" />
+
+        </LinearLayout>
+    </LinearLayout>
+
+</FrameLayout>
