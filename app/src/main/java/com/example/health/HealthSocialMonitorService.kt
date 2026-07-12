@@ -71,7 +71,7 @@ class HealthSocialMonitorService : Service() {
     }
 
     private suspend fun monitorLoop() {
-        while (isActive) {
+        while (scope.isActive) {
             try {
                 val schedule = isAppCurrentlyLocked(this)
                 if (schedule != null) {
