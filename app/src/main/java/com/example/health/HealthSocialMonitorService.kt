@@ -4,7 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.app.UsageStatsManager
+import android.app.usage.UsageStatsManager
 import android.app.usage.UsageEvents
 import android.content.Context
 import android.content.Intent
@@ -89,7 +89,7 @@ class HealthSocialMonitorService : Service() {
 
     private suspend fun monitorLoop() {
         lastLockedApp = null
-        while (isActive) {
+        while (scope.isActive) {
             try {
                 val schedule = isAppCurrentlyLocked(this)
                 if (schedule != null) {
