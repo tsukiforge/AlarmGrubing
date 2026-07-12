@@ -94,7 +94,7 @@ object HealthSocialAlarmScheduler {
         )
 
         // Hitung waktu trigger berdasarkan hari dan jam
-        scheduleAlarm(context, alarmManager, schedule, schedule.startTime, pendingIntent)
+        scheduleAlarm(context, alarmManager, schedule, schedule.startTime, pendingIntent, "ACTION_SCHEDULE_START")
     }
 
     /**
@@ -116,7 +116,7 @@ object HealthSocialAlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        scheduleAlarm(context, alarmManager, schedule, schedule.endTime, pendingIntent)
+        scheduleAlarm(context, alarmManager, schedule, schedule.endTime, pendingIntent, "ACTION_SCHEDULE_END")
     }
 
     /**
@@ -128,7 +128,8 @@ object HealthSocialAlarmScheduler {
         alarmManager: AlarmManager,
         schedule: HealthSchedule,
         timeStr: String,
-        pendingIntent: PendingIntent
+        pendingIntent: PendingIntent,
+        actionName: String
     ) {
         val parts = timeStr.split(":")
         if (parts.size != 2) return
@@ -199,7 +200,7 @@ object HealthSocialAlarmScheduler {
             alarmManager.set(AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent)
         }
 
-        android.util.Log.d(TAG, "Scheduled ${pendingIntent.action} for ${schedule.id} at ${timeStr} on ${calendar.time}")
+        android.util.Log.d(TAG, "Scheduled $actionName for ${schedule.id} at $timeStr on ${calendar.time}")
     }
 
     private fun cancelAllAlarms(context: Context) {
