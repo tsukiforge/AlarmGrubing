@@ -161,15 +161,11 @@ class HealthSocialMonitorService : Service() {
             var lastForegroundPackage: String? = null
             val event = UsageEvents.Event()
 
-            try {
-                while (usageEvents.hasNextEvent()) {
-                    usageEvents.getNextEvent(event)
-                    if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                        lastForegroundPackage = event.packageName
-                    }
+            while (usageEvents.hasNextEvent()) {
+                usageEvents.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    lastForegroundPackage = event.packageName
                 }
-            } finally {
-                usageEvents.close()
             }
 
             // Filter launcher package
