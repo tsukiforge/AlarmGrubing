@@ -13,16 +13,6 @@ Dokumen resmi peninjauan rilis produk dan kronologi siklus hidup paket distribus
 
 ## 🌟 Sorotan Riwayat Fitur Berdasarkan Kronologi Versi
 
-### 🟣 Versi v5.4.0 (Rilis Stabil Terbaru - 2026-07-12)
-* **Health Social Enforcement (Penguncian Aplikasi Berjadwal)**: Sistem penguncian aplikasi berbasis jadwal produktif dengan monitoring real-time via foreground service, overlay kunci full-screen (WindowManager TYPE_APPLICATION_OVERLAY), verifikasi PIN, dan AlarmManager scheduler.
-* **Quick Settings Tile**: Tile Android untuk mengunci aplikasi langsung dari panel notifikasi cepat, mendeteksi foreground app dan memicu overlay yang sama.
-* **Material 3 TimePicker**: Peningkatan UX pemilihan waktu jadwal dengan dial mode TimePicker bawaan Compose Material3.
-* **Locale Persistence**: Custom Application class dengan attachBaseContext() untuk persistensi bahasa antar sesi aplikasi.
-* **Perbaikan UI Snooze**: Area swipe snooze tanpa card visual, full-width, bisa swipe di area luas.
-* **Pencegahan Double Alarm**: Guard di AlarmRingingService untuk mencegah alarm berbunyi dua kali.
-* **Optimasi Freeze/Lag**: Perbaikan multiple concurrent monitoring loop, ganti queryUsageStats berat ke queryEvents ringan, overlay pindah ke Main Thread, cegah re-render overlay berulang, interval polling naik ke 3 detik.
-* **Penyederhanaan Bahasa**: Hanya 3 bahasa (id, en, ja) dengan default fallback ke Indonesia.
-
 ### 🟣 Versi v5.1.0 (Rilis Stabil Terbaru)
 * **Always-On Display (AOD) Otomatis**: Integrasi `AodService` berbasis `BroadcastReceiver` yang mendeteksi matinya layar HP (`ACTION_SCREEN_OFF`) untuk meluncurkan layar standby AOD secara otomatis dan andal. Lengkap dengan pintasan Switch On/Off di halaman Pengaturan & Profil utama.
 * **Fitur Anti-Burn-In**: Mekanisme pergeseran koordinat jam & tanggal otomatis secara periodik untuk mencegah kerusakan layar.

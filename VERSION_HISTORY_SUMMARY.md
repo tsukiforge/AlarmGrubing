@@ -4,16 +4,6 @@ Peta jalan sejarah versi aplikasi **Alarm Grup** dikurasi untuk pelacakan perfor
 
 ---
 
-### 🟣 v5.4.0 (Produksi Stabil Terbaru - 2026-07-12)
-* **Health Social Enforcement**: Foreground service monitoring real-time, overlay kunci (TYPE_APPLICATION_OVERLAY), verifikasi PIN, AlarmManager scheduler, dan BOOT_COMPLETED receiver.
-* **Quick Settings Tile**: Tile untuk kunci aplikasi dari panel notifikasi.
-* **Material 3 TimePicker**: Dial mode untuk pemilihan waktu jadwal.
-* **Locale Persistence**: Bahasa tetap bertahan antar sesi via custom Application class.
-* **UI Snooze Fix**: Area swipe full-width tanpa card visual.
-* **Double Alarm Fix**: Guard cegah alarm berbunyi dua kali.
-* **Optimasi Freeze/Lag**: Guard concurrent loop, queryEvents ganti queryUsageStats, overlay ke Main Thread, cegah re-render, polling 3dtk.
-* **Sederhanakan Bahasa**: 3 bahasa (id/en/ja) + default fallback Indonesia.
-
 ### 🟣 v5.1.0 (Produksi Stabil Terbaru - 2026-06-30)
 * **Always-On Display (AOD)**: Implementasi background `AodService` untuk mendeteksi screen lock/off dan meluncurkan layar standby AOD secara instan (lengkap dengan pintasan Switch On/Off di halaman Pengaturan & Profil).
 * **Fitur Cerdas**: Perlindungan Anti Burn-in (posisi jam dinamis), kata motivasi berganti berkala, dan penambahan wallpaper kustom galeri.

@@ -22,6 +22,9 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -184,25 +187,10 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            val originalContext = LocalContext.current
-            val appLangPrefs = remember { originalContext.getSharedPreferences("app_prefs", MODE_PRIVATE) }
-            val selectedLang = remember { appLangPrefs.getString("app_language", "system") ?: "system" }
-            val contextWithLocale = remember(selectedLang) {
-                if (selectedLang != "system") {
-                    val locale = if (selectedLang == "id") java.util.Locale("in", "ID") else java.util.Locale(selectedLang)
-                    java.util.Locale.setDefault(locale)
-                    val config = android.content.res.Configuration(originalContext.resources.configuration)
-                    config.setLocale(locale)
-                    originalContext.createConfigurationContext(config)
-                } else {
-                    originalContext
-                }
-            }
-            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalContext provides contextWithLocale) {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", MODE_PRIVATE) }
-                var currentScreen by remember { mutableStateOf("home") }
-                var profilePicTrigger by remember { mutableStateOf(false) }
+            val context = LocalContext.current
+            val prefs = remember { context.getSharedPreferences("alarm_grup_prefs", MODE_PRIVATE) }
+            var currentScreen by remember { mutableStateOf("home") }
+            var profilePicTrigger by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
                 val savedMode = prefs.getString("theme_mode", "light") ?: "light"
@@ -314,7 +302,6 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
 
     override fun onDestroy() {
         try {
@@ -876,55 +863,11 @@ fun MainScreenContent(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp, top = 8.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.65f))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            TabButton(
-                title = "⏰ Diri",
-                isActive = activeTab == 0,
-                onClick = { activeTab = 0 },
-                modifier = Modifier.weight(1f)
-            )
-            TabButton(
-                title = "👥 Grup",
-                isActive = activeTab == 1,
-                onClick = { 
-                    activeTab = 1 
-                    viewModel.forceSyncGroupAndCouple()
-                },
-                modifier = Modifier.weight(1f)
-            )
-            TabButton(
-                title = "📝 Memo",
-                isActive = activeTab == 2,
-                onClick = { activeTab = 2 },
-                modifier = Modifier.weight(1f)
-            )
-            TabButton(
-                title = "📁 Share",
-                isActive = activeTab == 3,
-                onClick = { activeTab = 3 },
-                modifier = Modifier.weight(1f)
-            )
-            TabButton(
-                title = "❤️ Health",
-                isActive = activeTab == 4,
-                onClick = { activeTab = 4 },
-                modifier = Modifier.weight(1f)
-            )
-            TabButton(
-                title = "📱 Layar",
-                isActive = activeTab == 5,
-                onClick = { activeTab = 5 },
-                modifier = Modifier.weight(1f)
-            )
-        }
+        ModernBottomNavBar(
+            activeTab = activeTab,
+            onTabSelected = { activeTab = it },
+            onSyncGroup = { viewModel.forceSyncGroupAndCouple() }
+        )
     }
 
     if (showUserNameDialog) {
@@ -1075,37 +1018,104 @@ fun MainScreenContent(
 }
 
 @Composable
-fun TabButton(
-    title: String,
-    isActive: Boolean,
-    onClick: () -> Unit,
+fun ModernBottomNavBar(
+    activeTab: Int,
+    onTabSelected: (Int) -> Unit,
+    onSyncGroup: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor by animateColorAsState(
-        targetValue = if (isActive) MaterialTheme.colorScheme.primary else Color.Transparent,
-        animationSpec = tween(300)
-    )
-    val contentColor by animateColorAsState(
-        targetValue = if (isActive) Color.White else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-        animationSpec = tween(300)
+    val items = listOf(
+        NavBarItem("Diri", Icons.Default.Alarm, 0),
+        NavBarItem("Grup", Icons.Default.Groups, 1),
+        NavBarItem("Memo", Icons.Default.Create, 2),
+        NavBarItem("Share", Icons.Default.Share, 3),
+        NavBarItem("Health", Icons.Default.Favorite, 4),
+        NavBarItem("Layar", Icons.Default.Wallpaper, 5)
     )
 
-    Box(
+    Surface(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(backgroundColor)
-            .clickable { onClick() }
-            .padding(vertical = 10.dp, horizontal = 2.dp),
-        contentAlignment = Alignment.Center
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+        tonalElevation = 8.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
     ) {
-        Text(
-            text = title,
-            color = contentColor,
-            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-            fontSize = 11.sp
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            items.forEach { item ->
+                val isSelected = activeTab == item.index
+                
+                val scale by animateFloatAsState(
+                    targetValue = if (isSelected) 1.15f else 1.0f,
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow)
+                )
+                val iconColor by animateColorAsState(
+                    targetValue = if (isSelected) PinkAccent else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+                    animationSpec = tween(200)
+                )
+
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable {
+                            if (item.index == 1) onSyncGroup()
+                            onTabSelected(item.index)
+                        }
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .graphicsLayer(scaleX = scale, scaleY = scale)
+                            .padding(bottom = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isSelected) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(PinkAccent.copy(alpha = 0.15f))
+                            )
+                        }
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.title,
+                            tint = iconColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    
+                    AnimatedVisibility(
+                        visible = isSelected,
+                        enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                        exit = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut()
+                    ) {
+                        Text(
+                            text = item.title,
+                            color = PinkAccent,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
     }
 }
+
+data class NavBarItem(val title: String, val icon: androidx.compose.ui.graphics.vector.ImageVector, val index: Int)
 
 @Composable
 fun AlarmCard(
@@ -4915,13 +4925,16 @@ fun RingingOverlay(
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(48.dp))
 
-        // Swipe Up to Snooze — full area, no card visual, bisa swipe di mana saja
+        // Premium Gesture Swipe Up to Snooze Area (No Button!)
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
+                .fillMaxWidth(0.9f)
+                .height(110.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color(0xFF23113D).copy(alpha = 0.6f))
+                .border(1.dp, Color(0xFFFF529D).copy(alpha = 0.3f), RoundedCornerShape(24.dp))
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragEnd = {
@@ -5566,126 +5579,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Language Selection Section
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(containerColor = SurfaceDarkElevated),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.settings_language_label),
-                        color = IndigoPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = stringResource(id = R.string.settings_language_desc),
-                        color = TextMuted,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-                    )
-                    
-                    val currentLocales = androidx.appcompat.app.AppCompatDelegate.getApplicationLocales()
-                    val currentLangCode = if (currentLocales.isEmpty) "system" else currentLocales.get(0)?.language ?: "system"
-                    
-                    val languages = listOf(
-                        "system" to stringResource(id = R.string.settings_follow_system) + " 🌐",
-                        "id" to "Bahasa Indonesia 🇮🇩",
-                        "en" to "English 🇬🇧",
-                    )
-                    
-                    var expanded by remember { mutableStateOf(false) }
-                    val currentLabel = languages.find { it.first == currentLangCode }?.second ?: (stringResource(id = R.string.settings_follow_system) + " 🌐")
-                    
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(SurfaceDark)
-                            .clickable { expanded = !expanded }
-                            .padding(horizontal = 12.dp, vertical = 10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = currentLabel,
-                                color = TextLight,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Icon(
-                                imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = TextMuted,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
-                    
-                    if (expanded) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            languages.forEach { (code, label) ->
-                                val isSelected = currentLangCode == code
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) IndigoPrimary.copy(alpha = 0.2f) else Color.Transparent)
-                                        .clickable {
-                                            expanded = false
-                                            val appLangPrefs = context.getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                                            appLangPrefs.edit().putString("app_language", code).apply()
-                                            
-                                            val localeList = if (code == "system") {
-                                                androidx.core.os.LocaleListCompat.getEmptyLocaleList()
-                                            } else {
-                                                androidx.core.os.LocaleListCompat.forLanguageTags(code)
-                                            }
-                                            androidx.appcompat.app.AppCompatDelegate.setApplicationLocales(localeList)
-                                            
-                                            if (context is android.app.Activity) {
-                                                context.recreate()
-                                            }
-                                            
-                                            val displayLang = if (code == "system") "System" else label
-                                            val toastMsg = context.getString(R.string.toast_language_changed, displayLang)
-                                            android.widget.Toast.makeText(context, toastMsg, android.widget.Toast.LENGTH_SHORT).show()
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = label,
-                                        color = if (isSelected) IndigoLight else TextLight,
-                                        fontSize = 12.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            tint = IndigoLight,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // Language selection card has been removed per user request
 
             val aodPrefs = remember { context.getSharedPreferences("aod_prefs", Context.MODE_PRIVATE) }
             var aodEnabled by remember { mutableStateOf(aodPrefs.getBoolean("aod_enabled", false)) }

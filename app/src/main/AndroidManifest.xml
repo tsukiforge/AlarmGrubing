@@ -20,21 +20,13 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Diperlukan untuk fitur Set as Wallpaper (gambar statis via WallpaperManager) -->
     <uses-permission android:name="android.permission.SET_WALLPAPER" />
-
-    <!-- Health Social — App Usage Monitoring & Overlay -->
-    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <!-- Quick Settings Tile -->
-    <uses-permission android:name="android.permission.BIND_QUICK_SETTINGS_TILE" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
-        android:name=".AlarmGrubingApp"
         android:allowBackup="true"
-        android:localeConfig="@xml/locales_config"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -145,43 +137,7 @@
 
         <receiver android:name=".alarm.MotivationNotificationReceiver" android:exported="false" />
 
-        <!-- AppLocalesMetadataHolderService untuk auto-restore locale di Android <13 -->
-        <service
-            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
-            android:enabled="false"
-            android:exported="false">
-            <meta-data
-                android:name="autoStoreLocales"
-                android:value="true" />
-        </service>
 
-        <!-- Health Social — Foreground Service untuk monitoring app -->
-        <service
-            android:name=".health.HealthSocialMonitorService"
-            android:foregroundServiceType="dataSync"
-            android:enabled="true"
-            android:exported="false" />
-
-        <!-- Health Social — Boot Receiver untuk re-register alarm setelah restart -->
-        <receiver
-            android:name=".health.HealthSocialBootReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- Quick Settings Tile: Kunci Aplikasi Ini -->
-        <service
-            android:name=".ui.AppLockTileService"
-            android:exported="true"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
 
         <!-- Live Wallpaper Video Service — harus pakai permission BIND_WALLPAPER -->
         <service
