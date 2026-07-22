@@ -2,7 +2,13 @@ package com.example.ui
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
 import android.net.Uri
+import android.provider.Settings
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
@@ -10,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -20,19 +27,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.R
+import com.example.service.AppLockHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
+import java.util.UUID
 
 // Data model for schedules
 data class HealthSchedule(
@@ -50,6 +60,7 @@ object HealthSocialDefaults {
     const val SOCIABUZZ_URL = "https://sociabuzz.com/zuax"
     const val SAWERIA_URL = "https://saweria.co/MahiroDev"
     val ALL_DAYS = listOf("Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min")
+    val PRESET_ICONS = listOf("🎯", "📚", "🛌", "💼", "🎮", "🧘", "🏃", "💻", "🎨", "🧪", "✍️", "⚽", "🏋️", "💡", "🚀")
 }
 
 fun loadPinConfig(context: Context): Pair<Boolean, String> {
@@ -82,6 +93,13 @@ fun savePinConfig(context: Context, enabled: Boolean, pin: String) {
         val encrypted = if (pin.isNotEmpty()) SecurePinStorage.encryptPin(pin) else ""
         json.put("pin_code", encrypted)
         file.writeText(json.toString(4))
+        
+        // Also update shared prefs for fast lookup
+        val prefs = context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putBoolean("pin_enabled", enabled)
+            .putString("pin_code", encrypted)
+            .apply()
     } catch (e: Exception) {
         e.printStackTrace()
     }
@@ -99,18 +117,8 @@ fun loadSchedules(context: Context): List<HealthSchedule> {
     )
     
     if (!file.exists()) {
-        // Migration from SharedPreferences if existing
-        val prefs = context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE)
-        val migrated = defaults.map { d ->
-            val active = prefs.getBoolean("sched_${d.id}_active", d.isActive)
-            val start = prefs.getString("sched_${d.id}_start", d.startTime) ?: d.startTime
-            val end = prefs.getString("sched_${d.id}_end", d.endTime) ?: d.endTime
-            val daysString = prefs.getString("sched_${d.id}_days", d.days.joinToString(",")) ?: d.days.joinToString(",")
-            val daysList = if (daysString.isEmpty()) emptyList() else daysString.split(",")
-            d.copy(isActive = active, startTime = start, endTime = end, days = daysList)
-        }
-        saveSchedulesToJson(context, migrated)
-        return migrated
+        saveSchedulesToJson(context, defaults)
+        return defaults
     }
     
     return try {
@@ -118,17 +126,21 @@ fun loadSchedules(context: Context): List<HealthSchedule> {
         val list = mutableListOf<HealthSchedule>()
         for (i in 0 until jsonArray.length()) {
             val obj = jsonArray.getJSONObject(i)
-            val id = obj.getString("id")
-            val name = obj.getString("name")
-            val icon = obj.getString("icon")
-            val startTime = obj.getString("startTime")
-            val endTime = obj.getString("endTime")
-            val isActive = obj.getBoolean("isActive")
+            val id = obj.optString("id", UUID.randomUUID().toString())
+            val name = obj.optString("name", "Jadwal")
+            val icon = obj.optString("icon", "🎯")
+            val startTime = obj.optString("startTime", "08:00")
+            val endTime = obj.optString("endTime", "12:00")
+            val isActive = obj.optBoolean("isActive", false)
             
-            val daysArray = obj.getJSONArray("days")
+            val daysArray = obj.optJSONArray("days")
             val daysList = mutableListOf<String>()
-            for (j in 0 until daysArray.length()) {
-                daysList.add(daysArray.getString(j))
+            if (daysArray != null) {
+                for (j in 0 until daysArray.length()) {
+                    daysList.add(daysArray.getString(j))
+                }
+            } else {
+                daysList.addAll(defaultDays)
             }
             
             val lockedAppsList = mutableListOf<String>()
@@ -141,7 +153,7 @@ fun loadSchedules(context: Context): List<HealthSchedule> {
             
             list.add(HealthSchedule(id, name, icon, startTime, endTime, isActive, daysList, lockedAppsList))
         }
-        list
+        if (list.isEmpty()) defaults else list
     } catch (e: Exception) {
         e.printStackTrace()
         defaults
@@ -188,10 +200,14 @@ fun saveSchedule(context: Context, schedule: HealthSchedule) {
     saveSchedulesToJson(context, current)
 }
 
+fun deleteSchedule(context: Context, scheduleId: String) {
+    val current = loadSchedules(context).filter { it.id != scheduleId }
+    saveSchedulesToJson(context, current)
+}
+
 @Composable
 fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
     var schedules by remember { mutableStateOf(loadSchedules(context)) }
-    
     val prefs = remember { context.getSharedPreferences("health_social_prefs", Context.MODE_PRIVATE) }
     
     var bannerDismissed by remember {
@@ -199,29 +215,31 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
     }
     
     val pinConfig = remember { loadPinConfig(context) }
-    var isPinEnabled by remember {
-        mutableStateOf(pinConfig.first)
-    }
-    
-    var pinCode by remember {
-        mutableStateOf(pinConfig.second)
-    }
+    var isPinEnabled by remember { mutableStateOf(pinConfig.first) }
+    var pinCode by remember { mutableStateOf(pinConfig.second) }
     
     var isAppLockEnabled by remember {
         mutableStateOf(prefs.getBoolean("app_lock_enabled", false))
     }
     
-    var showLockConsentDialog by remember { mutableStateOf(false) }
+    var hasUsageStats by remember { mutableStateOf(AppLockHelper.hasUsageStatsPermission(context)) }
+    var hasAccessibility by remember { mutableStateOf(AppLockHelper.isAccessibilityServiceEnabled(context)) }
     
+    var showLockConsentDialog by remember { mutableStateOf(false) }
     var showSupportSheet by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
     var showEditDialogFor by remember { mutableStateOf<HealthSchedule?>(null) }
+    var isCreatingNewSchedule by remember { mutableStateOf(false) }
     var pinDialogMode by remember { mutableStateOf("VERIFY") } // "SET", "VERIFY", "DISABLE"
     var onPinVerifiedAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     
+    // Check currently active schedule
+    val activeRunningSchedule = remember(schedules, isAppLockEnabled) {
+        isAppCurrentlyLocked(context)
+    }
+    
     Box(
-        modifier = Modifier
-            .fillMaxSize()
+        modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
             modifier = Modifier
@@ -230,7 +248,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
             contentPadding = PaddingValues(top = 16.dp, bottom = 90.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 1. Dukung Developer Banner (Buy Me a Coffee style)
+            // 1. Dukung Developer Banner
             if (!bannerDismissed) {
                 item {
                     Card(
@@ -253,12 +271,12 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
-                                    Text("☕", fontSize = 24.sp)
+                                    Text("☕", fontSize = 22.sp)
                                     Text(
                                         text = "Dukung Developer",
                                         color = MaterialTheme.colorScheme.onSurface,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp
+                                        fontSize = 15.sp
                                     )
                                 }
                                 IconButton(
@@ -277,7 +295,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                 }
                             }
                             
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(6.dp))
                             
                             Text(
                                 text = "Dukung terus pengembangan aplikasi ini agar selalu gratis dan bebas iklan dengan berdonasi kecil! ❤️",
@@ -286,7 +304,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                 lineHeight = 18.sp
                             )
                             
-                            Spacer(modifier = Modifier.height(12.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
                             
                             Button(
                                 onClick = { showSupportSheet = true },
@@ -306,7 +324,61 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                 }
             }
             
-            // 2. PIN & App Lock Controls
+            // 2. Active Status Live Header Card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (activeRunningSchedule != null) Color(0xFF4CAF50).copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        if (activeRunningSchedule != null) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    if (activeRunningSchedule != null) Color(0xFF4CAF50).copy(alpha = 0.2f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(text = activeRunningSchedule?.icon ?: "🛡️", fontSize = 24.sp)
+                        }
+                        
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (activeRunningSchedule != null) "Jadwal Sedang Aktif" else "Mode Fokus & Kesehatan",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (activeRunningSchedule != null)
+                                    "${activeRunningSchedule.name} (${activeRunningSchedule.startTime} - ${activeRunningSchedule.endTime}) • ${activeRunningSchedule.lockedApps.size} aplikasi terkunci"
+                                else
+                                    "Kunci aplikasi & batasi distraksi sesuai jadwal pilihan Anda.",
+                                color = if (activeRunningSchedule != null) Color(0xFF2E7D32) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // 3. Security & App Lock Switch Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -324,7 +396,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                 tint = Color(0xFFFF4081)
                             )
                             Text(
-                                text = "Keamanan & Penguncian",
+                                text = "Keamanan & Penguncian Aplikasi",
                                 color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
@@ -347,7 +419,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "Mencegah perubahan jadwal tanpa izin",
+                                    text = if (isPinEnabled) "PIN Aktif (Melindungi jadwal)" else "Mencegah perubahan jadwal tanpa izin",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp
                                 )
@@ -386,7 +458,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Text(
-                                    text = "Akan memblokir aplikasi saat jadwal aktif",
+                                    text = "Aktifkan pemblokiran aplikasi saat jadwal aktif",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 11.sp
                                 )
@@ -411,39 +483,165 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                 }
             }
             
-            // 3. List Title
-            item {
-                Text(
-                    text = "Daftar Jadwal Kesehatan & Fokus",
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-                )
+            // 4. System Permissions Guidance Card
+            if (isAppLockEnabled) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(imageVector = Icons.Default.Settings, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    text = "Izin Sistem Kunci Aplikasi Eksternal",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            
+                            Text(
+                                text = "Untuk memblokir aplikasi lain (Sosmed, Game dll) secara otomatis di HP Anda, aktifkan dua izin sistem berikut:",
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 16.sp
+                            )
+                            
+                            // Permission 1: Usage Access
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("1. Akses Penggunaan (Usage Stats)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(
+                                        text = if (hasUsageStats) "✅ Izin Diberikan" else "❌ Belum Diaktifkan",
+                                        fontSize = 10.sp,
+                                        color = if (hasUsageStats) Color(0xFF2E7D32) else Color.Red
+                                    )
+                                }
+                                TextButton(
+                                    onClick = {
+                                        try {
+                                            context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                                        } catch (e: Exception) {
+                                            openUrl(context, "intent:action=android.settings.USAGE_ACCESS_SETTINGS#Intent;end")
+                                        }
+                                    }
+                                ) {
+                                    Text(if (hasUsageStats) "Atur" else "Aktifkan", fontSize = 11.sp, color = Color(0xFFFF4081))
+                                }
+                            }
+                            
+                            // Permission 2: Accessibility Service
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("2. Layanan Aksesibilitas (Realtime Lock)", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(
+                                        text = if (hasAccessibility) "✅ Izin Diberikan" else "❌ Belum Diaktifkan",
+                                        fontSize = 10.sp,
+                                        color = if (hasAccessibility) Color(0xFF2E7D32) else Color.Red
+                                    )
+                                }
+                                TextButton(
+                                    onClick = {
+                                        try {
+                                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                                        } catch (e: Exception) {
+                                            openUrl(context, "intent:action=android.settings.ACCESSIBILITY_SETTINGS#Intent;end")
+                                        }
+                                    }
+                                ) {
+                                    Text(if (hasAccessibility) "Atur" else "Aktifkan", fontSize = 11.sp, color = Color(0xFFFF4081))
+                                }
+                            }
+                        }
+                    }
+                }
             }
             
-            // 4. Schedules list
+            // 5. Schedules Header with "+ Tambah Jadwal Baru"
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Daftar Jadwal Kesehatan & Fokus",
+                        color = MaterialTheme.colorScheme.onBackground,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    
+                    Button(
+                        onClick = {
+                            val newSched = HealthSchedule(
+                                id = UUID.randomUUID().toString(),
+                                name = "Jadwal Baru",
+                                icon = "🎯",
+                                startTime = "08:00",
+                                endTime = "12:00",
+                                isActive = true,
+                                days = listOf("Sen", "Sel", "Rab", "Kam", "Jum"),
+                                lockedApps = emptyList()
+                            )
+                            isCreatingNewSchedule = true
+                            if (isPinEnabled) {
+                                onPinVerifiedAction = { showEditDialogFor = newSched }
+                                pinDialogMode = "VERIFY"
+                                showPinDialog = true
+                            } else {
+                                showEditDialogFor = newSched
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF4081)),
+                        shape = RoundedCornerShape(10.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(imageVector = Icons.Default.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            Text("Tambah", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+            
+            // 6. Schedules List
             items(schedules) { schedule ->
                 ScheduleCard(
                     schedule = schedule,
                     onToggleChange = { isActive ->
                         if (isActive) {
-                            // If activating, prompt the user with the setup wizard first
                             if (isPinEnabled) {
-                                onPinVerifiedAction = { showEditDialogFor = schedule }
+                                onPinVerifiedAction = {
+                                    val updated = schedule.copy(isActive = true)
+                                    saveSchedule(context, updated)
+                                    schedules = loadSchedules(context)
+                                }
                                 pinDialogMode = "VERIFY"
                                 showPinDialog = true
                             } else {
-                                showEditDialogFor = schedule
+                                val updated = schedule.copy(isActive = true)
+                                saveSchedule(context, updated)
+                                schedules = loadSchedules(context)
                             }
                         } else {
-                            // Deactivate directly
                             val updated = schedule.copy(isActive = false)
                             saveSchedule(context, updated)
                             schedules = loadSchedules(context)
                         }
                     },
                     onEditClick = {
+                        isCreatingNewSchedule = false
                         if (isPinEnabled) {
                             onPinVerifiedAction = { showEditDialogFor = schedule }
                             pinDialogMode = "VERIFY"
@@ -487,13 +685,19 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
             )
         }
         
-        // Edit Schedule Dialog
+        // Edit or Add Schedule Dialog
         if (showEditDialogFor != null) {
             EditScheduleDialog(
                 schedule = showEditDialogFor!!,
+                isNewSchedule = isCreatingNewSchedule,
                 onDismiss = { showEditDialogFor = null },
                 onSave = { updated ->
                     saveSchedule(context, updated)
+                    schedules = loadSchedules(context)
+                    showEditDialogFor = null
+                },
+                onDelete = { idToDelete ->
+                    deleteSchedule(context, idToDelete)
                     schedules = loadSchedules(context)
                     showEditDialogFor = null
                 }
@@ -533,26 +737,26 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                         Divider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
                         
                         Text(
-                            text = "1. Kunci Aplikasi Internal (Sangat Direkomendasikan)",
+                            text = "1. Kunci Aplikasi Internal (Gratis & Tanpa Izin)",
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
                         Text(
-                            text = "Mengunci akses ke pengaturan alarm, catatan dsb di aplikasi ini saat jadwal berjalan. Mencegah Anda mematikan alarm secara mendadak. GRATIS & TANPA IZIN APAPUN.",
+                            text = "Mengunci akses ke alarm, catatan, dan fitur utama di aplikasi ini saat jadwal berjalan agar Anda tidak mematikan alarm secara mendadak.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp,
                             lineHeight = 16.sp
                         )
                         
                         Text(
-                            text = "2. Kunci Aplikasi Sistem (Opsional)",
+                            text = "2. Kunci Aplikasi Sistem (Akses Penggunaan & Aksesibilitas)",
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp
                         )
                         Text(
-                            text = "Jika Anda ingin memblokir aplikasi distraksi lain (sosial media dll), Android memerlukan izin Akses Penggunaan (Usage Stats) & Tampilkan di Atas Aplikasi Lain (Overlay). Izin ini murni diproses lokal di HP Anda.",
+                            text = "Memblokir aplikasi distraksi lain (Instagram, WhatsApp, Mobile Legends dll). Menggunakan Layanan Aksesibilitas lokal untuk penguncian instan tanpa bocor ke internet.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 11.sp,
                             lineHeight = 16.sp
@@ -572,7 +776,7 @@ fun HealthSocialScreen(context: Context, viewModel: Any? = null) {
                                 ) {
                                     Text("⚠️", fontSize = 14.sp)
                                     Text(
-                                        text = "Peringatan: Anda belum mengatur PIN. Siapa saja dapat melewati layar kunci ini tanpa PIN (bypass 15 menit). Disarankan mengaktifkan PIN terlebih dahulu.",
+                                        text = "Saran: Aktifkan PIN Keamanan agar jadwal Anda tidak dapat diubah oleh siapapun saat penguncian aktif.",
                                         color = Color(0xFFFFB74D),
                                         fontSize = 10.sp,
                                         lineHeight = 14.sp,
@@ -667,7 +871,7 @@ fun ScheduleCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (schedule.days.size == 7) "Setiap Hari" else schedule.days.joinToString(", "),
+                        text = if (schedule.days.size == 7) "Setiap Hari • 🔒 ${schedule.lockedApps.size} App" else "${schedule.days.joinToString(", ")} • 🔒 ${schedule.lockedApps.size} App",
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         fontSize = 10.sp
                     )
@@ -920,16 +1124,39 @@ fun PinInputDialog(
     )
 }
 
+data class AppInfo(val name: String, val packageName: String, val icon: ImageBitmap? = null)
+
+fun drawableToBitmap(drawable: Drawable): Bitmap? {
+    return try {
+        if (drawable is BitmapDrawable && drawable.bitmap != null) {
+            return drawable.bitmap
+        }
+        val width = if (drawable.intrinsicWidth > 0) drawable.intrinsicWidth else 96
+        val height = if (drawable.intrinsicHeight > 0) drawable.intrinsicHeight else 96
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        drawable.setBounds(0, 0, canvas.width, canvas.height)
+        drawable.draw(canvas)
+        bitmap
+    } catch (e: Exception) {
+        null
+    }
+}
+
 @Composable
 fun EditScheduleDialog(
     schedule: HealthSchedule,
+    isNewSchedule: Boolean = false,
     onDismiss: () -> Unit,
-    onSave: (HealthSchedule) -> Unit
+    onSave: (HealthSchedule) -> Unit,
+    onDelete: (String) -> Unit = {}
 ) {
     val context = LocalContext.current
     var currentStep by remember { mutableStateOf(1) }
     
     // Step 1 States
+    var scheduleName by remember { mutableStateOf(schedule.name) }
+    var selectedIcon by remember { mutableStateOf(schedule.icon) }
     var startText by remember { mutableStateOf(schedule.startTime) }
     var endText by remember { mutableStateOf(schedule.endTime) }
     var selectedDays by remember { mutableStateOf(schedule.days.toSet()) }
@@ -951,10 +1178,16 @@ fun EditScheduleDialog(
                     addCategory(Intent.CATEGORY_LAUNCHER)
                 }
                 val list = pm.queryIntentActivities(intent, 0)
-                val apps = list.map { resolveInfo ->
-                    val appName = resolveInfo.loadLabel(pm).toString()
-                    val packageName = resolveInfo.activityInfo.packageName
-                    AppInfo(name = appName, packageName = packageName)
+                val apps = list.mapNotNull { resolveInfo ->
+                    try {
+                        val appName = resolveInfo.loadLabel(pm).toString()
+                        val packageName = resolveInfo.activityInfo.packageName
+                        val drawable = resolveInfo.loadIcon(pm)
+                        val bitmap = drawableToBitmap(drawable)?.asImageBitmap()
+                        AppInfo(name = appName, packageName = packageName, icon = bitmap)
+                    } catch (e: Exception) {
+                        null
+                    }
                 }.distinctBy { it.packageName }.sortedBy { it.name }
                 
                 withContext(Dispatchers.Main) {
@@ -986,19 +1219,76 @@ fun EditScheduleDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(
-                text = if (currentStep == 1) "Langkah 1/2: Atur Jam & Jadwal" else "Langkah 2/2: Pilih Aplikasi Terkunci",
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (currentStep == 1) "Langkah 1/2: Nama & Jadwal" else "Langkah 2/2: Pilih Aplikasi Terkunci",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+                if (!isNewSchedule && currentStep == 1) {
+                    IconButton(
+                        onClick = { onDelete(schedule.id) },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Hapus Jadwal",
+                            tint = Color.Red,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
         },
         text = {
             if (currentStep == 1) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Schedule Name
+                    OutlinedTextField(
+                        value = scheduleName,
+                        onValueChange = { scheduleName = it },
+                        label = { Text("Nama Jadwal", fontSize = 11.sp) },
+                        placeholder = { Text("misal: Jadwal Belajar / Fokus") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                        )
+                    )
+                    
+                    // Icon Picker
+                    Text("Pilih Ikon:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        HealthSocialDefaults.PRESET_ICONS.take(7).forEach { iconStr ->
+                            val isSelected = selectedIcon == iconStr
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSelected) Color(0xFFFF4081) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                                    .clickable { selectedIcon = iconStr },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(iconStr, fontSize = 18.sp)
+                            }
+                        }
+                    }
+                    
+                    // Time Inputs
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -1014,9 +1304,7 @@ fun EditScheduleDialog(
                                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             )
                         )
                         OutlinedTextField(
@@ -1030,9 +1318,7 @@ fun EditScheduleDialog(
                                 focusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                                 focusedBorderColor = MaterialTheme.colorScheme.primary,
-                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             )
                         )
                     }
@@ -1063,11 +1349,7 @@ fun EditScheduleDialog(
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(if (isSelected) Color(0xFFFF4081) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                                         .clickable {
-                                            selectedDays = if (isSelected) {
-                                                selectedDays - day
-                                            } else {
-                                                selectedDays + day
-                                            }
+                                            selectedDays = if (isSelected) selectedDays - day else selectedDays + day
                                         }
                                         .padding(vertical = 8.dp),
                                     contentAlignment = Alignment.Center
@@ -1094,11 +1376,7 @@ fun EditScheduleDialog(
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(if (isSelected) Color(0xFFFF4081) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                                         .clickable {
-                                            selectedDays = if (isSelected) {
-                                                selectedDays - day
-                                            } else {
-                                                selectedDays + day
-                                            }
+                                            selectedDays = if (isSelected) selectedDays - day else selectedDays + day
                                         }
                                         .padding(vertical = 8.dp),
                                     contentAlignment = Alignment.Center
@@ -1139,23 +1417,21 @@ fun EditScheduleDialog(
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("Cari aplikasi...", fontSize = 12.sp) },
+                        placeholder = { Text("Cari nama/paket aplikasi...", fontSize = 12.sp) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = MaterialTheme.colorScheme.onSurface,
                             unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                         )
                     )
                     
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp)
+                            .height(220.dp)
                             .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
                             .padding(4.dp)
                     ) {
@@ -1181,28 +1457,44 @@ fun EditScheduleDialog(
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(8.dp))
                                                 .clickable {
-                                                    selectedApps = if (isChecked) {
-                                                        selectedApps - app.packageName
-                                                    } else {
-                                                        selectedApps + app.packageName
-                                                    }
+                                                    selectedApps = if (isChecked) selectedApps - app.packageName else selectedApps + app.packageName
                                                 }
                                                 .padding(horizontal = 8.dp, vertical = 6.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
-                                            Column(modifier = Modifier.weight(1f)) {
-                                                Text(app.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                                Text(app.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Row(
+                                                modifier = Modifier.weight(1f),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                            ) {
+                                                if (app.icon != null) {
+                                                    Image(
+                                                        bitmap = app.icon,
+                                                        contentDescription = app.name,
+                                                        modifier = Modifier.size(28.dp)
+                                                    )
+                                                } else {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(28.dp)
+                                                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text("📱", fontSize = 14.sp)
+                                                    }
+                                                }
+                                                
+                                                Column {
+                                                    Text(app.name, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                    Text(app.packageName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                                }
                                             }
+                                            
                                             Checkbox(
                                                 checked = isChecked,
                                                 onCheckedChange = { checked ->
-                                                    selectedApps = if (checked == true) {
-                                                        selectedApps + app.packageName
-                                                    } else {
-                                                        selectedApps - app.packageName
-                                                    }
+                                                    selectedApps = if (checked == true) selectedApps + app.packageName else selectedApps - app.packageName
                                                 },
                                                 colors = CheckboxDefaults.colors(checkedColor = Color(0xFFFF4081))
                                             )
@@ -1221,7 +1513,9 @@ fun EditScheduleDialog(
                     onClick = {
                         val startParts = startText.split(":")
                         val endParts = endText.split(":")
-                        if (startParts.size != 2 || endParts.size != 2 || 
+                        if (scheduleName.trim().isEmpty()) {
+                            errorMsg = "Nama jadwal tidak boleh kosong!"
+                        } else if (startParts.size != 2 || endParts.size != 2 || 
                             startParts[0].toIntOrNull() == null || startParts[1].toIntOrNull() == null ||
                             endParts[0].toIntOrNull() == null || endParts[1].toIntOrNull() == null ||
                             startParts[0].toInt() !in 0..23 || startParts[1].toInt() !in 0..59 ||
@@ -1243,6 +1537,8 @@ fun EditScheduleDialog(
                     onClick = {
                         onSave(
                             schedule.copy(
+                                name = scheduleName.ifEmpty { schedule.name },
+                                icon = selectedIcon,
                                 startTime = startText,
                                 endTime = endText,
                                 days = selectedDays.toList(),
@@ -1272,8 +1568,6 @@ fun EditScheduleDialog(
         shape = RoundedCornerShape(20.dp)
     )
 }
-
-data class AppInfo(val name: String, val packageName: String)
 
 fun openUrl(context: Context, url: String) {
     try {
@@ -1371,11 +1665,9 @@ object HealthTimeChecker {
             return scheduledDays.contains(today) && currentMinutes in startMin until endMin
         } else {
             // Overnight schedule
-            // Scenario A: Starts today, running into night
             if (scheduledDays.contains(today) && currentMinutes >= startMin) {
                 return true
             }
-            // Scenario B: Started yesterday, ending today morning
             val yesterday = getYesterdayDayName(today)
             if (scheduledDays.contains(yesterday) && currentMinutes < endMin) {
                 return true
@@ -1439,7 +1731,8 @@ object SecurePinStorage {
             android.util.Base64.encodeToString(combined, android.util.Base64.NO_WRAP)
         } catch (e: Exception) {
             e.printStackTrace()
-            ""
+            // Fallback XOR or Base64 if KeyStore unavailable
+            android.util.Base64.encodeToString(pin.toByteArray(Charsets.UTF_8), android.util.Base64.NO_WRAP)
         }
     }
 
@@ -1447,7 +1740,9 @@ object SecurePinStorage {
         if (encryptedBase64.isEmpty()) return ""
         return try {
             val combined = android.util.Base64.decode(encryptedBase64, android.util.Base64.NO_WRAP)
-            if (combined.size < 12) return ""
+            if (combined.size < 12) {
+                return String(combined, Charsets.UTF_8)
+            }
             
             val iv = ByteArray(12)
             val encryptedBytes = ByteArray(combined.size - 12)
@@ -1462,8 +1757,12 @@ object SecurePinStorage {
             String(decryptedBytes, Charsets.UTF_8)
         } catch (e: Exception) {
             e.printStackTrace()
-            ""
+            try {
+                val decoded = android.util.Base64.decode(encryptedBase64, android.util.Base64.NO_WRAP)
+                String(decoded, Charsets.UTF_8)
+            } catch (ex: Exception) {
+                ""
+            }
         }
     }
 }
-
